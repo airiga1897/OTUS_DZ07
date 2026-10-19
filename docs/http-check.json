@@ -1,0 +1,7 @@
+{
+  "http_statuses": {
+    "/": 200,
+    "/health/ready": 200,
+    "/missing-otus-dz07": 404
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-19",
+  "quota_preflight_passed": true,
+  "terraform_validate_passed": true,
+  "deployment_succeeded": false,
+  "errors": {
+    "ru-central1-a": "FailedPrecondition: Zone ru-central1-a is not available",
+    "ru-central1-d": "ResourceExhausted: Service is overloaded",
+    "ru-central1-e": "DeadlineExceeded while polling create operation bg0rnrvqr7jp0pf4gkil"
+  },
+  "temporary_instance_id": "bg08kolk84a4k4fqsa3l",
+  "decision": "Continue in Selectel as requested; delete temporary YC resources",
+  "cleanup_report": "yc-cleanup.json"
+}

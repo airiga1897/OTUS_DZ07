@@ -1,0 +1,99 @@
+{
+  "checked_at_utc": "2026-10-19T18:49:33.641913+00:00",
+  "cloud_name": "cloud-otus-hl-infra-01",
+  "required": {
+    "compute.instances.count": 3,
+    "compute.disks.count": 3,
+    "vpc.networks.count": 1,
+    "vpc.subnets.count": 3,
+    "vpc.securityGroups.count": 1,
+    "vpc.externalAddresses.count": 3,
+    "compute.instanceCores.count.ru-central1-a": 2,
+    "compute.instanceMemory.size.ru-central1-a": 8589934592,
+    "compute.hddDisks.size.ru-central1-a": 21474836480,
+    "compute.instanceCores.count.ru-central1-d": 2,
+    "compute.instanceMemory.size.ru-central1-d": 8589934592,
+    "compute.hddDisks.size.ru-central1-d": 42949672960,
+    "compute.instanceCores.count.ru-central1-e": 2,
+    "compute.instanceMemory.size.ru-central1-e": 8589934592,
+    "compute.hddDisks.size.ru-central1-e": 21474836480
+  },
+  "quotas": {
+    "compute.instances.count": {
+      "quota_id": "compute.instances.count",
+      "limit": 12,
+      "usage": 0
+    },
+    "compute.disks.count": {
+      "quota_id": "compute.disks.count",
+      "limit": 32,
+      "usage": 0
+    },
+    "vpc.networks.count": {
+      "quota_id": "vpc.networks.count",
+      "limit": 2,
+      "usage": 1
+    },
+    "vpc.subnets.count": {
+      "quota_id": "vpc.subnets.count",
+      "limit": 12,
+      "usage": 4
+    },
+    "vpc.securityGroups.count": {
+      "quota_id": "vpc.securityGroups.count",
+      "limit": 10,
+      "usage": 0
+    },
+    "vpc.externalAddresses.count": {
+      "quota_id": "vpc.externalAddresses.count",
+      "limit": 8,
+      "usage": 0
+    },
+    "compute.instanceCores.count.ru-central1-a": {
+      "quota_id": "compute.instanceCores.count.ru-central1-a",
+      "limit": 2,
+      "usage": 0
+    },
+    "compute.instanceMemory.size.ru-central1-a": {
+      "quota_id": "compute.instanceMemory.size.ru-central1-a",
+      "limit": 17179869184,
+      "usage": 0
+    },
+    "compute.hddDisks.size.ru-central1-a": {
+      "quota_id": "compute.hddDisks.size.ru-central1-a",
+      "limit": 21474836480,
+      "usage": 0
+    },
+    "compute.instanceCores.count.ru-central1-d": {
+      "quota_id": "compute.instanceCores.count.ru-central1-d",
+      "limit": 2,
+      "usage": 0
+    },
+    "compute.instanceMemory.size.ru-central1-d": {
+      "quota_id": "compute.instanceMemory.size.ru-central1-d",
+      "limit": 17179869184,
+      "usage": 0
+    },
+    "compute.hddDisks.size.ru-central1-d": {
+      "quota_id": "compute.hddDisks.size.ru-central1-d",
+      "limit": 55834574848,
+      "usage": 0
+    },
+    "compute.instanceCores.count.ru-central1-e": {
+      "quota_id": "compute.instanceCores.count.ru-central1-e",
+      "limit": 2,
+      "usage": 0
+    },
+    "compute.instanceMemory.size.ru-central1-e": {
+      "quota_id": "compute.instanceMemory.size.ru-central1-e",
+      "limit": 17179869184,
+      "usage": 0
+    },
+    "compute.hddDisks.size.ru-central1-e": {
+      "quota_id": "compute.hddDisks.size.ru-central1-e",
+      "limit": 21474836480,
+      "usage": 0
+    }
+  },
+  "fits": true
+}

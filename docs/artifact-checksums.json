@@ -1,0 +1,21 @@
+{
+  "version": "8.19.0",
+  "algorithm": "SHA512",
+  "files": [
+    {
+      "name": "filebeat-8.19.0-amd64.deb",
+      "size_bytes": 66023488,
+      "sha512": "64bbd2bb3eabf23dd254fbf1dce4ac6a66df6df9d99a077b56e83c4cb967372e2ce3e88416e13a277d7993987d140197ed34267e5cdc9ecd43d0d0bdd14d31bf"
+    },
+    {
+      "name": "elasticsearch-8.19.0-amd64.deb",
+      "size_bytes": 654721776,
+      "sha512": "05dcdf8239970c55eeee2e14ce6d46dc3ffd14af50c8c050d3e3173c27624e75428e171d2c98257263631dbb5d891d50026336b91c7d60c51a27d9b97a689f42"
+    },
+    {
+      "name": "kibana-8.19.0-amd64.deb",
+      "size_bytes": 384014222,
+      "sha512": "908ceb2295e4c495fff4ff68fc93732f99acead9b9c0ffa17e5d57bc60e0d16793eb681f40aa1e00b853244fbf35f02e310bcee7aa7a039c73ff74180fe4235d"
+    }
+  ]
+}

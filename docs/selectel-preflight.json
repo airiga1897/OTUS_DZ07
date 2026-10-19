@@ -1,0 +1,107 @@
+{
+  "checked_at_utc": "2026-10-19T19:26:09.422163+00:00",
+  "compute": {
+    "instances": {
+      "limit": 1000,
+      "in_use": 0
+    },
+    "cores": {
+      "limit": 600,
+      "in_use": 0
+    },
+    "ram": {
+      "limit": 5120000,
+      "in_use": 0
+    },
+    "local_gb": {
+      "limit": 500,
+      "in_use": 0
+    },
+    "pci_gtx1080": {
+      "limit": 32,
+      "in_use": 0
+    },
+    "pci_a100": {
+      "limit": 32,
+      "in_use": 0
+    },
+    "pci_t4": {
+      "limit": 32,
+      "in_use": 0
+    }
+  },
+  "ssd": {
+    "limit": 600,
+    "in_use": 0,
+    "reserved": 0
+  },
+  "network": {
+    "network": {
+      "limit": 100,
+      "used": 0,
+      "reserved": 0
+    },
+    "subnet": {
+      "limit": 100,
+      "used": 0,
+      "reserved": 0
+    },
+    "subnetpool": {
+      "limit": 0,
+      "used": 0,
+      "reserved": 0
+    },
+    "port": {
+      "limit": 1000,
+      "used": 0,
+      "reserved": 0
+    },
+    "router": {
+      "limit": 20,
+      "used": 0,
+      "reserved": 0
+    },
+    "floatingip": {
+      "limit": 12,
+      "used": 0,
+      "reserved": 0
+    },
+    "rbac_policy": {
+      "limit": 100,
+      "used": 0,
+      "reserved": 0
+    },
+    "security_group": {
+      "limit": 20,
+      "used": 1,
+      "reserved": 0
+    },
+    "security_group_rule": {
+      "limit": 200,
+      "used": 6,
+      "reserved": 0
+    },
+    "firewall_rule": {
+      "limit": 1000,
+      "used": 0,
+      "reserved": 0
+    },
+    "firewall_group": {
+      "limit": 10,
+      "used": 0,
+      "reserved": 0
+    },
+    "firewall_policy": {
+      "limit": 20,
+      "used": 0,
+      "reserved": 0
+    }
+  },
+  "required": {
+    "instances": 3,
+    "cores": 6,
+    "ram_mib": 24576,
+    "ssd_gb": 80,
+    "floating_ipv4": 3
+  }
+}

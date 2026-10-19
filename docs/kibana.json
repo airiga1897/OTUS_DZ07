@@ -1,0 +1,8 @@
+{
+  "status": {
+    "level": "available",
+    "summary": "All services and plugins are available"
+  },
+  "data_view_id": "otus-logs",
+  "dashboard_id": "otus-logs"
+}

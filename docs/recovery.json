@@ -1,0 +1,50 @@
+{
+  "health": {
+    "cluster_name": "otus-dz07",
+    "status": "green",
+    "timed_out": false,
+    "number_of_nodes": 3,
+    "number_of_data_nodes": 3,
+    "active_primary_shards": 45,
+    "active_shards": 90,
+    "relocating_shards": 2,
+    "initializing_shards": 0,
+    "unassigned_shards": 0,
+    "unassigned_primary_shards": 0,
+    "delayed_unassigned_shards": 0,
+    "number_of_pending_tasks": 1,
+    "number_of_in_flight_fetch": 0,
+    "task_max_waiting_in_queue_millis": 0,
+    "active_shards_percent_as_number": 100.0
+  },
+  "before": {
+    "_index": "logs-otus-failover",
+    "_id": "before",
+    "_version": 1,
+    "_seq_no": 0,
+    "_primary_term": 1,
+    "found": true,
+    "_source": {
+      "@timestamp": "2026-10-19T19:56:17.958549+00:00",
+      "message": "OTUS_DZ07 committed before master shutdown",
+      "service": {
+        "name": "verification"
+      }
+    }
+  },
+  "probe": {
+    "_index": "logs-otus-failover",
+    "_id": "probe",
+    "_version": 1,
+    "_seq_no": 1,
+    "_primary_term": 1,
+    "found": true,
+    "_source": {
+      "@timestamp": "2026-10-19T19:56:27.599043+00:00",
+      "message": "OTUS_DZ07 write with one ES node offline",
+      "service": {
+        "name": "verification"
+      }
+    }
+  }
+}
