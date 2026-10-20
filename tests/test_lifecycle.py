@@ -11,6 +11,7 @@ from lab import run
 class LifecycleTest(unittest.TestCase):
     def test_success_keeps_deployment(self):
         provider, packages = Mock(), Mock()
+        provider.LOCAL = Path('/local')
         run('deploy', provider, packages)
         provider.prepare.assert_called_once()
         packages.main.assert_called_once()
@@ -30,6 +31,7 @@ class LifecycleTest(unittest.TestCase):
         for action in ['deploy', 'verify']:
             with self.subTest(action=action):
                 provider = Mock()
+                provider.LOCAL = Path('/local')
                 provider.lab.verify.side_effect = RuntimeError('unhealthy')
                 provider.diagnostics.side_effect = RuntimeError('SSH unavailable')
                 with self.assertRaises(RuntimeError):

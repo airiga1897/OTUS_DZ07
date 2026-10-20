@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 LOCAL = ROOT / '.local'
 YC = Path(os.environ.get('OTUS_YC', str(ROOT.parent / 'OTUS_DZ04/.tools/yc.exe')))
 CONFIG = Path(os.environ.get('OTUS_YC_CONFIG', str(ROOT.parent / 'OTUS_DZ04/.local/yc-config.yaml')))
-TF = Path(os.environ.get('OTUS_TERRAFORM', str(ROOT.parent / 'OTUS_DZ04/.tools/terraform.exe')))
+TF = Path(os.environ.get('OTUS_TERRAFORM', str(ROOT / '.tools/terraform.exe')))
 IPS = {'es1': '10.77.1.10', 'es2': '10.77.2.10', 'es3': '10.77.3.10'}
 ZONES = dict(zip(IPS, ['a', 'd', 'e']))
 

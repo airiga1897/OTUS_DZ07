@@ -1,0 +1,8 @@
+{
+  "auth_url": "https://cloud.api.selcloud.ru/identity/v3",
+  "project_id": "<ID-проекта>",
+  "region": "ru-9",
+  "domain_name": "<номер-аккаунта>",
+  "username": "<имя-сервисного-пользователя>",
+  "password": "<пароль-вводится-локально>"
+}

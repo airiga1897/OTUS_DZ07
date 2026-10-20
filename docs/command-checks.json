@@ -1,0 +1,29 @@
+{
+  "controller": {"os": "Windows", "shell": "PowerShell", "python": "3.12", "terraform": "1.16.3"},
+  "commands": {
+    "deploy": {
+      "executed_with_real_cloud_api": true,
+      "success": false,
+      "blocked_by": "Selectel Nova: No valid host was found. There are not enough hosts available.",
+      "automatic_cleanup_succeeded": true
+    },
+    "verify": {
+      "full_live_acceptance_repeated": false,
+      "empty_state_rejected_with_exit_code": 1,
+      "workflow_and_recovery_order_checked_locally": true
+    },
+    "destroy": {
+      "executed_with_real_cloud_api": true,
+      "success": true,
+      "repeated_on_empty_state": true,
+      "completion_marker": "DESTROY CONFIRMED"
+    }
+  },
+  "local_tests_passed": 7,
+  "markdown_file_links_checked": true,
+  "powershell_blocks_parse": true,
+  "github_visual_rendering_verified": false,
+  "github_visual_check_limitation": "Managed browser connection unavailable",
+  "operator_file_retained": true,
+  "cleanup_report": "selectel-cleanup.json"
+}

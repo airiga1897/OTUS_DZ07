@@ -17,7 +17,6 @@ import yc_lab as lab
 from selectel_api import authenticate, request_json, config_from_env
 
 ROOT, LOCAL = lab.ROOT, lab.LOCAL
-PROJECT = os.environ.get('OS_PROJECT_ID', 'fdce7ecd9cf742a6a4eda91e927a09fb')
 
 
 def auth():
@@ -30,7 +29,7 @@ def auth():
         config = config_from_env()
     else:
         raise RuntimeError('Selectel operator credentials unavailable; run scripts/env.ps1 and scripts/save-operator.ps1 interactively')
-    if config['project_id'] != PROJECT or config['region'] != 'ru-9':
+    if (os.environ.get('OS_PROJECT_ID') and config['project_id'] != os.environ['OS_PROJECT_ID']) or config['region'] != 'ru-9':
         raise RuntimeError('Unexpected Selectel project/region')
     return config
 
@@ -69,9 +68,10 @@ def tf(*args, capture=False):
 
 def preflight():
     cloud = Cloud()
-    compute = cloud.get('compute', '/os-quota-sets/' + PROJECT + '/detail')['quota_set']['az_quotas']['ru-9a']
-    volumes = cloud.get('volumev3', '/os-quota-sets/' + PROJECT + '?usage=True')['quota_set']
-    network = cloud.get('network', '/v2.0/quotas/' + PROJECT + '/details.json')['quota']
+    project = auth()['project_id']
+    compute = cloud.get('compute', '/os-quota-sets/' + project + '/detail')['quota_set']['az_quotas']['ru-9a']
+    volumes = cloud.get('volumev3', '/os-quota-sets/' + project + '?usage=True')['quota_set']
+    network = cloud.get('network', '/v2.0/quotas/' + project + '/details.json')['quota']
     required = [(compute['cores'], 6), (compute['ram'], 24576), (compute['instances'], 3),
                 (volumes['gigabytes_basicssd.ru-9a'], 80), (network['floatingip'], 3),
                 (network['network'], 1), (network['subnet'], 1), (network['router'], 1),

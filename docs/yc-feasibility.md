@@ -1,4 +1,4 @@
-# Оценка Yandex Cloud — 19 октября 2026
+# Оценка Yandex Cloud
 
 Технически задание выполнимо на обычных ВМ YC: Elasticsearch устанавливается
 самостоятельно. Managed OpenSearch не следует подменять Elasticsearch без
