@@ -13,11 +13,11 @@ import sys
 import time
 import urllib.request
 
-import lab
+import yc_lab as lab
 from selectel_api import authenticate, request_json, config_from_env
 
 ROOT, LOCAL = lab.ROOT, lab.LOCAL
-PROJECT = 'fdce7ecd9cf742a6a4eda91e927a09fb'
+PROJECT = os.environ.get('OS_PROJECT_ID', 'fdce7ecd9cf742a6a4eda91e927a09fb')
 
 
 def auth():
