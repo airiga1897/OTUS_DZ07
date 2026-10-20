@@ -14,7 +14,9 @@ import privacy
 
 class CredentialsTest(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1] / '.local')
+        base = Path(__file__).resolve().parents[1] / '.local'
+        base.mkdir(exist_ok=True)
+        self.directory = tempfile.TemporaryDirectory(dir=base)
         self.addCleanup(self.directory.cleanup)
         self.local = Path(self.directory.name)
         self.config = {'auth_url': 'https://cloud.api.selcloud.ru/identity/v3', 'region': 'ru-9',
@@ -34,10 +36,15 @@ class CredentialsTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'env.ps1'):
                 credentials.load(self.local)
 
-    def test_explicit_development_file(self):
+    def test_old_file_selector_is_not_a_python_credential_source(self):
         path = self.local / 'operator.json'
         path.write_text(json.dumps(self.config))
         with patch.dict(os.environ, {'OTUS_SELECTEL_AUTH': str(path)}, clear=True):
+            with self.assertRaisesRegex(RuntimeError, 'env.ps1'):
+                credentials.load(self.local)
+
+    def test_python_ignores_legacy_file_selector(self):
+        with patch.dict(os.environ, {**self.env, 'OTUS_SELECTEL_AUTH': 'missing-file.json'}, clear=True):
             self.assertEqual(credentials.load(self.local), self.config)
 
     def test_partial_environment_does_not_fall_back_to_file(self):
@@ -61,6 +68,11 @@ class CredentialsTest(unittest.TestCase):
         self.assertEqual(context, {'project_id': self.config['project_id'], 'region': 'ru-9'})
         self.assertNotIn(self.config['password'], json.dumps(context))
         self.assertNotIn(self.config['username'], json.dumps(context))
+
+    def test_binding_cannot_silently_replace_existing_project(self):
+        credentials.bind(self.local, self.config)
+        with self.assertRaises(RuntimeError):
+            credentials.bind(self.local, {**self.config, 'project_id': 'different-project'})
 
     def test_logs_and_evidence_redact_all_operator_fields(self):
         with patch.dict(os.environ, self.env, clear=True):

@@ -1,5 +1,4 @@
 """Single credential contract for PowerShell, Terraform and Selectel API."""
-import argparse
 import json
 import os
 from pathlib import Path
@@ -23,17 +22,7 @@ def _environment(policy: dict) -> dict:
 def load(local: Path) -> dict:
     policy = settings()
     fields = policy['credentials']
-    # Any credential in the session selects environment mode. Incomplete input
-    # is an error, never a reason to switch silently to a saved identity.
-    if any(os.environ.get(field['environment']) for field in fields):
-        config = _environment(policy)
-    elif os.environ.get('OTUS_SELECTEL_AUTH'):
-        try:
-            config = json.loads(Path(os.environ['OTUS_SELECTEL_AUTH']).read_text(encoding='utf-8-sig'))
-        except (OSError, ValueError):
-            raise RuntimeError('Cannot read explicitly selected development credentials') from None
-    else:
-        raise RuntimeError('Selectel credentials unavailable; dot-source scripts/env.ps1')
+    config = _environment(policy)
     if not isinstance(config, dict) or not all(isinstance(config.get(field['key']), str)
                                                and config[field['key']].strip() for field in fields):
         raise RuntimeError('Selectel credentials incomplete; dot-source scripts/env.ps1')
@@ -75,26 +64,3 @@ def terraform_environment(config: dict) -> dict:
     for name in ('TF_LOG', 'TF_LOG_CORE', 'TF_LOG_PROVIDER', 'TF_LOG_PATH', 'OS_DEBUG'):
         env.pop(name, None)
     return env
-
-
-def save_development(local: Path) -> None:
-    # File ACL is restricted by save-operator.ps1 before invoking this command.
-    policy = settings()
-    config = {**_environment(policy), 'auth_url': policy['auth_url'], 'region': policy['region']}
-    local.mkdir(parents=True, exist_ok=True)
-    (local / 'operator.json').write_text(json.dumps(config, indent=2) + '\n', encoding='utf-8')
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['save-development'])
-    parser.parse_args()
-    try:
-        save_development(ROOT / '.local')
-    except Exception:
-        raise SystemExit('Could not save development credentials; check session input and local file permissions') from None
-    print('Development credentials saved locally; excluded from Git. Delete after development and cleanup.')
-
-
-if __name__ == '__main__':
-    main()

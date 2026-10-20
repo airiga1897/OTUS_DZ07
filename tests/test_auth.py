@@ -17,6 +17,7 @@ class OperatorTest(unittest.TestCase):
         env = {'OS_PROJECT_ID': 'test-project', 'OS_USER_DOMAIN_NAME': 'test-account',
                'OS_USERNAME': 'test-operator', 'OS_PASSWORD': 'test-password-never-log'}
         raw = json.dumps(env).encode()
+        selectel.LOCAL.mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir=selectel.LOCAL) as folder, \
                 patch.dict(os.environ, env, clear=True), patch.object(selectel, 'LOCAL', Path(folder)), \
                 patch.object(selectel, 'authenticate', return_value=('test-token', [])) as authenticate, \

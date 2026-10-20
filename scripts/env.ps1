@@ -1,39 +1,22 @@
-# Dot-source in PowerShell. The shared schema defines all credential fields.
-param([switch]$Clear)
-$taskPolicy = Get-Content -LiteralPath (Join-Path $PSScriptRoot '../config/selectel.json') -Raw | ConvertFrom-Json
+# Dot-source in the current PowerShell session. No Python credential file mode.
+param([switch]$Clear, [switch]$FromFile, [string]$Path)
+. (Join-Path $PSScriptRoot 'operator.ps1')
+if ($Clear -and ($FromFile -or $Path)) { throw 'Выберите один режим ввода.' }
 if ($Clear) {
-    foreach ($taskField in $taskPolicy.credentials) {
-        [Environment]::SetEnvironmentVariable($taskField.environment, $null, 'Process')
-    }
-    Remove-Item Env:OS_AUTH_URL, Env:OS_REGION_NAME, Env:OTUS_SELECTEL_AUTH -ErrorAction SilentlyContinue
+    Clear-OtusSelectelSession
     Write-Host 'Реквизиты удалены из окружения текущей сессии.'
     return
 }
-$taskInput = @{}
+if ($Path -and -not $FromFile) { throw 'Путь допустим только с явным -FromFile.' }
+$taskValues = $null
 try {
-    foreach ($taskField in $taskPolicy.credentials) {
-        if ($taskField.secret) {
-            $taskSecure = Read-Host $taskField.prompt -AsSecureString
-            try {
-                if ($taskSecure.Length -eq 0) { throw 'Пустой ввод реквизитов.' }
-                $taskPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($taskSecure)
-                try { $taskValue = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($taskPointer) }
-                finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($taskPointer) }
-            } finally { $taskSecure.Dispose() }
-        } else {
-            $taskValue = Read-Host $taskField.prompt
-            if ([string]::IsNullOrWhiteSpace($taskValue)) { throw 'Пустой ввод реквизитов.' }
-        }
-        $taskInput[$taskField.environment] = $taskValue
-    }
-    foreach ($taskName in $taskInput.Keys) {
-        [Environment]::SetEnvironmentVariable($taskName, $taskInput[$taskName], 'Process')
-    }
-    $env:OS_AUTH_URL = $taskPolicy.auth_url
-    $env:OS_REGION_NAME = $taskPolicy.region
-    Remove-Item Env:OTUS_SELECTEL_AUTH -ErrorAction SilentlyContinue
+    if ($FromFile) {
+        if (-not $Path) { $Path = Join-Path $PSScriptRoot '../.local/operator.json' }
+        $taskValues = Read-OtusSelectelFile -Path $Path
+    } else { $taskValues = Read-OtusSelectelPrompt }
+    Set-OtusSelectelSession -Values $taskValues
     Write-Host 'Реквизиты загружены только в окружение текущей сессии.'
 } finally {
-    $taskInput.Clear()
-    Remove-Variable taskValue, taskInput, taskSecure, taskPointer -ErrorAction SilentlyContinue
+    if ($null -ne $taskValues) { $taskValues.Clear() }
+    Remove-Variable taskValues -ErrorAction SilentlyContinue
 }

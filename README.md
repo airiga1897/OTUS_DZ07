@@ -183,7 +183,8 @@ Selectel выбран с учётом доступности ресурсов. �
 | --- | --- |
 | [scripts/lab.py](scripts/lab.py) | Основные команды жизненного цикла |
 | [scripts/selectel.py](scripts/selectel.py) | Selectel API, Terraform, отказные проверки |
-| [scripts/credentials.py](scripts/credentials.py) | Единый источник реквизитов для API и Terraform |
+| [scripts/credentials.py](scripts/credentials.py) | Чтение реквизитов из окружения для API и Terraform |
+| [scripts/operator.ps1](scripts/operator.ps1) | Ввод, явное сохранение и загрузка файла средствами PowerShell |
 | [config/selectel.json](config/selectel.json) | Несекретная политика среды и единый перечень полей ввода |
 | [scripts/yc_lab.py](scripts/yc_lab.py) | Общие SSH/TLS механизмы и вариант YC |
 | [terraform-selectel/](terraform-selectel/) | Инфраструктура Selectel |
