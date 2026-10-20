@@ -19,7 +19,8 @@ flowchart LR
     F1 --> ES[Elasticsearch es1/es2/es3]
     F2 --> ES
     F3 --> ES
-    ES --> K[es3: Kibana через SSH-туннель]
+    ES --> K[es3: Kibana HTTP/5601]
+    User --> K
 ```
 
 | ВМ | Дополнительные сервисы | Ресурсы | Диск |
@@ -36,8 +37,9 @@ flowchart LR
 
 Сеть — 10.77.0.0/16, адреса узлов — 10.77.1.10, 10.77.2.10, 10.77.3.10.
 Запрос проходит HAProxy:80 → Nginx:8081 → uWSGI:8080 → PostgreSQL:5432.
-Elasticsearch:9200/9300 доступен внутри группы безопасности; SSH:443 ограничен
-адресами /32 оператора. Kibana:5601 слушает localhost. HTTP и транспорт
+Elasticsearch:9200/9300 доступен внутри группы безопасности; SSH:22 и
+Kibana HTTP:5601 ограничены адресами /32 оператора. Портал доступен по HTTP:80.
+Kibana слушает сетевые интерфейсы es3; вход требует авторизации. HTTP API и транспорт
 Elasticsearch используют TLS и проверку собственного центра сертификации.
 Filebeat имеет отдельную роль записи, Kibana использует kibana_system.
 
@@ -92,6 +94,11 @@ $lab = Get-Content .\.local\lab.json -Raw | ConvertFrom-Json
 $portalUrl = 'http://' + $lab.es3.public_ip
 $portalUrl
 Start-Process $portalUrl
+
+# Открыть Kibana без SSH-туннеля
+$kibanaUrl = 'http://' + $lab.es3.public_ip + ':5601'
+$kibanaUrl
+Start-Process $kibanaUrl
 ```
 
 При уже сохранённом `.local/operator.json` повторный ввод credentials не требуется.
@@ -137,17 +144,28 @@ destroy необратимо удаляет ВМ, данные, диски и IP
 
 ## Доступ и ограничения
 
-Адрес es3 доступен в Terraform output `lab`. Для Kibana открыть туннель:
+Адрес es3 сохраняется после развёртывания в `.local/lab.json`.
+
+| Сервис | Адрес | Доступ |
+| --- | --- | --- |
+| Портал | `http://<public-IP-es3>:80` | Публичное чтение |
+| Kibana | `http://<public-IP-es3>:5601` | Разрешённые /32 оператора и вход по паролю |
+| SSH | `<public-IP-узла>:22` | Разрешённые /32 оператора и ключ |
+
+При необходимости подключиться к серверу:
 
 ```powershell
-ssh -p 443 -i .local/otus_dz07 -o UserKnownHostsFile=.local/known_hosts -o StrictHostKeyChecking=yes -L 5601:127.0.0.1:5601 otus@<public-IP-es3>
+ssh -p 22 -i .local/otus_dz07 -o UserKnownHostsFile=.local/known_hosts -o StrictHostKeyChecking=yes otus@<public-IP-es3>
 ```
 
-Открыть [Kibana](http://localhost:5601), пользователь `elastic`, пароль из
+В Kibana используется пользователь `elastic`, пароль из
 `.local/secrets.json`. Представление `logs-otus-*` использует `@timestamp`;
 дашборд «OTUS DZ07 — журналы серверов» содержит таблицу логов.
-HTTP портала предназначен для чтения; административный вход требует туннеля
-или отдельно настроенного HTTPS.
+HTTP не шифрует пароль Kibana и содержимое журналов; такой доступ предназначен
+для временного учебного стенда с ограничением по IP. Elasticsearch сохраняет TLS.
+HTTP портала предназначен для чтения; административный вход требует отдельно
+защищённого соединения. Новый внешний HTTP-доступ Kibana подготовлен в конфигурации;
+сохранённая облачная приёмка подтверждает внутреннюю доступность Kibana.
 
 Совмещение сервисов и небольшие диски рассчитаны на учебную нагрузку;
 заполнение дисков нужно контролировать раньше семидневного срока хранения.

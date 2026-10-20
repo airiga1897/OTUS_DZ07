@@ -171,7 +171,7 @@ def trust(topology):
         else:
             raise RuntimeError('No trusted host key: ' + name)
         lab.paramiko.Ed25519Key(data=base64.b64decode(match[1]))
-        lines.append('[' + node['public_ip'] + ']:443 ssh-ed25519 ' + match[1])
+        lines.append(node['public_ip'] + ' ssh-ed25519 ' + match[1])
     (LOCAL / 'known_hosts').write_text('\n'.join(lines) + '\n')
 
 

@@ -23,7 +23,12 @@ resource "yandex_vpc_security_group" "lab" {
   }
   ingress {
     protocol       = "TCP"
-    port           = 443
+    port           = 22
+    v4_cidr_blocks = var.admin_cidrs
+  }
+  ingress {
+    protocol       = "TCP"
+    port           = 5601
     v4_cidr_blocks = var.admin_cidrs
   }
   ingress {
@@ -67,7 +72,7 @@ resource "yandex_compute_instance" "node" {
     user-data = "#cloud-config\n${yamlencode({
       users       = [{ name = "otus", groups = ["sudo"], shell = "/bin/bash", sudo = ["ALL=(ALL) NOPASSWD:ALL"], lock_passwd = true, ssh_authorized_keys = [trimspace(file(var.ssh_public_key_path))] }]
       ssh_pwauth  = false
-      write_files = [{ path = "/etc/ssh/sshd_config.d/10-otus-port.conf", content = "Port 22\nPort 443\n", permissions = "0644" }]
+      write_files = [{ path = "/etc/ssh/sshd_config.d/10-otus-port.conf", content = "Port 22\n", permissions = "0644" }]
       runcmd      = ["sshd -t && systemctl stop ssh.service ssh.socket && systemctl disable ssh.socket && systemctl enable --now ssh.service"]
     })}"
   }

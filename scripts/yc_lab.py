@@ -15,6 +15,7 @@ import subprocess
 import tarfile
 import threading
 import time
+import urllib.error
 import urllib.request
 
 import paramiko
@@ -178,7 +179,7 @@ def trust(lab):
         else:
             raise RuntimeError('No host key in YC serial output: ' + name)
         paramiko.Ed25519Key(data=base64.b64decode(match[1]))
-        lines.append('[' + node['public_ip'] + ']:443 ssh-ed25519 ' + match[1])
+        lines.append(node['public_ip'] + ' ssh-ed25519 ' + match[1])
     (LOCAL / 'known_hosts').write_text('\n'.join(lines) + '\n')
 
 
@@ -186,7 +187,7 @@ def connect(node):
     client = paramiko.SSHClient()
     client.load_host_keys(str(LOCAL / 'known_hosts'))
     client.set_missing_host_key_policy(paramiko.RejectPolicy())
-    client.connect(node['public_ip'], port=443, username='otus', key_filename=str(LOCAL / 'otus_dz07'),
+    client.connect(node['public_ip'], port=22, username='otus', key_filename=str(LOCAL / 'otus_dz07'),
                    look_for_keys=False, allow_agent=False, timeout=20)
     return client
 
@@ -335,6 +336,22 @@ def configure():
         save(ROOT / 'docs/kibana.json', result)
 
 
+def verify_kibana_http(public_ip):
+    url = 'http://' + public_ip + ':5601/login'
+    # Kibana can still be starting after its VM has rejoined Elasticsearch.
+    for attempt in range(20):
+        try:
+            with urllib.request.urlopen(url, timeout=15) as response:
+                if response.status != 200 or b'kibana' not in response.read().lower():
+                    raise RuntimeError('Public Kibana login page unavailable')
+            break
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == 19:
+                raise
+            time.sleep(3)
+    return {'login_page_http_status': 200, 'port': 5601, 'authentication_sent': False}
+
+
 def verify():
     lab = output()
     for name, node in lab.items():
@@ -345,6 +362,7 @@ def verify():
     with connect(lab['es1']) as client:
         raw = remote(client, 'sudo python3 /home/otus/dz07/scripts/remote/api.py verify', 'verify')
         save(ROOT / 'docs/verification.json', json.loads(raw))
+    save(ROOT / 'docs/kibana-public.json', verify_kibana_http(lab['es3']['public_ip']))
 
 
 def failover():

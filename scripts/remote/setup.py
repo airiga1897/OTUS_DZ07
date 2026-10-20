@@ -187,7 +187,9 @@ backend portal
     package('kibana')
     dest = Path('/etc/kibana/ca.crt')
     shutil.copy(BASE / 'certs/ca.crt', dest)
-    write('/etc/kibana/kibana.yml', f'''server.host: "127.0.0.1"
+    write('/etc/kibana/kibana.yml', f'''server.host: "0.0.0.0"
+server.port: 5601
+server.ssl.enabled: false
 elasticsearch.hosts: {json.dumps(['https://' + ip + ':9200' for ip in IPS.values()])}
 elasticsearch.username: "kibana_system"
 elasticsearch.password: "{S['kibana']}"

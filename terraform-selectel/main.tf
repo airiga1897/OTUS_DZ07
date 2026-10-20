@@ -37,8 +37,8 @@ resource "openstack_networking_secgroup_rule_v2" "ssh" {
   direction         = "ingress"
   ethertype         = "IPv4"
   protocol          = "tcp"
-  port_range_min    = 443
-  port_range_max    = 443
+  port_range_min    = 22
+  port_range_max    = 22
   remote_ip_prefix  = each.value
   security_group_id = openstack_networking_secgroup_v2.lab.id
 }
@@ -49,6 +49,16 @@ resource "openstack_networking_secgroup_rule_v2" "http" {
   port_range_min    = 80
   port_range_max    = 80
   remote_ip_prefix  = "0.0.0.0/0"
+  security_group_id = openstack_networking_secgroup_v2.lab.id
+}
+resource "openstack_networking_secgroup_rule_v2" "kibana" {
+  for_each          = toset(var.admin_cidrs)
+  direction         = "ingress"
+  ethertype         = "IPv4"
+  protocol          = "tcp"
+  port_range_min    = 5601
+  port_range_max    = 5601
+  remote_ip_prefix  = each.value
   security_group_id = openstack_networking_secgroup_v2.lab.id
 }
 resource "openstack_networking_port_v2" "node" {
@@ -92,7 +102,7 @@ resource "openstack_compute_instance_v2" "node" {
     manage_etc_hosts = true
     users            = [{ name = "otus", groups = ["sudo"], shell = "/bin/bash", sudo = "ALL=(ALL) NOPASSWD:ALL", lock_passwd = true, ssh_authorized_keys = [trimspace(file(var.ssh_public_key_path))] }]
     ssh_pwauth       = false
-    write_files      = [{ path = "/etc/ssh/sshd_config.d/10-otus-port.conf", content = "Port 22\nPort 443\n", permissions = "0644" }]
+    write_files      = [{ path = "/etc/ssh/sshd_config.d/10-otus-port.conf", content = "Port 22\n", permissions = "0644" }]
     runcmd           = ["sshd -t && systemctl stop ssh.service ssh.socket && systemctl disable ssh.socket && systemctl enable --now ssh.service"]
   })}"
   depends_on = [openstack_networking_router_interface_v2.lab]
