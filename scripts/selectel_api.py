@@ -1,10 +1,10 @@
 """Small HTTPS-only Keystone/Nova client; credentials and tokens stay in memory."""
 import json
-import os
 import urllib.parse
 import urllib.request
 
-AUTH_URL = "https://cloud.api.selcloud.ru/identity/v3"
+from credentials import settings
+import privacy
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -30,23 +30,19 @@ def request_json(url, *, token=None, payload=None):
 
 
 def authenticate(config):
-    if config.get("auth_url", AUTH_URL).rstrip("/") != AUTH_URL:
+    auth_url = settings()['auth_url']
+    if config.get("auth_url", auth_url).rstrip("/") != auth_url:
         raise ValueError("Unexpected identity endpoint")
     body = {"auth": {"identity": {"methods": ["password"], "password": {"user": {
         "name": config["username"], "domain": {"name": config["domain_name"]},
         "password": config["password"]}}}, "scope": {"project": {"id": config["project_id"]}}}}
-    data, headers = request_json(AUTH_URL + "/auth/tokens", payload=body)
+    data, headers = request_json(auth_url + "/auth/tokens", payload=body)
     identity = data["token"]
     if identity.get("project", {}).get("id") != config["project_id"]:
         raise ValueError("Unexpected project")
-    return headers["X-Subject-Token"], identity["catalog"]
-
-
-def config_from_env():
-    return {"auth_url": os.environ.get("OS_AUTH_URL", AUTH_URL),
-        "project_id": os.environ["OS_PROJECT_ID"], "region": os.environ["OS_REGION_NAME"],
-        "domain_name": os.environ["OS_USER_DOMAIN_NAME"],
-        "username": os.environ["OS_USERNAME"], "password": os.environ["OS_PASSWORD"]}
+    token = headers["X-Subject-Token"]
+    privacy.remember([token])
+    return token, identity["catalog"]
 
 
 class NovaClient:

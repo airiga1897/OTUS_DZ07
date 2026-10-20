@@ -1,0 +1,14 @@
+{
+  "auth_url": "https://cloud.api.selcloud.ru/identity/v3",
+  "region": "ru-9",
+  "availability_zone": "ru-9a",
+  "image_name": "Ubuntu 24.04 LTS 64-bit",
+  "flavor_name": "SL1.2-8192",
+  "volume_type": "basicssd.ru-9a",
+  "credentials": [
+    {"key": "domain_name", "environment": "OS_USER_DOMAIN_NAME", "prompt": "Номер аккаунта Selectel", "secret": false},
+    {"key": "project_id", "environment": "OS_PROJECT_ID", "prompt": "ID проекта Selectel", "secret": false},
+    {"key": "username", "environment": "OS_USERNAME", "prompt": "Имя сервисного пользователя", "secret": false},
+    {"key": "password", "environment": "OS_PASSWORD", "prompt": "Пароль сервисного пользователя", "secret": true}
+  ]
+}

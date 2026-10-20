@@ -1,5 +1,10 @@
 {
-  "controller": {"os": "Windows", "shell": "PowerShell", "python": "3.12", "terraform": "1.16.3"},
+  "controller": {
+    "os": "Windows",
+    "shell": "PowerShell",
+    "python": "3.12",
+    "terraform": "1.16.3"
+  },
   "commands": {
     "deploy": {
       "executed_with_real_cloud_api": true,
@@ -24,6 +29,5 @@
   "powershell_blocks_parse": true,
   "github_visual_rendering_verified": false,
   "github_visual_check_limitation": "Managed browser connection unavailable",
-  "operator_file_retained": true,
   "cleanup_report": "selectel-cleanup.json"
 }

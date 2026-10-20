@@ -1,25 +1,39 @@
-# Загружать через dot sourcing. Пароль остаётся в окружении текущей сессии.
-param(
-    [string]$AccountNumber,
-    [string]$UserName,
-    [string]$ProjectId
-)
-if (-not $AccountNumber) { $AccountNumber = Read-Host 'Номер аккаунта Selectel' }
-if (-not $UserName) { $UserName = Read-Host 'Имя сервисного пользователя' }
-if (-not $ProjectId) { $ProjectId = Read-Host 'ID проекта Selectel' }
-if (-not $AccountNumber -or -not $UserName -or -not $ProjectId) { throw 'Параметры оператора должны быть заполнены.' }
-$taskPassword = Read-Host "Пароль сервисного пользователя $UserName" -AsSecureString
-if ($taskPassword.Length -eq 0) { $taskPassword.Dispose(); throw 'Пароль пуст.' }
-$taskPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($taskPassword)
-try { $env:OS_PASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($taskPointer) }
-finally {
-    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($taskPointer)
-    $taskPassword.Dispose()
+# Dot-source in PowerShell. The shared schema defines all credential fields.
+param([switch]$Clear)
+$taskPolicy = Get-Content -LiteralPath (Join-Path $PSScriptRoot '../config/selectel.json') -Raw | ConvertFrom-Json
+if ($Clear) {
+    foreach ($taskField in $taskPolicy.credentials) {
+        [Environment]::SetEnvironmentVariable($taskField.environment, $null, 'Process')
+    }
+    Remove-Item Env:OS_AUTH_URL, Env:OS_REGION_NAME, Env:OTUS_SELECTEL_AUTH -ErrorAction SilentlyContinue
+    Write-Host 'Реквизиты удалены из окружения текущей сессии.'
+    return
 }
-$env:OS_AUTH_URL = 'https://cloud.api.selcloud.ru/identity/v3'
-$env:OS_PROJECT_ID = $ProjectId
-$env:OS_REGION_NAME = 'ru-9'
-$env:OS_USER_DOMAIN_NAME = $AccountNumber
-$env:OS_USERNAME = $UserName
-Remove-Item Env:OTUS_SELECTEL_AUTH -ErrorAction SilentlyContinue
-Write-Host 'Оператор Selectel загружен в окружение. Пароль не записан в файл.'
+$taskInput = @{}
+try {
+    foreach ($taskField in $taskPolicy.credentials) {
+        if ($taskField.secret) {
+            $taskSecure = Read-Host $taskField.prompt -AsSecureString
+            try {
+                if ($taskSecure.Length -eq 0) { throw 'Пустой ввод реквизитов.' }
+                $taskPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($taskSecure)
+                try { $taskValue = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($taskPointer) }
+                finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($taskPointer) }
+            } finally { $taskSecure.Dispose() }
+        } else {
+            $taskValue = Read-Host $taskField.prompt
+            if ([string]::IsNullOrWhiteSpace($taskValue)) { throw 'Пустой ввод реквизитов.' }
+        }
+        $taskInput[$taskField.environment] = $taskValue
+    }
+    foreach ($taskName in $taskInput.Keys) {
+        [Environment]::SetEnvironmentVariable($taskName, $taskInput[$taskName], 'Process')
+    }
+    $env:OS_AUTH_URL = $taskPolicy.auth_url
+    $env:OS_REGION_NAME = $taskPolicy.region
+    Remove-Item Env:OTUS_SELECTEL_AUTH -ErrorAction SilentlyContinue
+    Write-Host 'Реквизиты загружены только в окружение текущей сессии.'
+} finally {
+    $taskInput.Clear()
+    Remove-Variable taskValue, taskInput, taskSecure, taskPointer -ErrorAction SilentlyContinue
+}

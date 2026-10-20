@@ -79,7 +79,6 @@ Terraform, собственный проект Selectel и права опера
 ```powershell
 # Ввести credentials
 . .\scripts\env.ps1
-.\scripts\save-operator.ps1
 
 # Развернуть
 .\.tools\venv\Scripts\python.exe scripts/lab.py deploy
@@ -101,16 +100,16 @@ $kibanaUrl
 Start-Process $kibanaUrl
 ```
 
-При уже сохранённом `.local/operator.json` повторный ввод credentials не требуется.
-После проверки портала в браузере:
+Реквизиты остаются только в окружении текущей сессии PowerShell; файл
+для deploy, verify и destroy не требуется. После проверки портала в браузере:
 
 ```powershell
 # Удалить и подтвердить отсутствие ресурсов — также выполнить при ошибке deploy или verify
 .\.tools\venv\Scripts\python.exe scripts/lab.py destroy
-if ($LASTEXITCODE -ne 0) { throw 'Удаление не подтверждено; credentials и state сохранить для повторной очистки' }
+if ($LASTEXITCODE -ne 0) { throw 'Удаление не подтверждено; сохранить state, контекст и ключи для повторной очистки' }
 
-# Удалить пароль из окружения текущей сессии
-Remove-Item Env:OS_PASSWORD -ErrorAction SilentlyContinue
+# Удалить все реквизиты из окружения текущей сессии
+. .\scripts\env.ps1 -Clear
 ```
 
 Ожидаются `APPLICATION READY` после deploy, `LIVE VERIFICATION PASSED` после
@@ -123,8 +122,8 @@ Elasticsearch, проверяет чтение/запись при отказе,
 после ошибок — в [инструкции](docs/operations.md).
 
 destroy необратимо удаляет ВМ, данные, диски и IP. Простая остановка ВМ
-сохраняет диски и расходы. Локальные credentials сохраняются отдельно;
-их удаление допускается после подтверждённой очистки и согласования публикации.
+сохраняет диски и расходы. При ошибке удаления сохраняются state, контекст и
+ключи; реквизиты можно повторно ввести в новой сессии PowerShell.
 
 ## Подтверждённые результаты
 
@@ -184,6 +183,8 @@ Selectel выбран с учётом доступности ресурсов. �
 | --- | --- |
 | [scripts/lab.py](scripts/lab.py) | Основные команды жизненного цикла |
 | [scripts/selectel.py](scripts/selectel.py) | Selectel API, Terraform, отказные проверки |
+| [scripts/credentials.py](scripts/credentials.py) | Единый источник реквизитов для API и Terraform |
+| [config/selectel.json](config/selectel.json) | Несекретная политика среды и единый перечень полей ввода |
 | [scripts/yc_lab.py](scripts/yc_lab.py) | Общие SSH/TLS механизмы и вариант YC |
 | [terraform-selectel/](terraform-selectel/) | Инфраструктура Selectel |
 | [terraform/](terraform/) | Альтернативная инфраструктура YC |
@@ -193,6 +194,8 @@ Selectel выбран с учётом доступности ресурсов. �
 | [docs/](docs/) | Результаты и примеры журналов |
 | [.gitignore](.gitignore) | Исключение секретов и локальных данных |
 
-Локальные credentials не удаляются автоматически.
-Пароли, приватные ключи, реальные tfvars, state, кеш пакетов и локальные журналы
-контроллера не публикуются.
+Основной сценарий использует окружение, без сохранения реквизитов оператора.
+Отдельный [режим разработки](docs/operations.md#локальный-файл-для-разработки)
+допускает локальный файл с ограниченными правами; после завершения разработки
+и очистки ресурсов файл удаляется. State, контекст стенда, ключи и секреты
+приложения остаются локальными. В доказательства публикуются обезличенные результаты.

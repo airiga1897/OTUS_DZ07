@@ -19,6 +19,7 @@ import urllib.error
 import urllib.request
 
 import paramiko
+import privacy
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa, ed25519
@@ -36,6 +37,8 @@ ZONES = dict(zip(IPS, ['a', 'd', 'e']))
 
 def save(path, obj):
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_relative_to(ROOT / 'docs'):
+        obj = privacy.sanitize(obj)
     path.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
@@ -52,12 +55,14 @@ def tf(*args, capture=False):
     env['TF_CLI_CONFIG_FILE'] = str(ROOT / 'terraform.rc')
     env['YC_TOKEN'] = subprocess.check_output(
         [str(YC), '--no-browser', '--config', str(CONFIG), 'iam', 'create-token'], timeout=60).decode().strip()
+    privacy.remember([env['YC_TOKEN']])
     result = subprocess.run([str(TF), '-chdir=' + str(ROOT / 'terraform'), *args],
                             env=env, capture_output=True, timeout=1200)
     LOCAL.mkdir(exist_ok=True)
-    (LOCAL / ('tf-' + args[0] + '.log')).write_bytes(result.stdout + result.stderr)
+    (LOCAL / ('tf-' + args[0] + '.log')).write_text(
+        privacy.redact((result.stdout + result.stderr).decode(errors='replace')), encoding='utf-8')
     if result.returncode:
-        raise RuntimeError((result.stdout + result.stderr).decode(errors='replace')[-3000:])
+        raise RuntimeError(privacy.redact((result.stdout + result.stderr).decode(errors='replace'))[-3000:])
     if capture:
         return result.stdout.decode()
     print('Terraform ' + args[0] + ': OK', flush=True)
@@ -193,6 +198,7 @@ def connect(node):
 
 
 def remote(client, command, label, stdin=None):
+    privacy.remember_application(LOCAL)
     channel = client.get_transport().open_session(timeout=30)
     channel.set_combine_stderr(True)
     channel.exec_command(command)
@@ -209,9 +215,9 @@ def remote(client, command, label, stdin=None):
             result.extend(channel.recv(65536))
         else:
             time.sleep(.1)
-    (LOCAL / (label + '.log')).write_bytes(result)
+    (LOCAL / (label + '.log')).write_text(privacy.redact(result.decode(errors='replace')), encoding='utf-8')
     if channel.recv_exit_status():
-        raise RuntimeError(label + ': ' + result.decode(errors='replace')[-2500:])
+        raise RuntimeError(label + ': ' + privacy.redact(result.decode(errors='replace'))[-2500:])
     print(label + ': OK', flush=True)
     return result.decode()
 

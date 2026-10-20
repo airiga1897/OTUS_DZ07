@@ -4,41 +4,31 @@ import base64
 import datetime
 import ipaddress
 import json
-import os
-from pathlib import Path
 import re
 import secrets
 import subprocess
 import sys
 import time
 import urllib.request
+import urllib.parse
 
 import yc_lab as lab
-from selectel_api import authenticate, request_json, config_from_env
+from selectel_api import authenticate, request_json
+import credentials
+import privacy
 
 ROOT, LOCAL = lab.ROOT, lab.LOCAL
 
 
 def auth():
-    path = os.environ.get('OTUS_SELECTEL_AUTH')
-    if not path and (LOCAL / 'operator.json').exists():
-        path = str(LOCAL / 'operator.json')
-    if path:
-        config = json.loads(Path(path).read_text(encoding='utf-8-sig'))
-    elif os.environ.get('OS_PASSWORD'):
-        config = config_from_env()
-    else:
-        raise RuntimeError('Selectel operator credentials unavailable; run scripts/env.ps1 and scripts/save-operator.ps1 interactively')
-    if (os.environ.get('OS_PROJECT_ID') and config['project_id'] != os.environ['OS_PROJECT_ID']) or config['region'] != 'ru-9':
-        raise RuntimeError('Unexpected Selectel project/region')
-    return config
+    return credentials.load(LOCAL)
 
 
 class Cloud:
     def __init__(self):
         self.token, catalog = authenticate(auth())
         self.endpoints = {s['type']: e['url'].rstrip('/') for s in catalog for e in s['endpoints']
-                          if e.get('interface') == 'public' and e.get('region') == 'ru-9'
+                          if e.get('interface') == 'public' and e.get('region') == credentials.settings()['region']
                           and e['url'].startswith('https://')}
 
     def get(self, service, path, payload=None):
@@ -47,33 +37,31 @@ class Cloud:
 
 def tf(*args, capture=False):
     config = auth()
-    env = dict(os.environ)
-    for name, key in {'OS_AUTH_URL': 'auth_url', 'OS_PROJECT_ID': 'project_id',
-                      'OS_REGION_NAME': 'region', 'OS_USER_DOMAIN_NAME': 'domain_name',
-                      'OS_USERNAME': 'username', 'OS_PASSWORD': 'password'}.items():
-        env[name] = config[key]
+    env = credentials.terraform_environment(config)
     env['TF_CLI_CONFIG_FILE'] = str(ROOT / 'terraform-selectel.rc')
     LOCAL.mkdir(exist_ok=True)
-    # Stream into a local file so long operations remain inspectable.
+    # Raw provider output stays in memory; sanitize before any log write.
     logfile = LOCAL / ('selectel-tf-' + args[0] + '.log')
-    with logfile.open('wb') as output:
-        result = subprocess.run([str(lab.TF), '-chdir=' + str(ROOT / 'terraform-selectel'), *args],
-                                env=env, stdout=output, stderr=subprocess.STDOUT, timeout=1800)
+    result = subprocess.run([str(lab.TF), '-chdir=' + str(ROOT / 'terraform-selectel'), *args],
+                            env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=1800)
+    raw = result.stdout.decode(encoding='utf-8', errors='replace')
+    logfile.write_text(privacy.redact(raw), encoding='utf-8')
     if result.returncode:
         raise RuntimeError(logfile.read_text(errors='replace')[-3500:])
     if capture:
-        return logfile.read_text(encoding='utf-8')
+        return raw
     print('Selectel terraform ' + args[0] + ': OK', flush=True)
 
 
 def preflight():
     cloud = Cloud()
     project = auth()['project_id']
-    compute = cloud.get('compute', '/os-quota-sets/' + project + '/detail')['quota_set']['az_quotas']['ru-9a']
+    zone = credentials.settings()['availability_zone']
+    compute = cloud.get('compute', '/os-quota-sets/' + project + '/detail')['quota_set']['az_quotas'][zone]
     volumes = cloud.get('volumev3', '/os-quota-sets/' + project + '?usage=True')['quota_set']
     network = cloud.get('network', '/v2.0/quotas/' + project + '/details.json')['quota']
     required = [(compute['cores'], 6), (compute['ram'], 24576), (compute['instances'], 3),
-                (volumes['gigabytes_basicssd.ru-9a'], 80), (network['floatingip'], 3),
+                (volumes['gigabytes_' + credentials.settings()['volume_type']], 80), (network['floatingip'], 3),
                 (network['network'], 1), (network['subnet'], 1), (network['router'], 1),
                 (network['security_group'], 1), (network['security_group_rule'], 8), (network['port'], 10)]
     for quota, needed in required:
@@ -85,17 +73,19 @@ def preflight():
             if ipaddress.ip_network(subnet['cidr']).overlaps(ipaddress.ip_network('10.77.0.0/16')):
                 raise RuntimeError('DZ07 subnet overlaps existing Selectel subnet')
     lab.save(ROOT / 'docs/selectel-preflight.json', {'checked_at_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-             'compute': compute, 'ssd': volumes['gigabytes_basicssd.ru-9a'], 'network': network,
+             'compute': compute, 'ssd': volumes['gigabytes_' + credentials.settings()['volume_type']], 'network': network,
              'required': {'instances': 3, 'cores': 6, 'ram_mib': 24576, 'ssd_gb': 80, 'floating_ipv4': 3}})
     return cloud
 
 
 def prepare():
     cloud = preflight()
+    credentials.bind(LOCAL, auth())
+    policy = credentials.settings()
     images = request_json(cloud.endpoints['image'].removesuffix('/v2') +
-              '/v2/images?name=Ubuntu%2024.04%20LTS%2064-bit&status=active', token=cloud.token)[0]['images']
+              '/v2/images?name=' + urllib.parse.quote(policy['image_name']) + '&status=active', token=cloud.token)[0]['images']
     images = [i for i in images if i.get('visibility') == 'public' and i.get('min_disk', 0) <= 20]
-    flavors = [f for f in cloud.get('compute', '/flavors/detail')['flavors'] if f['name'] == 'SL1.2-8192']
+    flavors = [f for f in cloud.get('compute', '/flavors/detail')['flavors'] if f['name'] == policy['flavor_name']]
     if len(images) != 1 or len(flavors) != 1:
         raise RuntimeError('Expected one image and one 2CPU/8GB flavor')
     LOCAL.mkdir(exist_ok=True)
@@ -126,8 +116,8 @@ def prepare():
     cidrs = list(dict.fromkeys(cidrs))
     if any(ipaddress.ip_network(c).prefixlen != 32 for c in cidrs):
         raise RuntimeError('Operator /32 addresses required')
-    lab.save(ROOT / 'terraform-selectel/terraform.tfvars.json', {'region': 'ru-9', 'availability_zone': 'ru-9a',
-             'image_id': images[0]['id'], 'flavor_id': flavors[0]['id'], 'volume_type': 'basicssd.ru-9a', 'admin_cidrs': cidrs})
+    lab.save(ROOT / 'terraform-selectel/terraform.tfvars.json', {'region': policy['region'], 'availability_zone': policy['availability_zone'],
+             'image_id': images[0]['id'], 'flavor_id': flavors[0]['id'], 'volume_type': policy['volume_type'], 'admin_cidrs': cidrs})
     tf('init', '-input=false', '-no-color')
     tf('fmt')
     tf('validate', '-no-color')
@@ -285,4 +275,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as error:
+        print('ERROR: ' + privacy.redact(str(error)), file=sys.stderr)
+        raise SystemExit(1) from None

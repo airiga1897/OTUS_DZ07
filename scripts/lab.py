@@ -1,5 +1,7 @@
 """Public Selectel lifecycle: deploy, verify and destroy."""
 import argparse
+import sys
+import privacy
 
 
 def run(action, provider, packages):
@@ -38,7 +40,11 @@ def main():
     action = parser.parse_args().action
     import selectel
     import cache_packages
-    run(action, selectel, cache_packages)
+    try:
+        run(action, selectel, cache_packages)
+    except Exception as error:
+        print('ERROR: ' + privacy.redact(str(error)), file=sys.stderr)
+        raise SystemExit(1) from None
 
 
 if __name__ == '__main__':

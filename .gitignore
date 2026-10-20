@@ -8,3 +8,7 @@
 __pycache__/
 *.pyc
 *.sqlite3
+operator.json
+operator-*.json
+*.pem
+*.key

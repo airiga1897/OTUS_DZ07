@@ -96,8 +96,8 @@
           },
           "agent": {
             "name": "otus-dz07-es2",
-            "id": "022ab05b-1719-45e0-8147-d0bd8c5975d9",
-            "ephemeral_id": "81969c75-83f0-4ec3-9258-e2c92eee18c8",
+            "id": "<resource-id>",
+            "ephemeral_id": "<resource-id>",
             "type": "filebeat",
             "version": "8.19.0"
           },
@@ -158,9 +158,9 @@
           },
           "agent": {
             "name": "otus-dz07-es2",
-            "id": "022ab05b-1719-45e0-8147-d0bd8c5975d9",
+            "id": "<resource-id>",
             "type": "filebeat",
-            "ephemeral_id": "81969c75-83f0-4ec3-9258-e2c92eee18c8",
+            "ephemeral_id": "<resource-id>",
             "version": "8.19.0"
           },
           "@timestamp": "2026-10-19T19:56:13.664Z",
@@ -222,9 +222,9 @@
           },
           "agent": {
             "name": "otus-dz07-es3",
-            "id": "5a5c92f8-c927-4331-a493-5f23cad5e2fc",
+            "id": "<resource-id>",
             "type": "filebeat",
-            "ephemeral_id": "ac2baa06-2914-4922-baf1-a0964c1d0263",
+            "ephemeral_id": "<resource-id>",
             "version": "8.19.0"
           },
           "@timestamp": "2026-10-19T19:56:12.810Z",
@@ -284,8 +284,8 @@
           },
           "agent": {
             "name": "otus-dz07-es3",
-            "id": "5a5c92f8-c927-4331-a493-5f23cad5e2fc",
-            "ephemeral_id": "ac2baa06-2914-4922-baf1-a0964c1d0263",
+            "id": "<resource-id>",
+            "ephemeral_id": "<resource-id>",
             "type": "filebeat",
             "version": "8.19.0"
           },
@@ -345,8 +345,8 @@
         "_source": {
           "agent": {
             "name": "otus-dz07-es1",
-            "id": "70d84125-e49e-40a2-8495-6f6afd536e07",
-            "ephemeral_id": "6387be54-951f-4db4-a67a-15c6b3f81ec9",
+            "id": "<resource-id>",
+            "ephemeral_id": "<resource-id>",
             "type": "filebeat",
             "version": "8.19.0"
           },
@@ -432,9 +432,9 @@
         "_source": {
           "agent": {
             "name": "otus-dz07-es1",
-            "id": "70d84125-e49e-40a2-8495-6f6afd536e07",
+            "id": "<resource-id>",
             "type": "filebeat",
-            "ephemeral_id": "6387be54-951f-4db4-a67a-15c6b3f81ec9",
+            "ephemeral_id": "<resource-id>",
             "version": "8.19.0"
           },
           "nginx": {
@@ -524,8 +524,8 @@
           },
           "agent": {
             "name": "otus-dz07-es2",
-            "id": "022ab05b-1719-45e0-8147-d0bd8c5975d9",
-            "ephemeral_id": "81969c75-83f0-4ec3-9258-e2c92eee18c8",
+            "id": "<resource-id>",
+            "ephemeral_id": "<resource-id>",
             "type": "filebeat",
             "version": "8.19.0"
           },
@@ -586,8 +586,8 @@
           },
           "agent": {
             "name": "otus-dz07-es2",
-            "id": "022ab05b-1719-45e0-8147-d0bd8c5975d9",
-            "ephemeral_id": "81969c75-83f0-4ec3-9258-e2c92eee18c8",
+            "id": "<resource-id>",
+            "ephemeral_id": "<resource-id>",
             "type": "filebeat",
             "version": "8.19.0"
           },
@@ -650,8 +650,8 @@
         "_source": {
           "agent": {
             "name": "otus-dz07-es2",
-            "id": "022ab05b-1719-45e0-8147-d0bd8c5975d9",
-            "ephemeral_id": "81969c75-83f0-4ec3-9258-e2c92eee18c8",
+            "id": "<resource-id>",
+            "ephemeral_id": "<resource-id>",
             "type": "filebeat",
             "version": "8.19.0"
           },
@@ -738,7 +738,7 @@
               }
             }
           },
-          "message": "{\"log.level\":\"info\",\"@timestamp\":\"2026-10-19T19:56:15.560Z\",\"log.logger\":\"monitoring\",\"log.origin\":{\"function\":\"github.com/elastic/beats/v7/libbeat/monitoring/report/log.(*reporter).logSnapshot\",\"file.name\":\"log/log.go\",\"file.line\":192},\"message\":\"Non-zero metrics in the last 30s\",\"service.name\":\"filebeat\",\"monitoring\":{\"metrics\":{\"beat\":{\"cgroup\":{\"memory\":{\"mem\":{\"usage\":{\"bytes\":90931200}}}},\"cpu\":{\"system\":{\"ticks\":180,\"time\":{\"ms\":30}},\"total\":{\"ticks\":850,\"time\":{\"ms\":180},\"value\":850},\"user\":{\"ticks\":670,\"time\":{\"ms\":150}}},\"handles\":{\"limit\":{\"hard\":524288,\"soft\":524287},\"open\":19},\"info\":{\"ephemeral_id\":\"81969c75-83f0-4ec3-9258-e2c92eee18c8\",\"uptime\":{\"ms\":60081},\"version\":\"8.19.0\"},\"memstats\":{\"gc_next\":51737802,\"memory_alloc\":30347560,\"memory_sys\":524288,\"memory_total\":130054648,\"rss\":177696768},\"runtime\":{\"goroutines\":64}},\"filebeat\":{\"events\":{\"active\":0,\"added\":653,\"done\":653},\"harvester\":{\"open_files\":4,\"running\":4}},\"libbeat\":{\"config\":{\"module\":{\"running\":0}},\"output\":{\"events\":{\"acked\":653,\"active\":0,\"batches\":74,\"total\":653},\"read\":{\"bytes\":28098,\"errors\":5},\"write\":{\"bytes\":158837,\"latency\":{\"histogram\":{\"count\":92,\"max\":3557,\"mean\":239.83695652173913,\"median\":48,\"min\":13,\"p75\":77.75,\"p95\":1893.0499999999995,\"p99\":3557,\"p999\":3557,\"stddev\":610.3948521987529}}}},\"pipeline\":{\"clients\":5,\"events\":{\"active\":0,\"published\":653,\"total\":653},\"queue\":{\"added\":{\"bytes\":705547,\"events\":653},\"consumed\":{\"bytes\":705547,\"events\":653},\"filled\":{\"bytes\":4419626,\"events\":3602,\"pct\":0.00863208203125},\"max_bytes\":512000000,\"max_events\":0}}},\"registrar\":{\"states\":{\"current\":0}},\"system\":{\"load\":{\"1\":1.14,\"15\":0.26,\"5\":0.49,\"norm\":{\"1\":0.57,\"15\":0.13,\"5\":0.245}}}},\"ecs.version\":\"1.6.0\"}}",
+          "message": "{\"log.level\":\"info\",\"@timestamp\":\"2026-10-19T19:56:15.560Z\",\"log.logger\":\"monitoring\",\"log.origin\":{\"function\":\"github.com/elastic/beats/v7/libbeat/monitoring/report/log.(*reporter).logSnapshot\",\"file.name\":\"log/log.go\",\"file.line\":192},\"message\":\"Non-zero metrics in the last 30s\",\"service.name\":\"filebeat\",\"monitoring\":{\"metrics\":{\"beat\":{\"cgroup\":{\"memory\":{\"mem\":{\"usage\":{\"bytes\":90931200}}}},\"cpu\":{\"system\":{\"ticks\":180,\"time\":{\"ms\":30}},\"total\":{\"ticks\":850,\"time\":{\"ms\":180},\"value\":850},\"user\":{\"ticks\":670,\"time\":{\"ms\":150}}},\"handles\":{\"limit\":{\"hard\":524288,\"soft\":524287},\"open\":19},\"info\":{\"ephemeral_id\":\"<resource-id>\",\"uptime\":{\"ms\":60081},\"version\":\"8.19.0\"},\"memstats\":{\"gc_next\":51737802,\"memory_alloc\":30347560,\"memory_sys\":524288,\"memory_total\":130054648,\"rss\":177696768},\"runtime\":{\"goroutines\":64}},\"filebeat\":{\"events\":{\"active\":0,\"added\":653,\"done\":653},\"harvester\":{\"open_files\":4,\"running\":4}},\"libbeat\":{\"config\":{\"module\":{\"running\":0}},\"output\":{\"events\":{\"acked\":653,\"active\":0,\"batches\":74,\"total\":653},\"read\":{\"bytes\":28098,\"errors\":5},\"write\":{\"bytes\":158837,\"latency\":{\"histogram\":{\"count\":92,\"max\":3557,\"mean\":239.83695652173913,\"median\":48,\"min\":13,\"p75\":77.75,\"p95\":1893.0499999999995,\"p99\":3557,\"p999\":3557,\"stddev\":610.3948521987529}}}},\"pipeline\":{\"clients\":5,\"events\":{\"active\":0,\"published\":653,\"total\":653},\"queue\":{\"added\":{\"bytes\":705547,\"events\":653},\"consumed\":{\"bytes\":705547,\"events\":653},\"filled\":{\"bytes\":4419626,\"events\":3602,\"pct\":0.00863208203125},\"max_bytes\":512000000,\"max_events\":0}}},\"registrar\":{\"states\":{\"current\":0}},\"system\":{\"load\":{\"1\":1.14,\"15\":0.26,\"5\":0.49,\"norm\":{\"1\":0.57,\"15\":0.13,\"5\":0.245}}}},\"ecs.version\":\"1.6.0\"}}",
           "input": {
             "type": "journald"
           },
@@ -819,9 +819,9 @@
         "_source": {
           "agent": {
             "name": "otus-dz07-es1",
-            "id": "70d84125-e49e-40a2-8495-6f6afd536e07",
+            "id": "<resource-id>",
             "type": "filebeat",
-            "ephemeral_id": "6387be54-951f-4db4-a67a-15c6b3f81ec9",
+            "ephemeral_id": "<resource-id>",
             "version": "8.19.0"
           },
           "process": {
@@ -907,7 +907,7 @@
               }
             }
           },
-          "message": "{\"log.level\":\"info\",\"@timestamp\":\"2026-10-19T19:56:14.112Z\",\"log.logger\":\"monitoring\",\"log.origin\":{\"function\":\"github.com/elastic/beats/v7/libbeat/monitoring/report/log.(*reporter).logSnapshot\",\"file.name\":\"log/log.go\",\"file.line\":192},\"message\":\"Non-zero metrics in the last 30s\",\"service.name\":\"filebeat\",\"monitoring\":{\"metrics\":{\"beat\":{\"cgroup\":{\"memory\":{\"mem\":{\"usage\":{\"bytes\":83611648}}}},\"cpu\":{\"system\":{\"ticks\":160,\"time\":{\"ms\":30}},\"total\":{\"ticks\":840,\"time\":{\"ms\":110},\"value\":840},\"user\":{\"ticks\":680,\"time\":{\"ms\":80}}},\"handles\":{\"limit\":{\"hard\":524288,\"soft\":524287},\"open\":18},\"info\":{\"ephemeral_id\":\"6387be54-951f-4db4-a67a-15c6b3f81ec9\",\"uptime\":{\"ms\":60062},\"version\":\"8.19.0\"},\"memstats\":{\"gc_next\":51115178,\"memory_alloc\":30824688,\"memory_sys\":262144,\"memory_total\":124432200,\"rss\":171786240},\"runtime\":{\"goroutines\":61}},\"filebeat\":{\"events\":{\"active\":0,\"added\":150,\"done\":150},\"harvester\":{\"open_files\":3,\"running\":3}},\"libbeat\":{\"config\":{\"module\":{\"running\":0}},\"output\":{\"events\":{\"acked\":150,\"active\":0,\"batches\":34,\"total\":150},\"read\":{\"bytes\":9007,\"errors\":7},\"write\":{\"bytes\":77729,\"latency\":{\"histogram\":{\"count\":45,\"max\":6085,\"mean\":493.64444444444445,\"median\":51,\"min\":17,\"p75\":61.5,\"p95\":3455.6999999999994,\"p99\":6085,\"p999\":6085,\"stddev\":1227.1719277456252}}}},\"pipeline\":{\"clients\":4,\"events\":{\"active\":0,\"published\":150,\"total\":150},\"queue\":{\"added\":{\"bytes\":212855,\"events\":150},\"consumed\":{\"bytes\":212855,\"events\":150},\"filled\":{\"bytes\":3718274,\"events\":2636,\"pct\":0.00726225390625},\"max_bytes\":512000000,\"max_events\":0}}},\"registrar\":{\"states\":{\"current\":0}},\"system\":{\"load\":{\"1\":1.71,\"15\":0.36,\"5\":0.72,\"norm\":{\"1\":0.855,\"15\":0.18,\"5\":0.36}}}},\"ecs.version\":\"1.6.0\"}}",
+          "message": "{\"log.level\":\"info\",\"@timestamp\":\"2026-10-19T19:56:14.112Z\",\"log.logger\":\"monitoring\",\"log.origin\":{\"function\":\"github.com/elastic/beats/v7/libbeat/monitoring/report/log.(*reporter).logSnapshot\",\"file.name\":\"log/log.go\",\"file.line\":192},\"message\":\"Non-zero metrics in the last 30s\",\"service.name\":\"filebeat\",\"monitoring\":{\"metrics\":{\"beat\":{\"cgroup\":{\"memory\":{\"mem\":{\"usage\":{\"bytes\":83611648}}}},\"cpu\":{\"system\":{\"ticks\":160,\"time\":{\"ms\":30}},\"total\":{\"ticks\":840,\"time\":{\"ms\":110},\"value\":840},\"user\":{\"ticks\":680,\"time\":{\"ms\":80}}},\"handles\":{\"limit\":{\"hard\":524288,\"soft\":524287},\"open\":18},\"info\":{\"ephemeral_id\":\"<resource-id>\",\"uptime\":{\"ms\":60062},\"version\":\"8.19.0\"},\"memstats\":{\"gc_next\":51115178,\"memory_alloc\":30824688,\"memory_sys\":262144,\"memory_total\":124432200,\"rss\":171786240},\"runtime\":{\"goroutines\":61}},\"filebeat\":{\"events\":{\"active\":0,\"added\":150,\"done\":150},\"harvester\":{\"open_files\":3,\"running\":3}},\"libbeat\":{\"config\":{\"module\":{\"running\":0}},\"output\":{\"events\":{\"acked\":150,\"active\":0,\"batches\":34,\"total\":150},\"read\":{\"bytes\":9007,\"errors\":7},\"write\":{\"bytes\":77729,\"latency\":{\"histogram\":{\"count\":45,\"max\":6085,\"mean\":493.64444444444445,\"median\":51,\"min\":17,\"p75\":61.5,\"p95\":3455.6999999999994,\"p99\":6085,\"p999\":6085,\"stddev\":1227.1719277456252}}}},\"pipeline\":{\"clients\":4,\"events\":{\"active\":0,\"published\":150,\"total\":150},\"queue\":{\"added\":{\"bytes\":212855,\"events\":150},\"consumed\":{\"bytes\":212855,\"events\":150},\"filled\":{\"bytes\":3718274,\"events\":2636,\"pct\":0.00726225390625},\"max_bytes\":512000000,\"max_events\":0}}},\"registrar\":{\"states\":{\"current\":0}},\"system\":{\"load\":{\"1\":1.71,\"15\":0.36,\"5\":0.72,\"norm\":{\"1\":0.855,\"15\":0.18,\"5\":0.36}}}},\"ecs.version\":\"1.6.0\"}}",
           "input": {
             "type": "journald"
           },

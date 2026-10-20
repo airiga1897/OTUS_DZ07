@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-10-19T19:58:55.595830+00:00",
+  "checked_at_utc": "2026-10-20T10:41:53.135372+00:00",
   "completed": true,
   "provider": "Selectel",
   "live_elasticsearch_verified": true,
@@ -15,6 +15,5 @@
     "yc-cleanup.json",
     "selectel-cleanup.json"
   ],
-  "operator_file_retained": true,
-  "operator_retention": "Until documentation agreement and PR; never publish"
+  "operator_file_retained": false
 }
