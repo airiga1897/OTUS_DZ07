@@ -9,7 +9,8 @@
 | Поступление и отображение | [Проверки](../scripts/observability.py), [Kibana](../ansible/roles/kibana/tasks/main.yml) | [API подтвердил](logs-verification.json) доступность Kibana, представление `otus-logs` и дешборд; проверены документы всех источников |
 | Скрипты, примеры логов, README | [README](../README.md), [сценарии](../scripts/lab.py), [роли](../ansible/site.yml) | [Реальные обезличенные примеры](logs-verification.json), [инструкция Releases](releases.md), [подтверждение удаления](cleanup-result.json) |
 
-Облачный test-cycle использовал доставку S3. Чистый клон с Releases проверен
-локально без S3; опубликованный выпуск требует отдельного облачного испытания.
+[Опубликованный Release](release-public-verification.json) проверен из чистого клона.
+[Облачный прогон](release-cloud-acceptance.json) без S3 подтвердил обычный verify,
+полный test-cycle с повторным deploy и подтверждённую очистку.
 Управляемый балансировщик Selectel и сбор его логов
 не используются; требование балансировщика покрывает собственный HAProxy.

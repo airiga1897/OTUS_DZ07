@@ -1,0 +1,78 @@
+{
+  "started_utc": "2026-11-01T10:46:44.823734+00:00",
+  "delivery": "release",
+  "normal_verify": true,
+  "test_cycle": true,
+  "power_tests": false,
+  "es4": false,
+  "steps": [
+    {
+      "action": "deploy",
+      "exit_code": 0,
+      "finished_utc": "2026-11-01T11:11:43.357171+00:00"
+    },
+    {
+      "action": "verify",
+      "exit_code": 0,
+      "finished_utc": "2026-11-01T11:11:53.867614+00:00"
+    },
+    {
+      "action": "open",
+      "exit_code": 0,
+      "finished_utc": "2026-11-01T11:11:54.950969+00:00"
+    },
+    {
+      "action": "destroy",
+      "exit_code": 0,
+      "finished_utc": "2026-11-01T11:15:17.126280+00:00"
+    },
+    {
+      "action": "test-cycle",
+      "exit_code": 0,
+      "finished_utc": "2026-11-01T11:48:02.248008+00:00"
+    },
+    {
+      "action": "destroy",
+      "exit_code": 0,
+      "finished_utc": "2026-11-01T11:49:14.483970+00:00"
+    }
+  ],
+  "success": true,
+  "s3_credentials_available": false,
+  "ordinary_cleanup": {
+    "success": true,
+    "staged": true,
+    "managed_remaining": 0,
+    "pools_audited": [
+      "ru-2"
+    ],
+    "global_router_remaining": 0
+  },
+  "final_cleanup": {
+    "success": true,
+    "staged": true,
+    "empty_without_context": true,
+    "pools_audited": [
+      "gis-1",
+      "gis-2",
+      "ke-1",
+      "kz-1",
+      "ru-1",
+      "ru-2",
+      "ru-3",
+      "ru-4",
+      "ru-5",
+      "ru-6",
+      "ru-7",
+      "ru-8",
+      "ru-9",
+      "uz-1",
+      "uz-2"
+    ],
+    "global_router_remaining": 0,
+    "managed_remaining": 0,
+    "local_state_empty_verified": true
+  },
+  "finished_utc": "2026-11-01T11:49:14.489273+00:00",
+  "aggregate_validation": "Successful command exit codes, test-cycle assertions, empty local state and API namespace audit"
+}

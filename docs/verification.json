@@ -1,6 +1,6 @@
 {
   "mode": "baseline",
-  "run_id": "d923a88a0baf429bbbd437ba00b18ed5",
+  "run_id": "615d10c112e34bfd9ed73f94137e15bf",
   "leader": "app",
   "members": {
     "app": {
@@ -15,8 +15,8 @@
   "new_write_succeeded": true,
   "new_record": {
     "id": 11,
-    "slug": "baseline-6ed4b40552fc4e4387d60ea3123f200a",
-    "body": "committed-948c53b12be8417182b7fe3d4aebe604"
+    "slug": "baseline-b408935d6aa74765842abe3930f89966",
+    "body": "committed-08f7106aecbc4d1d9e65ed4a9205d21b"
   },
   "preserved_records": [],
   "replica_records_verified": false,
@@ -29,7 +29,7 @@
     "status": "loaded",
     "loaded_now": false,
     "articles": 8,
-    "fixture_sha256": "f3c16fd7bedc87fff00e85168fce6546816cef729b8af1e26af7d0ad3039f807",
+    "fixture_sha256": "f0710640b07783fd6c7cf6d9b11a75874fd2cbfecbdf91f1853d5ddde4cdf9ff",
     "source": "bundled_DZ04_materials_fixture"
   }
 }

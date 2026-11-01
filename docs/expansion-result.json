@@ -4,7 +4,7 @@
   "added_nodes": [],
   "verification": {
     "mode": "expanded",
-    "run_id": "ccb2a8fb93134bdc9a9602d036295ea6",
+    "run_id": "83914ee6c7d64247b89bdb72cac2026b",
     "leader": "app",
     "members": {
       "app": {
@@ -19,14 +19,14 @@
     "new_write_succeeded": true,
     "new_record": {
       "id": 10,
-      "slug": "expanded-be6f94c0dcfb44d9a6972c30da27843d",
-      "body": "committed-f5af622c925948689efc9a7402ce5c42"
+      "slug": "expanded-d6057c683cdc48ee9db6d8e2a79f89e8",
+      "body": "committed-cdd364dc8fa847d99c246ee1cd83b775"
     },
     "preserved_records": [
       {
         "id": 8,
-        "slug": "baseline-32fbc97ad2484ae096d662fd0892ad6e",
-        "body": "committed-49681d9a642242df9d6406759dca822e"
+        "slug": "baseline-aa491bac8f614dce9c1805a353bf1fa8",
+        "body": "committed-84be9b2a6c634e16af13e328915b07af"
       }
     ],
     "replica_records_verified": true,
@@ -39,7 +39,7 @@
       "status": "loaded",
       "loaded_now": false,
       "articles": 8,
-      "fixture_sha256": "f3c16fd7bedc87fff00e85168fce6546816cef729b8af1e26af7d0ad3039f807",
+      "fixture_sha256": "f0710640b07783fd6c7cf6d9b11a75874fd2cbfecbdf91f1853d5ddde4cdf9ff",
       "source": "bundled_DZ04_materials_fixture"
     },
     "elasticsearch": {

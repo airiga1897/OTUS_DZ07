@@ -1,6 +1,6 @@
 {
-  "run_id": "d2c038394a9d4d3ca73027debdd8ec12",
-  "started_utc": "2026-10-31T20:15:22.610343+00:00",
+  "run_id": "acc23ab9985e4505bdd67957076e0e30",
+  "started_utc": "2026-11-01T11:16:23.921788+00:00",
   "success": true,
   "stages_completed": true,
   "state_and_api_cleanup_verified": true,
@@ -27,13 +27,5 @@
   "elasticsearch_documents_preserved": true,
   "application_and_logs_verified": true,
   "original_data_and_media_preserved": true,
-  "finished_utc": "2026-10-31T20:45:57.702721+00:00",
-  "pools": [
-    "ru-2"
-  ],
-  "fallback_to_other_pools_allowed": false,
-  "reviewed_ru2_build_verified": true,
-  "power_failure_tests_performed": false,
-  "es4_added": false,
-  "publication_performed": false
+  "finished_utc": "2026-11-01T11:48:02.095453+00:00"
 }

@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-01",
+  "release": "https://github.com/airiga1897/OTUS_DZ07/releases/tag/v1.0.0",
+  "source_commit": "741fc4998be7b6e65ea8611a0d29c6ca2d93f3e1",
+  "reviewer_branch_commit": "aad1629b29d99876fc8cd23c26259d8e9b99465c",
+  "published_assets": 7,
+  "remote_names_and_sizes_verified": true,
+  "packages_verified_against_pinned_official_sha512": true,
+  "clean_public_clone": true,
+  "setup_ps1_succeeded": true,
+  "setup_python": "3.14.2",
+  "full_offline_test_python": "3.12.14",
+  "terraform": "1.16.3",
+  "terraform_providers_downloaded_and_lock_verified": true,
+  "public_manifest_downloaded_and_sha512_verified": true,
+  "s3_credentials_used": false,
+  "cloud_resources_created_by_clone_check": false,
+  "cloud_acceptance_report": "release-cloud-acceptance.json"
+}

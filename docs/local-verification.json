@@ -84,13 +84,12 @@
   "ansible_executed_on_linux": false,
   "visual_kibana_check": false,
   "limitations": [
-    "Local checks do not establish cloud operability.",
-    "The current cloud cycle completed initial Ansible, portal/SQL/media, Elasticsearch green health and checkpoint writes, and Kibana object setup. Repeat deploy was blocked by computed VM, port and floating-IP refresh; final log-source and Kibana acceptance did not run.",
-    "The boot attachment refresh was accepted, but other computed refresh fields still require a separately validated narrow policy.",
-    "GitHub Releases delivery is not prepared or published."
+    "Local checks do not establish cloud operability; see the separate release cloud acceptance report.",
+    "Optional ES failover, es4 expansion, deliberate connection interruption and multi-pool connectivity have local coverage but no successful cloud acceptance in this release.",
+    "Kibana availability, data view and dashboard are checked through its API; browser rendering is not claimed."
   ],
   "distributed_placement_implemented": true,
-  "distributed_placement_cloud_verified": true,
+  "distributed_placement_cloud_verified": false,
   "coverage": {
     "date": "2026-11-01",
     "line_percent": 100.0,
@@ -125,5 +124,7 @@
   },
   "cursor_review_resolution": "cursor-review-resolution.json",
   "cursor_full_review_adoption": "cursor-full-review-adoption.json",
-  "separate_ru2_cloud_report": "ru2-test-cycle-summary.json"
+  "separate_ru2_cloud_report": "ru2-test-cycle-summary.json",
+  "separate_single_pool_cloud_report": "release-cloud-acceptance.json",
+  "separate_public_release_report": "release-public-verification.json"
 }

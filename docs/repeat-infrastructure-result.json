@@ -1,15 +1,10 @@
 {
-  "run_id": "bc260f2b15ae44e284b87abf4fabb495",
+  "run_id": "acc23ab9985e4505bdd67957076e0e30",
   "success": true,
-  "scope": "Terraform infrastructure reapply only; repeated Ansible and application verification did not finish",
-  "existing_stage_zero_change_apply_observed": {
-    "app": true,
-    "network-ru-9": true,
-    "global": true,
-    "connection-ru-9": true,
-    "es1": true,
-    "es2": true,
-    "es3": true
-  },
-  "publication_performed": false
+  "scope": "Full repeated Terraform and Ansible deployment with application and Elasticsearch preservation checks",
+  "existing_ids_preserved": true,
+  "repeat_deploy_verified": true,
+  "elasticsearch_documents_preserved": true,
+  "original_data_and_media_preserved": true,
+  "report": "release-cloud-acceptance.json"
 }

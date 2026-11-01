@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-10-31T20:42:16.068865+00:00",
+  "checked_at_utc": "2026-11-01T11:44:04.960247+00:00",
   "health": {
     "cluster_name": "otus-dz07",
     "status": "green",
@@ -18,9 +18,9 @@
     "task_max_waiting_in_queue_millis": 0,
     "active_shards_percent_as_number": 100.0
   },
-  "cluster_uuid": "s21_tXUAQwioWdQPwtY5rg",
+  "cluster_uuid": "7deHcTyTTPaTgW2GHGyPxQ",
   "counts": {
-    "took": 95,
+    "took": 109,
     "timed_out": false,
     "_shards": {
       "total": 1,
@@ -43,27 +43,27 @@
         "buckets": [
           {
             "key": "system",
-            "doc_count": 11398
+            "doc_count": 11494
           },
           {
             "key": "elasticsearch",
-            "doc_count": 4469
+            "doc_count": 4457
           },
           {
             "key": "django",
-            "doc_count": 1055
+            "doc_count": 1024
           },
           {
             "key": "nginx",
-            "doc_count": 652
+            "doc_count": 655
           },
           {
             "key": "kibana",
-            "doc_count": 266
+            "doc_count": 265
           },
           {
             "key": "haproxy",
-            "doc_count": 62
+            "doc_count": 48
           },
           {
             "key": "postgresql",
@@ -77,51 +77,51 @@
         "buckets": [
           {
             "key": "otus-dz07-app",
-            "doc_count": 7680
-          },
-          {
-            "key": "otus-dz07-es2",
-            "doc_count": 4086
+            "doc_count": 7544
           },
           {
             "key": "otus-dz07-es1",
-            "doc_count": 3307
+            "doc_count": 4374
+          },
+          {
+            "key": "otus-dz07-es2",
+            "doc_count": 3207
           },
           {
             "key": "otus-dz07-es3",
-            "doc_count": 2869
+            "doc_count": 2858
           }
         ]
       }
     }
   },
   "source_counts": {
-    "app/system": 5605,
-    "app/nginx": 652,
-    "app/haproxy": 62,
+    "app/system": 5512,
+    "app/nginx": 655,
+    "app/haproxy": 48,
     "app/postgresql": 40,
-    "app/django": 1055,
-    "app/kibana": 266,
-    "es1/system": 2029,
-    "es1/elasticsearch": 1278,
-    "es2/system": 1880,
-    "es2/elasticsearch": 2206,
-    "es3/system": 1884,
-    "es3/elasticsearch": 985
+    "app/django": 1024,
+    "app/kibana": 265,
+    "es1/system": 2141,
+    "es1/elasticsearch": 2233,
+    "es2/system": 1959,
+    "es2/elasticsearch": 1248,
+    "es3/system": 1882,
+    "es3/elasticsearch": 976
   },
-  "parsed_nginx_count": 652,
+  "parsed_nginx_count": 655,
   "samples": {
     "django": [
       {
-        "_index": "logs-otus-2026.10.31",
-        "_id": "GB2yk6EBBw5p4j7p2oEv",
+        "_index": "logs-otus-2026.11.01",
+        "_id": "de_slqEBeDsCJ4llf72D",
         "_score": null,
         "_source": {
           "agent": {
             "name": "otus-dz07-app",
             "id": "<resource-id>",
-            "type": "filebeat",
             "ephemeral_id": "<resource-id>",
+            "type": "filebeat",
             "version": "8.19.0"
           },
           "process": {
@@ -140,14 +140,14 @@
               "--need-app",
               "--die-on-term"
             ],
-            "pid": 10761,
+            "pid": 10763,
             "args_count": 13,
             "command_line": "/opt/otus-dz07/venv/bin/uwsgi --http-socket 127.0.0.1:8080 --module config.wsgi:application --master --processes 2 --threads 2 --enable-threads --need-app --die-on-term"
           },
           "systemd": {
             "unit": "otus-dz07.service",
             "slice": "system.slice",
-            "invocation_id": "adb912a023d146ae97730e5d85a3de89",
+            "invocation_id": "43244e6550f744abac19bfd9be42d6a9",
             "transport": "stdout",
             "cgroup": "/system.slice/otus-dz07.service"
           },
@@ -164,7 +164,7 @@
           "input": {
             "type": "journald"
           },
-          "@timestamp": "2026-10-31T20:42:14.003Z",
+          "@timestamp": "2026-11-01T11:44:03.670Z",
           "ecs": {
             "version": "8.0.0"
           },
@@ -177,20 +177,20 @@
               "kernel": "6.8.0-110-generic",
               "codename": "noble",
               "name": "Ubuntu",
-              "family": "debian",
               "type": "linux",
+              "family": "debian",
               "version": "24.04.4 LTS (Noble Numbat)",
               "platform": "ubuntu"
             },
+            "containerized": false,
             "ip": [
               "10.111.69.10",
-              "fe80::f816:3eff:fe98:1329"
+              "fe80::f816:3eff:fe05:14b9"
             ],
-            "containerized": false,
             "name": "otus-dz07-app",
-            "id": "5ed997e0dc7940e2ad00377f6376d2b3",
+            "id": "86e80ca33c6e46daadc34374bd3f71c6",
             "mac": [
-              "FA-16-3E-98-13-29"
+              "FA-16-3E-05-14-B9"
             ],
             "architecture": "x86_64"
           },
@@ -199,25 +199,25 @@
             "process": {
               "capabilities": "0",
               "name": "uwsgi",
-              "command_line": "/opt/otus-dz07/venv/bin/uwsgi --http-socket 127.0.0.1:8080 --module config.wsgi:application --master --processes 2 --threads 2 --enable-threads --need-app --die-on-term",
-              "executable": "/opt/otus-dz07/venv/bin/uwsgi"
+              "executable": "/opt/otus-dz07/venv/bin/uwsgi",
+              "command_line": "/opt/otus-dz07/venv/bin/uwsgi --http-socket 127.0.0.1:8080 --module config.wsgi:application --master --processes 2 --threads 2 --enable-threads --need-app --die-on-term"
             },
             "gid": 989,
             "custom": {
               "runtime_scope": "system",
-              "stream_id": "adadd96fb34541c3b0ac007c87ab0ffe",
-              "seqnum": "5978",
+              "stream_id": "93dba658d1814413a67431ed67c99cc4",
+              "seqnum": "5975",
               "selinux_context": "unconfined\n",
-              "seqnum_id": "3e1d5d8c31cd46ce831832c6ceead0a4"
+              "seqnum_id": "7437c60f8667411783dd961e731b1450"
             },
             "host": {
-              "boot_id": "6b107057997b43aab34afc3ef5263b2e"
+              "boot_id": "6f29615a5d414044b43a175ec9fda391"
             },
-            "pid": 10761
+            "pid": 10763
           },
           "event": {
             "kind": "event",
-            "created": "2026-10-31T20:42:14.438Z",
+            "created": "2026-11-01T11:44:03.959Z",
             "dataset": "django"
           },
           "user": {
@@ -228,12 +228,12 @@
           }
         },
         "sort": [
-          1793479334003
+          1793533443670
         ]
       },
       {
-        "_index": "logs-otus-2026.10.31",
-        "_id": "SSSyk6EBUmJBHj8H2jQy",
+        "_index": "logs-otus-2026.11.01",
+        "_id": "OcHslqEBwz3ng7YRf3aI",
         "_score": null,
         "_source": {
           "process": {
@@ -252,7 +252,7 @@
               "--need-app",
               "--die-on-term"
             ],
-            "pid": 10761,
+            "pid": 10763,
             "args_count": 13,
             "command_line": "/opt/otus-dz07/venv/bin/uwsgi --http-socket 127.0.0.1:8080 --module config.wsgi:application --master --processes 2 --threads 2 --enable-threads --need-app --die-on-term"
           },
@@ -266,7 +266,7 @@
           "systemd": {
             "unit": "otus-dz07.service",
             "slice": "system.slice",
-            "invocation_id": "adb912a023d146ae97730e5d85a3de89",
+            "invocation_id": "43244e6550f744abac19bfd9be42d6a9",
             "transport": "stdout",
             "cgroup": "/system.slice/otus-dz07.service"
           },
@@ -279,11 +279,11 @@
               }
             }
           },
-          "message": "[pid: 10761|app: 0|req: 188/411] 127.0.0.1 () {22 vars in 250 bytes} [Sat Oct 31 23:42:13 2026] GET /health/ready => generated 44 bytes in 21 msecs (HTTP/1.0 200) 6 headers in 198 bytes (1 switches on core 1)",
+          "message": "[pid: 10763|app: 0|req: 202/416] 127.0.0.1 () {22 vars in 250 bytes} [Sun Nov  1 14:44:03 2026] GET /health/ready => generated 44 bytes in 20 msecs (HTTP/1.0 200) 6 headers in 198 bytes (1 switches on core 1)",
           "input": {
             "type": "journald"
           },
-          "@timestamp": "2026-10-31T20:42:14.003Z",
+          "@timestamp": "2026-11-01T11:44:03.670Z",
           "ecs": {
             "version": "8.0.0"
           },
@@ -296,27 +296,22 @@
               "kernel": "6.8.0-110-generic",
               "codename": "noble",
               "name": "Ubuntu",
-              "type": "linux",
               "family": "debian",
+              "type": "linux",
               "version": "24.04.4 LTS (Noble Numbat)",
               "platform": "ubuntu"
             },
             "containerized": false,
             "ip": [
               "10.111.69.10",
-              "fe80::f816:3eff:fe98:1329"
+              "fe80::f816:3eff:fe05:14b9"
             ],
             "name": "otus-dz07-app",
-            "id": "5ed997e0dc7940e2ad00377f6376d2b3",
+            "id": "86e80ca33c6e46daadc34374bd3f71c6",
             "mac": [
-              "FA-16-3E-98-13-29"
+              "FA-16-3E-05-14-B9"
             ],
             "architecture": "x86_64"
-          },
-          "event": {
-            "kind": "event",
-            "created": "2026-10-31T20:42:14.438Z",
-            "dataset": "django"
           },
           "journald": {
             "uid": 999,
@@ -329,15 +324,20 @@
             "gid": 989,
             "custom": {
               "runtime_scope": "system",
-              "stream_id": "adadd96fb34541c3b0ac007c87ab0ffe",
-              "seqnum": "5979",
+              "stream_id": "93dba658d1814413a67431ed67c99cc4",
+              "seqnum": "5976",
               "selinux_context": "unconfined\n",
-              "seqnum_id": "3e1d5d8c31cd46ce831832c6ceead0a4"
+              "seqnum_id": "7437c60f8667411783dd961e731b1450"
             },
             "host": {
-              "boot_id": "6b107057997b43aab34afc3ef5263b2e"
+              "boot_id": "6f29615a5d414044b43a175ec9fda391"
             },
-            "pid": 10761
+            "pid": 10763
+          },
+          "event": {
+            "kind": "event",
+            "created": "2026-11-01T11:44:03.960Z",
+            "dataset": "django"
           },
           "user": {
             "id": "999",
@@ -347,14 +347,14 @@
           }
         },
         "sort": [
-          1793479334003
+          1793533443670
         ]
       }
     ],
     "elasticsearch": [
       {
-        "_index": "logs-otus-2026.10.31",
-        "_id": "OSSyk6EBUmJBHj8H1zRE",
+        "_index": "logs-otus-2026.11.01",
+        "_id": "qiTslqEB0gdNZXkCVRFn",
         "_score": null,
         "_ignored": [
           "message.keyword"
@@ -364,29 +364,29 @@
             "type": "filestream"
           },
           "agent": {
-            "name": "otus-dz07-es2",
+            "name": "otus-dz07-es3",
             "id": "<resource-id>",
             "ephemeral_id": "<resource-id>",
             "type": "filebeat",
             "version": "8.19.0"
           },
-          "@timestamp": "2026-10-31T20:42:13.686Z",
+          "@timestamp": "2026-11-01T11:43:53.176Z",
           "ecs": {
             "version": "8.0.0"
           },
           "log": {
             "file": {
-              "inode": "260266",
+              "inode": "260157",
               "path": "/var/log/elasticsearch/otus-dz07.log",
               "device_id": "2049"
             },
-            "offset": 109657
+            "offset": 24032
           },
           "service": {
             "name": "elasticsearch"
           },
           "host": {
-            "hostname": "otus-dz07-es2",
+            "hostname": "otus-dz07-es3",
             "os": {
               "kernel": "6.8.0-110-generic",
               "codename": "noble",
@@ -398,28 +398,28 @@
             },
             "containerized": false,
             "ip": [
-              "10.111.69.32",
-              "fe80::f816:3eff:fe45:3da3"
+              "10.111.69.33",
+              "fe80::f816:3eff:fe35:3e40"
             ],
-            "name": "otus-dz07-es2",
-            "id": "31fa5126fa07481784764d255351ad8e",
+            "name": "otus-dz07-es3",
+            "id": "c8f1fd65ec6d4da385ebd682420342f2",
             "mac": [
-              "FA-16-3E-45-3D-A3"
+              "FA-16-3E-35-3E-40"
             ],
             "architecture": "x86_64"
           },
-          "message": "[2026-10-31T20:42:13,385][INFO ][o.e.t.LoggingTaskListener] [es2] 6745 finished with response BulkByScrollResponse[took=11.3ms,timed_out=false,sliceId=null,updated=0,created=0,deleted=0,batches=0,versionConflicts=0,noops=0,retries=0,throttledUntil=0s,bulk_failures=[],search_failures=[]]",
+          "message": "[2026-11-01T11:43:50,093][INFO ][o.e.t.LoggingTaskListener] [es3] 7983 finished with response BulkByScrollResponse[took=7.8ms,timed_out=false,sliceId=null,updated=0,created=0,deleted=0,batches=0,versionConflicts=0,noops=0,retries=0,throttledUntil=0s,bulk_failures=[],search_failures=[]]",
           "event": {
             "dataset": "elasticsearch"
           }
         },
         "sort": [
-          1793479333686
+          1793533433176
         ]
       },
       {
-        "_index": "logs-otus-2026.10.31",
-        "_id": "DR2yk6EBBw5p4j7p14FI",
+        "_index": "logs-otus-2026.11.01",
+        "_id": "MO_slqEBeDsCJ4llVb1f",
         "_score": null,
         "_ignored": [
           "message.keyword"
@@ -429,64 +429,64 @@
             "type": "filestream"
           },
           "agent": {
-            "name": "otus-dz07-es2",
+            "name": "otus-dz07-es3",
             "id": "<resource-id>",
-            "ephemeral_id": "<resource-id>",
             "type": "filebeat",
+            "ephemeral_id": "<resource-id>",
             "version": "8.19.0"
           },
-          "@timestamp": "2026-10-31T20:42:13.686Z",
+          "@timestamp": "2026-11-01T11:43:53.175Z",
           "ecs": {
             "version": "8.0.0"
           },
           "log": {
             "file": {
-              "inode": "260264",
+              "inode": "260155",
               "path": "/var/log/elasticsearch/otus-dz07_server.json",
               "device_id": "2049"
             },
-            "offset": 343737
+            "offset": 63695
           },
           "service": {
             "name": "elasticsearch"
           },
           "host": {
-            "hostname": "otus-dz07-es2",
+            "hostname": "otus-dz07-es3",
             "os": {
               "kernel": "6.8.0-110-generic",
               "codename": "noble",
               "name": "Ubuntu",
-              "type": "linux",
               "family": "debian",
+              "type": "linux",
               "version": "24.04.4 LTS (Noble Numbat)",
               "platform": "ubuntu"
             },
             "containerized": false,
             "ip": [
-              "10.111.69.32",
-              "fe80::f816:3eff:fe45:3da3"
+              "10.111.69.33",
+              "fe80::f816:3eff:fe35:3e40"
             ],
-            "name": "otus-dz07-es2",
-            "id": "31fa5126fa07481784764d255351ad8e",
+            "name": "otus-dz07-es3",
+            "id": "c8f1fd65ec6d4da385ebd682420342f2",
             "mac": [
-              "FA-16-3E-45-3D-A3"
+              "FA-16-3E-35-3E-40"
             ],
             "architecture": "x86_64"
           },
-          "message": "{\"@timestamp\":\"2026-10-31T20:42:13.385Z\", \"log.level\": \"INFO\", \"message\":\"6745 finished with response BulkByScrollResponse[took=11.3ms,timed_out=false,sliceId=null,updated=0,created=0,deleted=0,batches=0,versionConflicts=0,noops=0,retries=0,throttledUntil=0s,bulk_failures=[],search_failures=[]]\", \"ecs.version\": \"1.2.0\",\"service.name\":\"ES_ECS\",\"event.dataset\":\"elasticsearch.server\",\"process.thread.name\":\"elasticsearch[es2][transport_worker][T#2]\",\"log.logger\":\"org.elasticsearch.tasks.LoggingTaskListener\",\"trace.id\":\"2b2a03143026cc0e32d84e32cd5a27a2\",\"elasticsearch.cluster.uuid\":\"s21_tXUAQwioWdQPwtY5rg\",\"elasticsearch.node.id\":\"II4YM1aFSdSST_logy9GQg\",\"elasticsearch.node.name\":\"es2\",\"elasticsearch.cluster.name\":\"otus-dz07\"}",
+          "message": "{\"@timestamp\":\"2026-11-01T11:43:50.093Z\", \"log.level\": \"INFO\", \"message\":\"7983 finished with response BulkByScrollResponse[took=7.8ms,timed_out=false,sliceId=null,updated=0,created=0,deleted=0,batches=0,versionConflicts=0,noops=0,retries=0,throttledUntil=0s,bulk_failures=[],search_failures=[]]\", \"ecs.version\": \"1.2.0\",\"service.name\":\"ES_ECS\",\"event.dataset\":\"elasticsearch.server\",\"process.thread.name\":\"elasticsearch[es3][transport_worker][T#2]\",\"log.logger\":\"org.elasticsearch.tasks.LoggingTaskListener\",\"trace.id\":\"be51e3813e5e3f41445d6b7d21e88f1b\",\"elasticsearch.cluster.uuid\":\"7deHcTyTTPaTgW2GHGyPxQ\",\"elasticsearch.node.id\":\"YpgrMPrvTeunCII8IzbOkw\",\"elasticsearch.node.name\":\"es3\",\"elasticsearch.cluster.name\":\"otus-dz07\"}",
           "event": {
             "dataset": "elasticsearch"
           }
         },
         "sort": [
-          1793479333686
+          1793533433175
         ]
       }
     ],
     "haproxy": [
       {
-        "_index": "logs-otus-2026.10.31",
-        "_id": "YAyyk6EBU_Jc6FU6zQ40",
+        "_index": "logs-otus-2026.11.01",
+        "_id": "CsHslqEBwz3ng7YRdXYe",
         "_score": null,
         "_source": {
           "input": {
@@ -495,11 +495,11 @@
           "agent": {
             "name": "otus-dz07-app",
             "id": "<resource-id>",
-            "type": "filebeat",
             "ephemeral_id": "<resource-id>",
+            "type": "filebeat",
             "version": "8.19.0"
           },
-          "@timestamp": "2026-10-31T20:42:11.116Z",
+          "@timestamp": "2026-11-01T11:44:01.293Z",
           "ecs": {
             "version": "8.0.0"
           },
@@ -509,7 +509,7 @@
               "path": "/var/log/haproxy.log",
               "device_id": "2049"
             },
-            "offset": 6224
+            "offset": 5261
           },
           "service": {
             "name": "haproxy"
@@ -528,27 +528,27 @@
             "containerized": false,
             "ip": [
               "10.111.69.10",
-              "fe80::f816:3eff:fe98:1329"
+              "fe80::f816:3eff:fe05:14b9"
             ],
             "name": "otus-dz07-app",
-            "id": "5ed997e0dc7940e2ad00377f6376d2b3",
+            "id": "86e80ca33c6e46daadc34374bd3f71c6",
             "mac": [
-              "FA-16-3E-98-13-29"
+              "FA-16-3E-05-14-B9"
             ],
             "architecture": "x86_64"
           },
-          "message": "2026-10-31T20:42:09.913243+00:00 otus-dz07-app haproxy[10693]: 127.0.0.1:44628 [31/Oct/2026:20:42:09.880] site nginx/app 0/0/0/32/32 200 3394 - - ---- 1/1/0/0/0 0/0 \"GET / HTTP/1.1\"",
+          "message": "2026-11-01T11:43:59.269711+00:00 otus-dz07-app haproxy[10690]: 127.0.0.1:46940 [01/Nov/2026:11:43:59.246] site nginx/app 0/0/0/22/22 404 444 - - ---- 1/1/0/0/0 0/0 \"GET /articles/baseline-b408935d6aa74765842abe3930f89966/ HTTP/1.1\"",
           "event": {
             "dataset": "haproxy"
           }
         },
         "sort": [
-          1793479331116
+          1793533441293
         ]
       },
       {
-        "_index": "logs-otus-2026.10.31",
-        "_id": "-B2yk6EBBw5p4j7pzYA4",
+        "_index": "logs-otus-2026.11.01",
+        "_id": "Te_slqEBeDsCJ4lldb0f",
         "_score": null,
         "_source": {
           "input": {
@@ -557,11 +557,11 @@
           "agent": {
             "name": "otus-dz07-app",
             "id": "<resource-id>",
-            "ephemeral_id": "<resource-id>",
             "type": "filebeat",
+            "ephemeral_id": "<resource-id>",
             "version": "8.19.0"
           },
-          "@timestamp": "2026-10-31T20:42:11.116Z",
+          "@timestamp": "2026-11-01T11:44:01.293Z",
           "ecs": {
             "version": "8.0.0"
           },
@@ -571,7 +571,7 @@
               "path": "/var/log/haproxy.log",
               "device_id": "2049"
             },
-            "offset": 6406
+            "offset": 4886
           },
           "service": {
             "name": "haproxy"
@@ -582,59 +582,59 @@
               "kernel": "6.8.0-110-generic",
               "codename": "noble",
               "name": "Ubuntu",
-              "family": "debian",
               "type": "linux",
+              "family": "debian",
               "version": "24.04.4 LTS (Noble Numbat)",
               "platform": "ubuntu"
             },
+            "containerized": false,
             "ip": [
               "10.111.69.10",
-              "fe80::f816:3eff:fe98:1329"
+              "fe80::f816:3eff:fe05:14b9"
             ],
-            "containerized": false,
             "name": "otus-dz07-app",
-            "id": "5ed997e0dc7940e2ad00377f6376d2b3",
+            "id": "86e80ca33c6e46daadc34374bd3f71c6",
             "mac": [
-              "FA-16-3E-98-13-29"
+              "FA-16-3E-05-14-B9"
             ],
             "architecture": "x86_64"
           },
-          "message": "2026-10-31T20:42:09.935842+00:00 otus-dz07-app haproxy[10693]: 127.0.0.1:44640 [31/Oct/2026:20:42:09.914] site nginx/app 0/0/0/21/21 200 293 - - ---- 1/1/0/0/0 0/0 \"GET /health/ready HTTP/1.1\"",
+          "message": "2026-11-01T11:43:59.224982+00:00 otus-dz07-app haproxy[10690]: 127.0.0.1:46924 [01/Nov/2026:11:43:59.198] site nginx/app 0/0/0/25/25 200 3394 - - ---- 1/1/0/0/0 0/0 \"GET / HTTP/1.1\"",
           "event": {
             "dataset": "haproxy"
           }
         },
         "sort": [
-          1793479331116
+          1793533441293
         ]
       }
     ],
     "kibana": [
       {
-        "_index": "logs-otus-2026.10.31",
-        "_id": "_iSyk6EBUmJBHj8HxDPV",
+        "_index": "logs-otus-2026.11.01",
+        "_id": "xu_slqEBeDsCJ4llMrxj",
         "_score": null,
         "_source": {
-          "agent": {
-            "name": "otus-dz07-app",
-            "id": "<resource-id>",
-            "type": "filebeat",
-            "ephemeral_id": "<resource-id>",
-            "version": "8.19.0"
-          },
           "process": {
             "args": [
               "/usr/share/kibana/bin/../node/glibc-217/bin/node",
               "/usr/share/kibana/bin/../src/cli/dist"
             ],
-            "pid": 15089,
+            "pid": 14951,
             "args_count": 2,
             "command_line": "/usr/share/kibana/bin/../node/glibc-217/bin/node /usr/share/kibana/bin/../src/cli/dist"
+          },
+          "agent": {
+            "name": "otus-dz07-app",
+            "id": "<resource-id>",
+            "ephemeral_id": "<resource-id>",
+            "type": "filebeat",
+            "version": "8.19.0"
           },
           "systemd": {
             "unit": "kibana.service",
             "slice": "system.slice",
-            "invocation_id": "baf5d887fcf7471289f0f64a38962e51",
+            "invocation_id": "ae641a5a0033420fba24e1aa510beb2b",
             "transport": "stdout",
             "cgroup": "/system.slice/kibana.service"
           },
@@ -647,11 +647,11 @@
               }
             }
           },
-          "message": "[2026-10-31T20:42:08.822+00:00][WARN ][plugins.usageCollection.usage-collection.collector-set] TypeError: (intermediate value) is not iterable",
+          "message": "[2026-11-01T11:43:43.744+00:00][ERROR][plugins.cloudSecurityPosture] Indices task failed: [cloud_security_posture] package not found in registry",
           "input": {
             "type": "journald"
           },
-          "@timestamp": "2026-10-31T20:42:08.823Z",
+          "@timestamp": "2026-11-01T11:43:43.745Z",
           "ecs": {
             "version": "8.0.0"
           },
@@ -664,22 +664,27 @@
               "kernel": "6.8.0-110-generic",
               "codename": "noble",
               "name": "Ubuntu",
-              "type": "linux",
               "family": "debian",
+              "type": "linux",
               "version": "24.04.4 LTS (Noble Numbat)",
               "platform": "ubuntu"
             },
-            "containerized": false,
             "ip": [
               "10.111.69.10",
-              "fe80::f816:3eff:fe98:1329"
+              "fe80::f816:3eff:fe05:14b9"
             ],
+            "containerized": false,
             "name": "otus-dz07-app",
-            "id": "5ed997e0dc7940e2ad00377f6376d2b3",
+            "id": "86e80ca33c6e46daadc34374bd3f71c6",
             "mac": [
-              "FA-16-3E-98-13-29"
+              "FA-16-3E-05-14-B9"
             ],
             "architecture": "x86_64"
+          },
+          "event": {
+            "kind": "event",
+            "created": "2026-11-01T11:43:44.210Z",
+            "dataset": "kibana"
           },
           "journald": {
             "uid": 108,
@@ -692,20 +697,15 @@
             "gid": 110,
             "custom": {
               "runtime_scope": "system",
-              "stream_id": "4fdaa432fe92415aaa528caaf23fe0b1",
-              "seqnum": "5949",
+              "stream_id": "d02f82107b7c4103b766f547308370b0",
+              "seqnum": "5813",
               "selinux_context": "unconfined\n",
-              "seqnum_id": "3e1d5d8c31cd46ce831832c6ceead0a4"
+              "seqnum_id": "7437c60f8667411783dd961e731b1450"
             },
             "host": {
-              "boot_id": "6b107057997b43aab34afc3ef5263b2e"
+              "boot_id": "6f29615a5d414044b43a175ec9fda391"
             },
-            "pid": 15089
-          },
-          "event": {
-            "kind": "event",
-            "created": "2026-10-31T20:42:08.942Z",
-            "dataset": "kibana"
+            "pid": 14951
           },
           "user": {
             "id": "108",
@@ -715,12 +715,12 @@
           }
         },
         "sort": [
-          1793479328823
+          1793533423745
         ]
       },
       {
-        "_index": "logs-otus-2026.10.31",
-        "_id": "_ySyk6EBUmJBHj8HxDPV",
+        "_index": "logs-otus-2026.11.01",
+        "_id": "QSTslqEB0gdNZXkCMhF2",
         "_score": null,
         "_source": {
           "process": {
@@ -728,21 +728,21 @@
               "/usr/share/kibana/bin/../node/glibc-217/bin/node",
               "/usr/share/kibana/bin/../src/cli/dist"
             ],
-            "pid": 15089,
+            "pid": 14951,
             "args_count": 2,
             "command_line": "/usr/share/kibana/bin/../node/glibc-217/bin/node /usr/share/kibana/bin/../src/cli/dist"
           },
           "agent": {
             "name": "otus-dz07-app",
             "id": "<resource-id>",
-            "type": "filebeat",
             "ephemeral_id": "<resource-id>",
+            "type": "filebeat",
             "version": "8.19.0"
           },
           "systemd": {
             "unit": "kibana.service",
             "slice": "system.slice",
-            "invocation_id": "baf5d887fcf7471289f0f64a38962e51",
+            "invocation_id": "ae641a5a0033420fba24e1aa510beb2b",
             "transport": "stdout",
             "cgroup": "/system.slice/kibana.service"
           },
@@ -755,11 +755,11 @@
               }
             }
           },
-          "message": "    at UsageCollector.fetch (/usr/share/kibana/node_modules/@kbn/cloud-defend-plugin/server/lib/telemetry/collectors/register.js:35:75)",
+          "message": "[2026-11-01T11:43:43.745+00:00][ERROR][plugins.cloudSecurityPosture] PackageNotFoundError: [cloud_security_posture] package not found in registry",
           "input": {
             "type": "journald"
           },
-          "@timestamp": "2026-10-31T20:42:08.823Z",
+          "@timestamp": "2026-11-01T11:43:43.745Z",
           "ecs": {
             "version": "8.0.0"
           },
@@ -777,22 +777,17 @@
               "version": "24.04.4 LTS (Noble Numbat)",
               "platform": "ubuntu"
             },
-            "containerized": false,
             "ip": [
               "10.111.69.10",
-              "fe80::f816:3eff:fe98:1329"
+              "fe80::f816:3eff:fe05:14b9"
             ],
+            "containerized": false,
             "name": "otus-dz07-app",
-            "id": "5ed997e0dc7940e2ad00377f6376d2b3",
+            "id": "86e80ca33c6e46daadc34374bd3f71c6",
             "mac": [
-              "FA-16-3E-98-13-29"
+              "FA-16-3E-05-14-B9"
             ],
             "architecture": "x86_64"
-          },
-          "event": {
-            "kind": "event",
-            "created": "2026-10-31T20:42:08.943Z",
-            "dataset": "kibana"
           },
           "journald": {
             "uid": 108,
@@ -805,15 +800,20 @@
             "gid": 110,
             "custom": {
               "runtime_scope": "system",
-              "stream_id": "4fdaa432fe92415aaa528caaf23fe0b1",
-              "seqnum": "5950",
+              "stream_id": "d02f82107b7c4103b766f547308370b0",
+              "seqnum": "5814",
               "selinux_context": "unconfined\n",
-              "seqnum_id": "3e1d5d8c31cd46ce831832c6ceead0a4"
+              "seqnum_id": "7437c60f8667411783dd961e731b1450"
             },
             "host": {
-              "boot_id": "6b107057997b43aab34afc3ef5263b2e"
+              "boot_id": "6f29615a5d414044b43a175ec9fda391"
             },
-            "pid": 15089
+            "pid": 14951
+          },
+          "event": {
+            "kind": "event",
+            "created": "2026-11-01T11:43:44.211Z",
+            "dataset": "kibana"
           },
           "user": {
             "id": "108",
@@ -823,46 +823,46 @@
           }
         },
         "sort": [
-          1793479328823
+          1793533423745
         ]
       }
     ],
     "nginx": [
       {
-        "_index": "logs-otus-2026.10.31",
-        "_id": "HB2yk6EBBw5p4j7p3YE4",
+        "_index": "logs-otus-2026.11.01",
+        "_id": "NcHslqEBwz3ng7YRfXZ1",
         "_score": null,
         "_source": {
           "agent": {
             "name": "otus-dz07-app",
             "id": "<resource-id>",
-            "type": "filebeat",
             "ephemeral_id": "<resource-id>",
+            "type": "filebeat",
             "version": "8.19.0"
           },
           "nginx": {
             "tail": "\"-\" \"-\"",
-            "time": "31/Oct/2026:20:42:14 +0000"
+            "time": "01/Nov/2026:11:44:01 +0000"
           },
           "log": {
             "file": {
-              "inode": "151577",
+              "inode": "151595",
               "path": "/var/log/nginx/otus-access.log",
               "device_id": "2049"
             },
-            "offset": 37271
+            "offset": 37080
           },
           "source": {
             "address": "127.0.0.1"
           },
-          "message": "127.0.0.1 - - [31/Oct/2026:20:42:14 +0000] \"GET /health/ready HTTP/1.1\" 200 44 \"-\" \"-\"",
+          "message": "127.0.0.1 - - [01/Nov/2026:11:44:01 +0000] \"GET /health/ready HTTP/1.1\" 200 44 \"-\" \"-\"",
           "url": {
             "original": "/health/ready"
           },
           "input": {
             "type": "filestream"
           },
-          "@timestamp": "2026-10-31T20:42:15.214Z",
+          "@timestamp": "2026-11-01T11:44:03.434Z",
           "ecs": {
             "version": "8.0.0"
           },
@@ -875,20 +875,20 @@
               "kernel": "6.8.0-110-generic",
               "codename": "noble",
               "name": "Ubuntu",
-              "type": "linux",
               "family": "debian",
+              "type": "linux",
               "version": "24.04.4 LTS (Noble Numbat)",
               "platform": "ubuntu"
             },
             "containerized": false,
             "ip": [
               "10.111.69.10",
-              "fe80::f816:3eff:fe98:1329"
+              "fe80::f816:3eff:fe05:14b9"
             ],
             "name": "otus-dz07-app",
-            "id": "5ed997e0dc7940e2ad00377f6376d2b3",
+            "id": "86e80ca33c6e46daadc34374bd3f71c6",
             "mac": [
-              "FA-16-3E-98-13-29"
+              "FA-16-3E-05-14-B9"
             ],
             "architecture": "x86_64"
           },
@@ -912,12 +912,12 @@
           }
         },
         "sort": [
-          1793479335214
+          1793533443434
         ]
       },
       {
-        "_index": "logs-otus-2026.10.31",
-        "_id": "NSSyk6EBUmJBHj8H1TRm",
+        "_index": "logs-otus-2026.11.01",
+        "_id": "3STslqEB0gdNZXkCdRGn",
         "_score": null,
         "_source": {
           "agent": {
@@ -929,27 +929,27 @@
           },
           "nginx": {
             "tail": "\"-\" \"-\"",
-            "time": "31/Oct/2026:20:42:11 +0000"
+            "time": "01/Nov/2026:11:43:59 +0000"
           },
           "log": {
             "file": {
-              "inode": "151577",
+              "inode": "151595",
               "path": "/var/log/nginx/otus-access.log",
               "device_id": "2049"
             },
-            "offset": 37184
+            "offset": 36993
           },
           "source": {
             "address": "127.0.0.1"
           },
-          "message": "127.0.0.1 - - [31/Oct/2026:20:42:11 +0000] \"GET /health/ready HTTP/1.1\" 200 44 \"-\" \"-\"",
+          "message": "127.0.0.1 - - [01/Nov/2026:11:43:59 +0000] \"GET /health/ready HTTP/1.1\" 200 44 \"-\" \"-\"",
           "url": {
             "original": "/health/ready"
           },
           "input": {
             "type": "filestream"
           },
-          "@timestamp": "2026-10-31T20:42:13.214Z",
+          "@timestamp": "2026-11-01T11:44:01.433Z",
           "ecs": {
             "version": "8.0.0"
           },
@@ -962,20 +962,20 @@
               "kernel": "6.8.0-110-generic",
               "codename": "noble",
               "name": "Ubuntu",
-              "type": "linux",
               "family": "debian",
+              "type": "linux",
               "version": "24.04.4 LTS (Noble Numbat)",
               "platform": "ubuntu"
             },
-            "containerized": false,
             "ip": [
               "10.111.69.10",
-              "fe80::f816:3eff:fe98:1329"
+              "fe80::f816:3eff:fe05:14b9"
             ],
+            "containerized": false,
             "name": "otus-dz07-app",
-            "id": "5ed997e0dc7940e2ad00377f6376d2b3",
+            "id": "86e80ca33c6e46daadc34374bd3f71c6",
             "mac": [
-              "FA-16-3E-98-13-29"
+              "FA-16-3E-05-14-B9"
             ],
             "architecture": "x86_64"
           },
@@ -999,76 +999,14 @@
           }
         },
         "sort": [
-          1793479333214
+          1793533441433
         ]
       }
     ],
     "postgresql": [
       {
-        "_index": "logs-otus-2026.10.31",
-        "_id": "Qwyyk6EBU_Jc6FU6tQ6v",
-        "_score": null,
-        "_source": {
-          "input": {
-            "type": "filestream"
-          },
-          "agent": {
-            "name": "otus-dz07-app",
-            "id": "<resource-id>",
-            "ephemeral_id": "<resource-id>",
-            "type": "filebeat",
-            "version": "8.19.0"
-          },
-          "@timestamp": "2026-10-31T20:42:05.093Z",
-          "ecs": {
-            "version": "8.0.0"
-          },
-          "log": {
-            "file": {
-              "inode": "138097",
-              "path": "/var/log/postgresql/otus-2026-10-31.log",
-              "device_id": "2049"
-            },
-            "offset": 2261
-          },
-          "service": {
-            "name": "postgresql"
-          },
-          "host": {
-            "hostname": "otus-dz07-app",
-            "os": {
-              "kernel": "6.8.0-110-generic",
-              "codename": "noble",
-              "name": "Ubuntu",
-              "family": "debian",
-              "type": "linux",
-              "version": "24.04.4 LTS (Noble Numbat)",
-              "platform": "ubuntu"
-            },
-            "ip": [
-              "10.111.69.10",
-              "fe80::f816:3eff:fe98:1329"
-            ],
-            "containerized": false,
-            "name": "otus-dz07-app",
-            "id": "5ed997e0dc7940e2ad00377f6376d2b3",
-            "mac": [
-              "FA-16-3E-98-13-29"
-            ],
-            "architecture": "x86_64"
-          },
-          "message": "2026-10-31 20:41:56.408 UTC [5525] LOG:  checkpoint starting: time",
-          "event": {
-            "dataset": "postgresql"
-          }
-        },
-        "sort": [
-          1793479325093
-        ]
-      },
-      {
-        "_index": "logs-otus-2026.10.31",
-        "_id": "2SSyk6EBUmJBHj8HtTOz",
+        "_index": "logs-otus-2026.11.01",
+        "_id": "b-_rlqEBeDsCJ4ll_7zM",
         "_score": null,
         "_ignored": [
           "message.keyword"
@@ -1084,14 +1022,14 @@
             "ephemeral_id": "<resource-id>",
             "version": "8.19.0"
           },
-          "@timestamp": "2026-10-31T20:42:05.093Z",
+          "@timestamp": "2026-11-01T11:43:31.266Z",
           "ecs": {
             "version": "8.0.0"
           },
           "log": {
             "file": {
-              "inode": "138097",
-              "path": "/var/log/postgresql/otus-2026-10-31.log",
+              "inode": "138115",
+              "path": "/var/log/postgresql/otus-2026-11-01.log",
               "device_id": "2049"
             },
             "offset": 2328
@@ -1113,39 +1051,101 @@
             "containerized": false,
             "ip": [
               "10.111.69.10",
-              "fe80::f816:3eff:fe98:1329"
+              "fe80::f816:3eff:fe05:14b9"
             ],
             "name": "otus-dz07-app",
-            "id": "5ed997e0dc7940e2ad00377f6376d2b3",
+            "id": "86e80ca33c6e46daadc34374bd3f71c6",
             "mac": [
-              "FA-16-3E-98-13-29"
+              "FA-16-3E-05-14-B9"
             ],
             "architecture": "x86_64"
           },
-          "message": "2026-10-31 20:42:00.245 UTC [5525] LOG:  checkpoint complete: wrote 39 buffers (0.2%); 0 WAL file(s) added, 0 removed, 0 recycled; write=3.814 s, sync=0.005 s, total=3.837 s; sync files=30, longest=0.003 s, average=0.001 s; distance=13 kB, estimate=4415 kB; lsn=0/19C0300, redo lsn=0/19BD310",
+          "message": "2026-11-01 11:43:30.314 UTC [5482] LOG:  checkpoint complete: wrote 39 buffers (0.2%); 0 WAL file(s) added, 0 removed, 0 recycled; write=3.819 s, sync=0.010 s, total=3.852 s; sync files=30, longest=0.004 s, average=0.001 s; distance=13 kB, estimate=4415 kB; lsn=0/19BD348, redo lsn=0/19BD310",
           "event": {
             "dataset": "postgresql"
           }
         },
         "sort": [
-          1793479325093
+          1793533411266
+        ]
+      },
+      {
+        "_index": "logs-otus-2026.11.01",
+        "_id": "nyTrlqEB0gdNZXkC9xD6",
+        "_score": null,
+        "_source": {
+          "input": {
+            "type": "filestream"
+          },
+          "agent": {
+            "name": "otus-dz07-app",
+            "id": "<resource-id>",
+            "ephemeral_id": "<resource-id>",
+            "type": "filebeat",
+            "version": "8.19.0"
+          },
+          "@timestamp": "2026-11-01T11:43:29.265Z",
+          "ecs": {
+            "version": "8.0.0"
+          },
+          "log": {
+            "file": {
+              "inode": "138115",
+              "path": "/var/log/postgresql/otus-2026-11-01.log",
+              "device_id": "2049"
+            },
+            "offset": 2261
+          },
+          "service": {
+            "name": "postgresql"
+          },
+          "host": {
+            "hostname": "otus-dz07-app",
+            "os": {
+              "kernel": "6.8.0-110-generic",
+              "codename": "noble",
+              "name": "Ubuntu",
+              "family": "debian",
+              "type": "linux",
+              "version": "24.04.4 LTS (Noble Numbat)",
+              "platform": "ubuntu"
+            },
+            "containerized": false,
+            "ip": [
+              "10.111.69.10",
+              "fe80::f816:3eff:fe05:14b9"
+            ],
+            "name": "otus-dz07-app",
+            "id": "86e80ca33c6e46daadc34374bd3f71c6",
+            "mac": [
+              "FA-16-3E-05-14-B9"
+            ],
+            "architecture": "x86_64"
+          },
+          "message": "2026-11-01 11:43:26.463 UTC [5482] LOG:  checkpoint starting: time",
+          "event": {
+            "dataset": "postgresql"
+          }
+        },
+        "sort": [
+          1793533409265
         ]
       }
     ],
     "system": [
       {
-        "_index": "logs-otus-2026.10.31",
-        "_id": "kQyyk6EBU_Jc6FU63g4q",
+        "_index": "logs-otus-2026.11.01",
+        "_id": "eO_slqEBeDsCJ4llgr11",
         "_score": null,
         "_source": {
           "process": {
             "args": [
-              "/usr/lib/systemd/systemd",
-              "--system",
-              "--deserialize=65",
-              "nofb"
+              "sudo",
+              "python3",
+              "/home/otus/dz07/scripts/remote/elk_api.py",
+              "verify"
             ],
-            "pid": 1,
+            "pid": 20789,
             "args_count": 4,
             "thread": {
               "capabilities": {
@@ -1194,36 +1194,39 @@
                 ]
               }
             },
-            "command_line": "/usr/lib/systemd/systemd --system --deserialize=65 nofb"
+            "command_line": "sudo python3 /home/otus/dz07/scripts/remote/elk_api.py verify"
           },
           "agent": {
             "name": "otus-dz07-app",
             "id": "<resource-id>",
-            "ephemeral_id": "<resource-id>",
             "type": "filebeat",
+            "ephemeral_id": "<resource-id>",
             "version": "8.19.0"
           },
           "systemd": {
-            "unit": "init.scope",
-            "slice": "-.slice",
-            "transport": "journal",
-            "cgroup": "/init.scope"
+            "user_slice": "-.slice",
+            "unit": "session-162.scope",
+            "slice": "user-1000.slice",
+            "owner_uid": 1000,
+            "session": "162",
+            "invocation_id": "786e3e2305b44425a6a139bfc72dc059",
+            "transport": "syslog",
+            "cgroup": "/user.slice/user-1000.slice/session-162.scope"
           },
           "log": {
             "syslog": {
-              "appname": "systemd",
+              "appname": "sudo",
               "priority": 6,
               "facility": {
-                "code": 3
+                "code": 10
               }
             }
           },
-          "message_id": "39f53479d3a045ac8e11786248231fbf",
-          "message": "Started session-164.scope - Session 164 of User otus.",
+          "message": "pam_unix(sudo:session): session opened for user root(uid=0) by otus(uid=1000)",
           "input": {
             "type": "journald"
           },
-          "@timestamp": "2026-10-31T20:42:15.264Z",
+          "@timestamp": "2026-11-01T11:44:04.340Z",
           "ecs": {
             "version": "8.0.0"
           },
@@ -1244,73 +1247,70 @@
             "containerized": false,
             "ip": [
               "10.111.69.10",
-              "fe80::f816:3eff:fe98:1329"
+              "fe80::f816:3eff:fe05:14b9"
             ],
             "name": "otus-dz07-app",
-            "id": "5ed997e0dc7940e2ad00377f6376d2b3",
+            "id": "86e80ca33c6e46daadc34374bd3f71c6",
             "mac": [
-              "FA-16-3E-98-13-29"
+              "FA-16-3E-05-14-B9"
             ],
             "architecture": "x86_64"
           },
-          "event": {
-            "kind": "event",
-            "created": "2026-10-31T20:42:15.439Z",
-            "dataset": "system"
-          },
           "journald": {
-            "uid": 0,
-            "unit": "session-164.scope",
+            "uid": 1000,
             "process": {
               "capabilities": "1ffffffffff",
-              "name": "systemd",
-              "command_line": "/usr/lib/systemd/systemd --system --deserialize=65 nofb",
-              "executable": "/usr/lib/systemd/systemd"
+              "name": "sudo",
+              "executable": "/usr/bin/sudo",
+              "command_line": "sudo python3 /home/otus/dz07/scripts/remote/elk_api.py verify"
             },
             "gid": 0,
-            "code": {
-              "file": "src/core/job.c",
-              "func": "job_emit_done_message",
-              "line": 796
+            "audit": {
+              "login_uid": 1000,
+              "session": "162"
             },
             "custom": {
-              "job_type": "start",
               "runtime_scope": "system",
-              "seqnum": "5988",
-              "job_id": "16311",
-              "invocation_id": "465c18a311854278869e39771c675b39",
+              "seqnum": "5982",
+              "syslog_timestamp": "Nov  1 11:44:04 ",
               "selinux_context": "unconfined\n",
-              "job_result": "done",
-              "tid": "1",
-              "seqnum_id": "3e1d5d8c31cd46ce831832c6ceead0a4"
+              "seqnum_id": "7437c60f8667411783dd961e731b1450"
             },
             "host": {
-              "boot_id": "6b107057997b43aab34afc3ef5263b2e"
+              "boot_id": "6f29615a5d414044b43a175ec9fda391"
             },
-            "pid": 1
+            "pid": 20789
+          },
+          "event": {
+            "created": "2026-11-01T11:44:04.710Z",
+            "kind": "event",
+            "dataset": "system"
           },
           "user": {
-            "id": "0",
+            "id": "1000",
             "group": {
               "id": "0"
             }
           }
         },
         "sort": [
-          1793479335264
+          1793533444340
         ]
       },
       {
-        "_index": "logs-otus-2026.10.31",
-        "_id": "VCSyk6EBUmJBHj8H3jQj",
+        "_index": "logs-otus-2026.11.01",
+        "_id": "_CTslqEB0gdNZXkCghFx",
         "_score": null,
         "_source": {
           "process": {
             "args": [
-              "/usr/lib/systemd/systemd-logind"
+              "sudo",
+              "python3",
+              "/home/otus/dz07/scripts/remote/elk_api.py",
+              "verify"
             ],
-            "pid": 725,
-            "args_count": 1,
+            "pid": 20789,
+            "args_count": 4,
             "thread": {
               "capabilities": {
                 "effective": [
@@ -1318,15 +1318,47 @@
                   "CAP_DAC_OVERRIDE",
                   "CAP_DAC_READ_SEARCH",
                   "CAP_FOWNER",
+                  "CAP_FSETID",
+                  "CAP_KILL",
+                  "CAP_SETGID",
+                  "CAP_SETUID",
+                  "CAP_SETPCAP",
                   "CAP_LINUX_IMMUTABLE",
+                  "CAP_NET_BIND_SERVICE",
+                  "CAP_NET_BROADCAST",
+                  "CAP_NET_ADMIN",
+                  "CAP_NET_RAW",
+                  "CAP_IPC_LOCK",
+                  "CAP_IPC_OWNER",
+                  "CAP_SYS_MODULE",
+                  "CAP_SYS_RAWIO",
+                  "CAP_SYS_CHROOT",
+                  "CAP_SYS_PTRACE",
+                  "CAP_SYS_PACCT",
                   "CAP_SYS_ADMIN",
+                  "CAP_SYS_BOOT",
+                  "CAP_SYS_NICE",
+                  "CAP_SYS_RESOURCE",
+                  "CAP_SYS_TIME",
                   "CAP_SYS_TTY_CONFIG",
+                  "CAP_MKNOD",
+                  "CAP_LEASE",
+                  "CAP_AUDIT_WRITE",
                   "CAP_AUDIT_CONTROL",
-                  "CAP_MAC_ADMIN"
+                  "CAP_SETFCAP",
+                  "CAP_MAC_OVERRIDE",
+                  "CAP_MAC_ADMIN",
+                  "CAP_SYSLOG",
+                  "CAP_WAKE_ALARM",
+                  "CAP_BLOCK_SUSPEND",
+                  "CAP_AUDIT_READ",
+                  "CAP_PERFMON",
+                  "CAP_BPF",
+                  "CAP_CHECKPOINT_RESTORE"
                 ]
               }
             },
-            "command_line": "/usr/lib/systemd/systemd-logind"
+            "command_line": "sudo python3 /home/otus/dz07/scripts/remote/elk_api.py verify"
           },
           "agent": {
             "name": "otus-dz07-app",
@@ -1336,27 +1368,29 @@
             "version": "8.19.0"
           },
           "systemd": {
-            "unit": "systemd-logind.service",
-            "slice": "system.slice",
-            "invocation_id": "e61c803462734d9081a38466c589128f",
-            "transport": "journal",
-            "cgroup": "/system.slice/systemd-logind.service"
+            "user_slice": "-.slice",
+            "unit": "session-162.scope",
+            "slice": "user-1000.slice",
+            "owner_uid": 1000,
+            "session": "162",
+            "invocation_id": "786e3e2305b44425a6a139bfc72dc059",
+            "transport": "syslog",
+            "cgroup": "/user.slice/user-1000.slice/session-162.scope"
           },
           "log": {
             "syslog": {
-              "appname": "systemd-logind",
-              "priority": 6,
+              "appname": "sudo",
+              "priority": 5,
               "facility": {
-                "code": 4
+                "code": 10
               }
             }
           },
-          "message_id": "8d45620c1a4348dbb17410da57c60c66",
-          "message": "New session 164 of user otus.",
+          "message": "    otus : PWD=/home/otus ; USER=root ; COMMAND=/usr/bin/python3 /home/otus/dz07/scripts/remote/elk_api.py verify",
           "input": {
             "type": "journald"
           },
-          "@timestamp": "2026-10-31T20:42:15.248Z",
+          "@timestamp": "2026-11-01T11:44:04.339Z",
           "ecs": {
             "version": "8.0.0"
           },
@@ -1369,66 +1403,62 @@
               "kernel": "6.8.0-110-generic",
               "codename": "noble",
               "name": "Ubuntu",
-              "family": "debian",
               "type": "linux",
+              "family": "debian",
               "version": "24.04.4 LTS (Noble Numbat)",
               "platform": "ubuntu"
             },
             "containerized": false,
             "ip": [
               "10.111.69.10",
-              "fe80::f816:3eff:fe98:1329"
+              "fe80::f816:3eff:fe05:14b9"
             ],
             "name": "otus-dz07-app",
-            "id": "5ed997e0dc7940e2ad00377f6376d2b3",
+            "id": "86e80ca33c6e46daadc34374bd3f71c6",
             "mac": [
-              "FA-16-3E-98-13-29"
+              "FA-16-3E-05-14-B9"
             ],
             "architecture": "x86_64"
           },
           "event": {
             "kind": "event",
-            "created": "2026-10-31T20:42:15.439Z",
+            "created": "2026-11-01T11:44:04.710Z",
             "dataset": "system"
           },
           "journald": {
-            "uid": 0,
+            "uid": 1000,
             "process": {
-              "capabilities": "24420020f",
-              "name": "systemd-logind",
-              "command_line": "/usr/lib/systemd/systemd-logind",
-              "executable": "/usr/lib/systemd/systemd-logind"
+              "capabilities": "1ffffffffff",
+              "name": "sudo",
+              "command_line": "sudo python3 /home/otus/dz07/scripts/remote/elk_api.py verify",
+              "executable": "/usr/bin/sudo"
             },
-            "code": {
-              "file": "src/login/logind-session.c",
-              "func": "session_start",
-              "line": 789
+            "gid": 1000,
+            "audit": {
+              "login_uid": 1000,
+              "session": "162"
             },
-            "gid": 0,
             "custom": {
               "runtime_scope": "system",
-              "leader": "20829",
-              "user_id": "[REDACTED]",
-              "seqnum": "5987",
+              "syslog_timestamp": "Nov  1 11:44:04 ",
+              "seqnum": "5981",
               "selinux_context": "unconfined\n",
-              "session_id": "164",
-              "seqnum_id": "3e1d5d8c31cd46ce831832c6ceead0a4",
-              "tid": "725"
+              "seqnum_id": "7437c60f8667411783dd961e731b1450"
             },
             "host": {
-              "boot_id": "6b107057997b43aab34afc3ef5263b2e"
+              "boot_id": "6f29615a5d414044b43a175ec9fda391"
             },
-            "pid": 725
+            "pid": 20789
           },
           "user": {
-            "id": "0",
+            "id": "1000",
             "group": {
-              "id": "0"
+              "id": "1000"
             }
           }
         },
         "sort": [
-          1793479335248
+          1793533444339
         ]
       }
     ]
