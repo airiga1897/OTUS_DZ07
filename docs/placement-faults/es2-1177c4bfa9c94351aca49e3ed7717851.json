@@ -1,0 +1,6 @@
+{
+  "stage": "es2",
+  "read_only": true,
+  "nodes": {},
+  "terraform_error": "module.stage.openstack_compute_instance_v2.node: Destroying... [id=<resource-id>]\nmodule.stage.openstack_compute_instance_v2.node: Destruction complete after 3s\nmodule.stage.openstack_blockstorage_volume_v3.boot: Destroying... [id=<resource-id>]\nmodule.stage.openstack_networking_port_v2.node: Destroying... [id=<resource-id>]\nmodule.stage.openstack_networking_port_v2.node: Destruction complete after 0s\nmodule.stage.openstack_blockstorage_volume_v3.boot: Destruction complete after 3s\n\nApply complete! Resources: 0 added, 0 changed, 3 destroyed.\n"
+}

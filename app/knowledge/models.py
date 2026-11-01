@@ -19,3 +19,12 @@ class Article(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+
+class InitialDataState(models.Model):
+    key = models.CharField(max_length=80, primary_key=True)
+    status = models.CharField(max_length=32)
+    fixture_sha256 = models.CharField(max_length=64)
+
+    class Meta:
+        default_permissions = ()

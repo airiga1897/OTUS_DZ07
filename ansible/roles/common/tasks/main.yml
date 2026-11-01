@@ -1,0 +1,49 @@
+- name: Confirm cloud-init completed before configuration
+  ansible.builtin.script:
+    cmd: '{{ stack.paths.remote_root }}/scripts/remote/check_cloud_init.py'
+    executable: python3
+  changed_when: false
+- name: Detect installed Patroni
+  ansible.builtin.stat:
+    path: '{{ stack.patroni.venv }}/bin/patroni'
+  register: patroni_binary
+- name: Prepare new database host
+  when: not patroni_binary.stat.exists
+  block:
+  - name: Prevent unmanaged PostgreSQL cluster creation
+    ansible.builtin.file:
+      path: /etc/postgresql-common
+      state: directory
+      mode: '0755'
+  - name: Disable automatic main cluster creation
+    ansible.builtin.copy:
+      content: 'create_main_cluster = false
+
+        '
+      dest: /etc/postgresql-common/createcluster.conf
+      mode: '0644'
+  - name: Install database packages
+    ansible.builtin.apt:
+      name:
+      - postgresql-{{ stack.postgresql.major }}
+      - postgresql-client-{{ stack.postgresql.major }}
+      - etcd-server
+      - etcd-client
+      - python3-venv
+      - python3-yaml
+      - curl
+      state: present
+      update_cache: true
+      policy_rc_d: 101
+  - name: Disable unmanaged PostgreSQL service
+    ansible.builtin.systemd_service:
+      name: postgresql
+      enabled: false
+      state: stopped
+  - name: Install Patroni in its own environment
+    ansible.builtin.pip:
+      name:
+      - patroni[etcd3]=={{ stack.patroni.version }}
+      - psycopg2-binary=={{ stack.patroni.psycopg2_version }}
+      virtualenv: '{{ stack.patroni.venv }}'
+      virtualenv_command: python3 -m venv

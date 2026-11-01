@@ -1,0 +1,11 @@
+{
+  "region": "ru-3",
+  "availability_zone": "ru-3b",
+  "quotas_sufficient": true,
+  "subnet_no_conflict": true,
+  "capabilities": {
+    "network_isolation": "supported",
+    "placement_hints": "supported",
+    "hard_anti_affinity": "supported"
+  }
+}

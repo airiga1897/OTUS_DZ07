@@ -1,0 +1,115 @@
+{
+  "checked_utc": "2026-10-25T18:40:14.450433+00:00",
+  "route_changed_by_operator": false,
+  "route": "router tunnel with GeoIP routing to VPS",
+  "certificate_verification_disabled": false,
+  "windows_python_leaf_fingerprints_equal": true,
+  "current_python_observations": [
+    {
+      "client": "Python/OpenSSL",
+      "host": "cloud.api.selcloud.ru",
+      "attempt": 1,
+      "verified": true,
+      "subject": "CN=*.cloud.api.selcloud.ru",
+      "issuer": "CN=GlobalSign GCC R6 AlphaSSL CA 2025,O=GlobalSign nv-sa,C=BE",
+      "sha256": "aa3030c59ffcf46a74fdd1f35df16196571f997b3dcd9bce4cb65848a3fb9d93",
+      "server_sent_chain": [
+        {
+          "subject": "CN=*.cloud.api.selcloud.ru",
+          "issuer": "CN=GlobalSign GCC R6 AlphaSSL CA 2025,O=GlobalSign nv-sa,C=BE",
+          "sha256": "aa3030c59ffcf46a74fdd1f35df16196571f997b3dcd9bce4cb65848a3fb9d93"
+        },
+        {
+          "subject": "CN=GlobalSign GCC R6 AlphaSSL CA 2025,O=GlobalSign nv-sa,C=BE",
+          "issuer": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R6",
+          "sha256": "a883559231f8388daf35ce41c8101040ae8fd9b656434247b9475af592cc08ca"
+        },
+        {
+          "subject": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R6",
+          "issuer": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R6",
+          "sha256": "2cabeafe37d06ca22aba7391c0033d25982952c453647349763a3ab5ad6ccf69"
+        }
+      ]
+    },
+    {
+      "client": "Python/OpenSSL",
+      "host": "cloud.api.selcloud.ru",
+      "attempt": 2,
+      "verified": true,
+      "subject": "CN=*.cloud.api.selcloud.ru",
+      "issuer": "CN=GlobalSign GCC R6 AlphaSSL CA 2025,O=GlobalSign nv-sa,C=BE",
+      "sha256": "aa3030c59ffcf46a74fdd1f35df16196571f997b3dcd9bce4cb65848a3fb9d93",
+      "server_sent_chain": [
+        {
+          "subject": "CN=*.cloud.api.selcloud.ru",
+          "issuer": "CN=GlobalSign GCC R6 AlphaSSL CA 2025,O=GlobalSign nv-sa,C=BE",
+          "sha256": "aa3030c59ffcf46a74fdd1f35df16196571f997b3dcd9bce4cb65848a3fb9d93"
+        },
+        {
+          "subject": "CN=GlobalSign GCC R6 AlphaSSL CA 2025,O=GlobalSign nv-sa,C=BE",
+          "issuer": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R6",
+          "sha256": "a883559231f8388daf35ce41c8101040ae8fd9b656434247b9475af592cc08ca"
+        },
+        {
+          "subject": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R6",
+          "issuer": "CN=GlobalSign,O=GlobalSign,OU=GlobalSign Root CA - R6",
+          "sha256": "2cabeafe37d06ca22aba7391c0033d25982952c453647349763a3ab5ad6ccf69"
+        }
+      ]
+    },
+    {
+      "client": "Python/OpenSSL",
+      "host": "api.selectel.ru",
+      "attempt": 1,
+      "verified": true,
+      "subject": "CN=selectel.ru",
+      "issuer": "CN=YR2,O=Let's Encrypt,C=US",
+      "sha256": "9335bcff30e0adea8e717dbde9844106fa3111e5cde7285c4fd6890d76f653a5",
+      "server_sent_chain": [
+        {
+          "subject": "CN=selectel.ru",
+          "issuer": "CN=YR2,O=Let's Encrypt,C=US",
+          "sha256": "9335bcff30e0adea8e717dbde9844106fa3111e5cde7285c4fd6890d76f653a5"
+        },
+        {
+          "subject": "CN=YR2,O=Let's Encrypt,C=US",
+          "issuer": "CN=Root YR,O=ISRG,C=US",
+          "sha256": "238b85a0099c65b970477d5724f1a1d475ce5058cffe4efa8733899bdb863c47"
+        },
+        {
+          "subject": "CN=Root YR,O=ISRG,C=US",
+          "issuer": "CN=ISRG Root X1,O=Internet Security Research Group,C=US",
+          "sha256": "072639d0b140d5bffae16ad9c3f6cc6086040621f51ee61a6d46a8915c07cf76"
+        }
+      ]
+    },
+    {
+      "client": "Python/OpenSSL",
+      "host": "api.selectel.ru",
+      "attempt": 2,
+      "verified": true,
+      "subject": "CN=selectel.ru",
+      "issuer": "CN=YR2,O=Let's Encrypt,C=US",
+      "sha256": "9335bcff30e0adea8e717dbde9844106fa3111e5cde7285c4fd6890d76f653a5",
+      "server_sent_chain": [
+        {
+          "subject": "CN=selectel.ru",
+          "issuer": "CN=YR2,O=Let's Encrypt,C=US",
+          "sha256": "9335bcff30e0adea8e717dbde9844106fa3111e5cde7285c4fd6890d76f653a5"
+        },
+        {
+          "subject": "CN=YR2,O=Let's Encrypt,C=US",
+          "issuer": "CN=Root YR,O=ISRG,C=US",
+          "sha256": "238b85a0099c65b970477d5724f1a1d475ce5058cffe4efa8733899bdb863c47"
+        },
+        {
+          "subject": "CN=Root YR,O=ISRG,C=US",
+          "issuer": "CN=ISRG Root X1,O=Internet Security Research Group,C=US",
+          "sha256": "072639d0b140d5bffae16ad9c3f6cc6086040621f51ee61a6d46a8915c07cf76"
+        }
+      ]
+    }
+  ],
+  "original_failure_certificate_captured": false,
+  "root_cause_confirmed": false
+}

@@ -1,0 +1,8 @@
+- name: Restart portal
+  ansible.builtin.systemd_service:
+    name: '{{ stack.name_prefix }}'
+    state: restarted
+- name: Reload Nginx
+  ansible.builtin.systemd_service:
+    name: nginx
+    state: reloaded

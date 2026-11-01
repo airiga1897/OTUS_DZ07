@@ -1,0 +1,130 @@
+- name: Install portal packages
+  ansible.builtin.apt:
+    name:
+    - nginx
+    - postgresql-client-{{ stack.postgresql.major }}
+    - python3-venv
+    - python3-dev
+    - build-essential
+    - libpcre3-dev
+    state: present
+    policy_rc_d: 101
+- name: Create application directory
+  ansible.builtin.file:
+    path: '{{ stack.paths.application }}'
+    state: directory
+    mode: '0755'
+- name: Install portal source from this repository
+  ansible.builtin.copy:
+    src: '{{ stack.paths.remote_root }}/app/'
+    dest: '{{ stack.paths.application }}/app/'
+    mode: u=rwX,go=rX
+  notify: Restart portal
+- name: Install portal dependencies
+  ansible.builtin.pip:
+    requirements: '{{ stack.paths.application }}/app/requirements.txt'
+    virtualenv: '{{ stack.paths.application }}/venv'
+    virtualenv_command: python3 -m venv
+  notify: Restart portal
+- name: Install uWSGI
+  ansible.builtin.pip:
+    name: uWSGI=={{ stack.portal.uwsgi_version }}
+    virtualenv: '{{ stack.paths.application }}/venv'
+  notify: Restart portal
+- name: Apply migrations and guarded initial data
+  ansible.builtin.command:
+    argv:
+    - '{{ stack.paths.application }}/venv/bin/python'
+    - '{{ stack.paths.remote_root }}/scripts/remote/initial_data.py'
+  changed_when: '''PORTAL_CHANGED=true'' in portal_initial_data.stdout'
+  no_log: true
+  register: portal_initial_data
+  notify: Restart portal
+- name: Create application user
+  ansible.builtin.user:
+    name: '{{ stack.portal.service_user }}'
+    system: true
+    home: '{{ stack.paths.application }}'
+    create_home: false
+    shell: /usr/sbin/nologin
+- name: Preserve shared static and media directories
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    owner: '{{ stack.portal.service_user }}'
+    group: '{{ stack.portal.service_user }}'
+    mode: '0755'
+  loop:
+  - '{{ stack.paths.shared }}'
+  - '{{ stack.paths.shared }}/static'
+  - '{{ stack.paths.shared }}/media'
+- name: Install portal storage sentinel
+  ansible.builtin.copy:
+    content: 'otus-dz04
+
+      '
+    dest: '{{ stack.paths.shared }}/.ready'
+    mode: '0644'
+- name: Install private application environment
+  ansible.builtin.template:
+    src: environment.j2
+    dest: /etc/{{ stack.name_prefix }}.env
+    mode: '0600'
+  no_log: true
+  notify: Restart portal
+- name: Collect static assets
+  ansible.builtin.command:
+    argv:
+    - /usr/sbin/runuser
+    - -u
+    - '{{ stack.portal.service_user }}'
+    - --
+    - '{{ stack.paths.application }}/venv/bin/python'
+    - '{{ stack.paths.application }}/app/manage.py'
+    - collectstatic
+    - --noinput
+  environment: '{{ portal_env }}'
+  changed_when: '''0 static files copied'' not in portal_static.stdout'
+  no_log: true
+  register: portal_static
+- name: Install application service
+  ansible.builtin.template:
+    src: portal.service.j2
+    dest: /etc/systemd/system/{{ stack.name_prefix }}.service
+    mode: '0644'
+  register: portal_unit
+  notify: Restart portal
+- name: Install Nginx site
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/sites-available/{{ stack.name_prefix }}
+    mode: '0644'
+  notify: Reload Nginx
+- name: Remove default Nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload Nginx
+- name: Enable portal site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/{{ stack.name_prefix }}
+    dest: /etc/nginx/sites-enabled/{{ stack.name_prefix }}
+    state: link
+  notify: Reload Nginx
+- name: Validate Nginx configuration
+  ansible.builtin.command:
+    argv:
+    - nginx
+    - -t
+  changed_when: false
+- name: Enable and start portal
+  ansible.builtin.systemd_service:
+    name: '{{ stack.name_prefix }}'
+    daemon_reload: '{{ portal_unit.changed }}'
+    state: started
+    enabled: true
+- name: Enable and start Nginx
+  ansible.builtin.systemd_service:
+    name: nginx
+    state: started
+    enabled: true

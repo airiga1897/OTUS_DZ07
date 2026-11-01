@@ -1,0 +1,16 @@
+{
+  "run_id": "c7ef39f24b7c44c4bee69885d940ce13",
+  "success": true,
+  "ansible_configuration_completed": true,
+  "baseline_remote_command_exit_code": 0,
+  "baseline_checks": [
+    "PostgreSQL write/read",
+    "Django admin write",
+    "HTTP homepage and readiness",
+    "HTTP media",
+    "existing data and media preservation"
+  ],
+  "controller_json_parsing_success": false,
+  "full_cycle_success": false,
+  "cleanup_verified": true
+}

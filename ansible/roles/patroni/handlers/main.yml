@@ -1,0 +1,10 @@
+- name: Reload Patroni configuration
+  when: patroni_previous.stat.exists
+  ansible.builtin.command:
+    argv:
+    - systemctl
+    - kill
+    - --kill-whom=main
+    - --signal=HUP
+    - patroni
+  changed_when: true

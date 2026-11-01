@@ -1,0 +1,24 @@
+{
+  "run_id": "139b9bcb779948a6b913d0f16f72ae70",
+  "success": true,
+  "nodes": {
+    "es1": {
+      "validation": "Config OK",
+      "elasticsearch": "active",
+      "filebeat": "active"
+    },
+    "es2": {
+      "validation": "Config OK",
+      "elasticsearch": "active",
+      "filebeat": "active"
+    },
+    "es3": {
+      "validation": "Config OK",
+      "elasticsearch": "active",
+      "filebeat": "active"
+    }
+  },
+  "ansible_configuration_completed": true,
+  "log_delivery_completeness_verified": false,
+  "test_stand_cleanup_verified": true
+}

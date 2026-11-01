@@ -1,0 +1,14 @@
+[Unit]
+Description=OTUS DZ07 Django portal
+After=network.target postgresql.service
+[Service]
+User={{ stack.portal.service_user }}
+Group={{ stack.portal.service_user }}
+WorkingDirectory={{ stack.paths.application }}/app
+EnvironmentFile=/etc/{{ stack.name_prefix }}.env
+ExecStart={{ stack.paths.application }}/venv/bin/uwsgi --http-socket 127.0.0.1:{{ stack.portal.upstream_port }} --module config.wsgi:application --master --processes 2 --threads 2 --enable-threads --need-app --die-on-term
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+[Install]
+WantedBy=multi-user.target

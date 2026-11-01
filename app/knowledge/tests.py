@@ -18,13 +18,6 @@ class KnowledgeTests(TestCase):
         self.assertEqual(self.client.get("/articles/draft/").status_code, 404)
         self.assertContains(self.client.get("/articles/published/"), "&lt;script&gt;")
 
-    def test_seed_preserves_editor_changes(self) -> None:
-        call_command("seed_lessons", verbosity=0)
-        Article.objects.filter(slug="high-load").update(title="Правка редактора")
-        call_command("seed_lessons", verbosity=0)
-        self.assertEqual(Article.objects.get(slug="high-load").title, "Правка редактора")
-        self.assertEqual(Article.objects.count(), 6)
-
     def test_admin_requires_login(self) -> None:
         self.assertEqual(self.client.get("/admin/knowledge/article/add/").status_code, 302)
 

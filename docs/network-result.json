@@ -1,0 +1,8 @@
+{
+  "success": true,
+  "es_distinct_hosts": 3,
+  "require_distinct_hosts": true,
+  "physical_host_separation_verified": true,
+  "private_ports_filtered": true,
+  "global_routes_confirmed": true
+}

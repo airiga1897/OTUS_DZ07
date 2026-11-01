@@ -1,0 +1,9 @@
+{
+  "nodes": {
+    "app": {"host": 10, "role": "app"},
+    "es1": {"host": 31, "role": "es"},
+    "es2": {"host": 32, "role": "es"},
+    "es3": {"host": 33, "role": "es"}
+  },
+  "etcd_members": []
+}

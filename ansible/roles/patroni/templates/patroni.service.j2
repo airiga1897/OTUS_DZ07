@@ -1,0 +1,16 @@
+[Unit]
+Description=PostgreSQL managed by Patroni (DZ07)
+Wants=network-online.target
+After=network-online.target etcd.service
+[Service]
+User=postgres
+Group=postgres
+Type=simple
+ExecStart={{ stack.patroni.venv }}/bin/patroni /etc/patroni.yml
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=60
+KillMode=process
+LimitNOFILE=65536
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,6 @@
+{
+  "provider": "selectel",
+  "terraform_directory": "terraform-selectel",
+  "required_capabilities": ["network_isolation", "hard_anti_affinity", "placement_hints"],
+  "api": {"timeout_seconds": 15, "read_attempts": 3, "retry_delay_seconds": 2}
+}

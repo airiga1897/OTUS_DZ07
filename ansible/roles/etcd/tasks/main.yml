@@ -1,0 +1,40 @@
+- name: Disable etcd on PostgreSQL-only replicas
+  ansible.builtin.systemd_service:
+    name: etcd
+    enabled: false
+    state: stopped
+  when: inventory_hostname not in groups['etcd_voters']
+- name: Configure original etcd quorum
+  when: inventory_hostname in groups['etcd_voters']
+  block:
+  - name: Detect existing etcd member data
+    ansible.builtin.stat:
+      path: '{{ stack.etcd.data_dir }}/member'
+    register: etcd_member_data
+  - name: Read existing member configuration
+    ansible.builtin.slurp:
+      src: /etc/default/etcd
+    register: etcd_previous
+    when: etcd_member_data.stat.exists
+  - name: Refuse implicit migration of existing etcd configuration
+    ansible.builtin.assert:
+      that: (etcd_previous.content | b64decode) == lookup('ansible.builtin.template',
+        'etcd.j2')
+      fail_msg: Existing etcd configuration requires separate migration
+    when: etcd_member_data.stat.exists
+  - name: Stop an unconfigured default etcd
+    ansible.builtin.systemd_service:
+      name: etcd
+      state: stopped
+    when: not etcd_member_data.stat.exists
+  - name: Install etcd configuration
+    ansible.builtin.template:
+      src: etcd.j2
+      dest: /etc/default/etcd
+      mode: '0644'
+  - name: Start quorum members concurrently
+    ansible.builtin.systemd_service:
+      name: etcd
+      enabled: true
+      state: started
+      no_block: true

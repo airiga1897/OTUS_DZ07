@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "staged": true,
+  "managed_remaining": 0,
+  "pools_audited": [
+    "ru-2"
+  ],
+  "global_router_remaining": 0
+}

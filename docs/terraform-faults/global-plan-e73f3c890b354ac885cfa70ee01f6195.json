@@ -1,0 +1,11 @@
+{
+  "stage": "global",
+  "operation": "plan",
+  "returncode": 1,
+  "run_id": "2063f4bf71d140878f64637281710488",
+  "recorded_utc": "2026-10-30T20:09:53.418134+00:00",
+  "placement": {
+    "region": "ru-9"
+  },
+  "terraform_error": "Acquiring state lock. This may take a few moments...\n\nWarning: Redundant empty provider block\n\n  on ..\\..\\..\\terraform-selectel\\staged\\global\\versions.tf line 5:\n   5: provider \"selectel\" {}\n\nEarlier versions of Terraform used empty provider blocks (\"proxy provider\nconfigurations\") for child modules to declare their need to be passed a\nprovider configuration by their callers. That approach was ambiguous and is\nnow deprecated.\n\nIf you control this module, you can migrate to the new declaration syntax by\nremoving all of the empty provider \"selectel\" blocks and then adding or\nupdating an entry like the following to the required_providers block of\nmodule.stage:\n    selectel = {\n      source = \"selectel/selectel\"\n    }\n\nError: Failed to load plugin schemas\n\nError while loading schemas for plugin components: Failed to obtain provider\nschema: Could not load the schema for provider\nregistry.terraform.io/selectel/selectel: failed to retrieve schema from\nprovider \"registry.terraform.io/selectel/selectel\": Plugin did not respond:\nThe plugin encountered an error, and failed to respond to the\nplugin.(*GRPCProvider).GetProviderSchema call. The plugin logs may contain\nmore details...\n"
+}

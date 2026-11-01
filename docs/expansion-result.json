@@ -1,0 +1,69 @@
+{
+  "success": true,
+  "resource_ids_preserved": true,
+  "added_nodes": [],
+  "verification": {
+    "mode": "expanded",
+    "run_id": "ccb2a8fb93134bdc9a9602d036295ea6",
+    "leader": "app",
+    "members": {
+      "app": {
+        "role": "primary",
+        "state": "running"
+      }
+    },
+    "sql_and_http": true,
+    "application_view_write": true,
+    "media_preserved": true,
+    "committed_record_preserved": true,
+    "new_write_succeeded": true,
+    "new_record": {
+      "id": 10,
+      "slug": "expanded-be6f94c0dcfb44d9a6972c30da27843d",
+      "body": "committed-f5af622c925948689efc9a7402ce5c42"
+    },
+    "preserved_records": [
+      {
+        "id": 8,
+        "slug": "baseline-32fbc97ad2484ae096d662fd0892ad6e",
+        "body": "committed-49681d9a642242df9d6406759dca822e"
+      }
+    ],
+    "replica_records_verified": true,
+    "failover_record_available": false,
+    "replication_capacity": {
+      "senders": 10,
+      "slots": 10
+    },
+    "initial_data": {
+      "status": "loaded",
+      "loaded_now": false,
+      "articles": 8,
+      "fixture_sha256": "f3c16fd7bedc87fff00e85168fce6546816cef729b8af1e26af7d0ad3039f807",
+      "source": "bundled_DZ04_materials_fixture"
+    },
+    "elasticsearch": {
+      "cluster_uuid_preserved": true,
+      "existing_node_ids_preserved": true,
+      "committed_document_preserved": true,
+      "health": {
+        "cluster_name": "otus-dz07",
+        "status": "green",
+        "timed_out": false,
+        "number_of_nodes": 3,
+        "number_of_data_nodes": 3,
+        "active_primary_shards": 45,
+        "active_shards": 90,
+        "relocating_shards": 0,
+        "initializing_shards": 0,
+        "unassigned_shards": 0,
+        "unassigned_primary_shards": 0,
+        "delayed_unassigned_shards": 0,
+        "number_of_pending_tasks": 0,
+        "number_of_in_flight_fetch": 0,
+        "task_max_waiting_in_queue_millis": 0,
+        "active_shards_percent_as_number": 100.0
+      }
+    }
+  }
+}

@@ -1,14 +1,21 @@
 """Download official Elastic packages on the controller, verify SHA512."""
 import hashlib
+import argparse
 import concurrent.futures
 import json
 from pathlib import Path
 import shutil
+import re
 import urllib.request
+import topology
 
 ROOT = Path(__file__).resolve().parents[1]
-CACHE = ROOT / '.local/packages'
-VERSION = '8.19.0'
+CACHE = ROOT / '.tools/elastic-packages'
+
+
+def sha512(path):
+    with path.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha512').hexdigest()
 
 
 def download(url, target):
@@ -53,28 +60,65 @@ def download(url, target):
             pool.shutdown(wait=True, cancel_futures=True)
 
 
-def main():
+def main(source=None):
+    import delivery
+    if source is None and delivery.mode(ROOT) in ('s3', 'release'):
+        delivery.prepare(ROOT)
+        return
+    if source is None and delivery.internet(ROOT):
+        print('Elastic packages and Ansible dependencies will be downloaded by the VM', flush=True)
+        return
+    from prepare_ansible import prepare
+    prepare(ROOT)
+    version = topology.services(ROOT)['elastic_version']
     CACHE.mkdir(parents=True, exist_ok=True)
-    if shutil.disk_usage(CACHE).free < 3 * 2**30:
-        raise RuntimeError('At least 3 GiB free controller disk space required')
+    previous_path = CACHE / 'manifest.json'
+    previous = json.loads(previous_path.read_text()) if previous_path.exists() else {}
     manifest = {}
     for product in ['filebeat', 'elasticsearch', 'kibana']:
-        filename = product + '-' + VERSION + '-amd64.deb'
+        filename = product + '-' + version + '-amd64.deb'
         directory = 'beats/filebeat' if product == 'filebeat' else product
         url = 'https://artifacts.elastic.co/downloads/' + directory + '/' + filename
-        expected = urllib.request.urlopen(url + '.sha512', timeout=30).read().decode().split()[0]
         destination = CACHE / filename
-        if not destination.exists() or hashlib.file_digest(destination.open('rb'), 'sha512').hexdigest() != expected:
+        expected = previous.get(filename)
+        if expected and re.fullmatch(r'[a-fA-F0-9]{128}', expected) and destination.exists():
+            if sha512(destination) == expected.lower():
+                manifest[filename] = expected.lower()
+                print(product + ': cached SHA512 verified offline', flush=True)
+                continue
+        if source is not None:
+            folder = Path(source).resolve()
+            expected = (folder / (filename + '.sha512')).read_text().split()[0]
+            if not re.fullmatch(r'[a-fA-F0-9]{128}', expected):
+                raise ValueError('Invalid SHA512 for ' + product)
+            if sha512(folder / filename) != expected.lower():
+                raise ValueError('Source SHA512 mismatch for ' + product)
+            if (folder / filename).resolve() != destination.resolve():
+                shutil.copyfile(folder / filename, destination)
+        else:
+            expected = urllib.request.urlopen(url + '.sha512', timeout=30).read().decode().split()[0]
+        if not re.fullmatch(r'[a-fA-F0-9]{128}', expected):
+            raise ValueError('Invalid published SHA512 for ' + product)
+        expected = expected.lower()
+        if not destination.exists() or sha512(destination) != expected:
+            if shutil.disk_usage(CACHE).free < 3 * 2**30:
+                raise RuntimeError('At least 3 GiB free controller disk space required')
             print('Downloading official package: ' + product, flush=True)
             partial = destination.with_suffix('.partial')
-            download(url, partial)
-            if hashlib.file_digest(partial.open('rb'), 'sha512').hexdigest() != expected:
-                raise RuntimeError('SHA512 mismatch: ' + product)
-            partial.replace(destination)
+            try:
+                download(url, partial)
+                if sha512(partial) != expected:
+                    raise RuntimeError('SHA512 mismatch: ' + product)
+                partial.replace(destination)
+            finally:
+                partial.unlink(missing_ok=True)
         manifest[filename] = expected
+        previous_path.write_text(json.dumps({**previous, **manifest}, indent=2))
         print(product + ': SHA512 verified', flush=True)
     (CACHE / 'manifest.json').write_text(json.dumps(manifest, indent=2))
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--source', help='Explicit directory with the three deb files and their SHA512 files')
+    main(parser.parse_args().source)

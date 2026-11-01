@@ -1,0 +1,70 @@
+{
+  "run_id": "d2c038394a9d4d3ca73027debdd8ec12",
+  "read_only": true,
+  "success": true,
+  "fallback_allowed": false,
+  "checksum_algorithm": "MD5",
+  "checksum_policy": "config/placement.json:image_checksums[1]",
+  "nodes": {
+    "app": {
+      "pool": "ru-2",
+      "zone": "ru-2a",
+      "active": true,
+      "boot_volume_image_confirmed": true,
+      "reviewed_ru2_md5_matches": true,
+      "image": {
+        "name": "Ubuntu 24.04 LTS 64-bit",
+        "status": "active",
+        "visibility": "public",
+        "os_distro": "ubuntu",
+        "min_disk": 5,
+        "min_ram": 512
+      }
+    },
+    "es1": {
+      "pool": "ru-2",
+      "zone": "ru-2a",
+      "active": true,
+      "boot_volume_image_confirmed": true,
+      "reviewed_ru2_md5_matches": true,
+      "image": {
+        "name": "Ubuntu 24.04 LTS 64-bit",
+        "status": "active",
+        "visibility": "public",
+        "os_distro": "ubuntu",
+        "min_disk": 5,
+        "min_ram": 512
+      }
+    },
+    "es2": {
+      "pool": "ru-2",
+      "zone": "ru-2a",
+      "active": true,
+      "boot_volume_image_confirmed": true,
+      "reviewed_ru2_md5_matches": true,
+      "image": {
+        "name": "Ubuntu 24.04 LTS 64-bit",
+        "status": "active",
+        "visibility": "public",
+        "os_distro": "ubuntu",
+        "min_disk": 5,
+        "min_ram": 512
+      }
+    },
+    "es3": {
+      "pool": "ru-2",
+      "zone": "ru-2a",
+      "active": true,
+      "boot_volume_image_confirmed": true,
+      "reviewed_ru2_md5_matches": true,
+      "image": {
+        "name": "Ubuntu 24.04 LTS 64-bit",
+        "status": "active",
+        "visibility": "public",
+        "os_distro": "ubuntu",
+        "min_disk": 5,
+        "min_ram": 512
+      }
+    }
+  }
+}

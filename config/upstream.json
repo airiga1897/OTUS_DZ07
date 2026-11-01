@@ -1,0 +1,6 @@
+{
+  "repository": "https://github.com/airiga1897/OTUS_DZ06",
+  "ref": "develop",
+  "commit": "fcde022aebfe0d1b42eb014cf5086394d1e357b7",
+  "purpose": "Published PostgreSQL/Patroni application baseline; bundled and adapted in DZ07"
+}

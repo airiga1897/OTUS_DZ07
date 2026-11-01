@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "scope": "artifact-preparation-only",
+  "source_verified": true,
+  "reuse_without_upload_verified": true,
+  "temporary_run_released": true,
+  "virtual_machines_created": 0,
+  "objects_retained": 5,
+  "multipart_remaining": 0
+}

@@ -1,0 +1,43 @@
+{
+  "scope": "local-only",
+  "checked_utc": "2026-10-25T18:06:48.862033+00:00",
+  "success": true,
+  "controller_tests": 191,
+  "service_and_delivery_tests": 45,
+  "terraform_mock_runs": 12,
+  "powershell_credentials": [
+    "5.1",
+    "7"
+  ],
+  "default_distinct_hosts": true,
+  "preferred_pools": [
+    "ru-9",
+    "ru-3"
+  ],
+  "excluded_pools": [
+    "ru-7"
+  ],
+  "checks": {
+    "dotenv_precedence": true,
+    "credentials_remain_environment_only": true,
+    "dotenv_omitted_from_source_archive": true,
+    "other_pools_discovered": true,
+    "complete_zone_group_selection": true,
+    "unknown_capabilities_rejected": true,
+    "existing_pool_universe_frozen": true,
+    "global_connection_after_active_vm": true,
+    "active_vm_retained_when_connection_fails": true,
+    "unused_new_network_pruned": true,
+    "occupied_or_preexisting_network_preserved": true,
+    "diagnostic_scheduler_hints_absent": true,
+    "diagnostic_report_does_not_claim_host_separation": true,
+    "setup_script_syntax": true,
+    "documentation_links": true,
+    "no_local_stand_state": true,
+    "source_export_import_round_trip": true,
+    "http_probe_stops_before_haproxy": true
+  },
+  "cloud_commands_executed": false,
+  "cloud_operability_verified": false,
+  "publication_performed": false
+}

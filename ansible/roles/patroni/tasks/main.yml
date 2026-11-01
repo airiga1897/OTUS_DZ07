@@ -1,0 +1,55 @@
+- name: Inspect existing PGDATA
+  ansible.builtin.stat:
+    path: '{{ stack.postgresql.data_dir }}/PG_VERSION'
+  register: pg_version
+- name: Inspect existing Patroni configuration
+  ansible.builtin.stat:
+    path: /etc/patroni.yml
+  register: patroni_previous
+- name: Inspect contents before allowing a clone
+  ansible.builtin.find:
+    paths: '{{ stack.postgresql.data_dir }}'
+    recurse: false
+    file_type: any
+    hidden: true
+  register: pg_files
+- name: Refuse overwriting unmanaged or incomplete data
+  ansible.builtin.assert:
+    that:
+    - pg_version.stat.exists or pg_files.matched == 0
+    - not pg_version.stat.exists or patroni_previous.stat.exists
+    fail_msg: PGDATA requires separate recovery; refusing automatic cloning or adoption
+- name: Preserve or create private PostgreSQL data directory
+  ansible.builtin.file:
+    path: '{{ stack.postgresql.data_dir }}'
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0700'
+- name: Install Patroni configuration
+  ansible.builtin.copy:
+    content: '{{ patroni_config | to_nice_yaml(indent=2, sort_keys=False) }}'
+    dest: /etc/patroni.yml
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  no_log: true
+  notify: Reload Patroni configuration
+- name: Install Patroni service
+  ansible.builtin.template:
+    src: patroni.service.j2
+    dest: /etc/systemd/system/patroni.service
+    mode: '0644'
+  register: patroni_unit
+- name: Enable and start Patroni without restart
+  ansible.builtin.systemd_service:
+    name: patroni
+    daemon_reload: '{{ patroni_unit.changed }}'
+    enabled: true
+    state: started
+- name: Wait for Patroni REST API before configuration handlers
+  ansible.builtin.wait_for:
+    host: '{{ ansible_host }}'
+    port: '{{ stack.patroni.api_port }}'
+    state: started
+    timeout: 120

@@ -1,0 +1,48 @@
+{
+  "run_id": "d2c038394a9d4d3ca73027debdd8ec12",
+  "success": true,
+  "scope": "repeat VM/global-router stages; network stage reused without reapply",
+  "last_nondestructive_apply_added_changed_destroyed": {
+    "app": [
+      0,
+      0,
+      0
+    ],
+    "connection-ru-2": [
+      0,
+      0,
+      0
+    ],
+    "es1": [
+      0,
+      0,
+      0
+    ],
+    "es2": [
+      0,
+      0,
+      0
+    ],
+    "es3": [
+      0,
+      0,
+      0
+    ],
+    "global": [
+      0,
+      0,
+      0
+    ]
+  },
+  "network_stage_reused": true,
+  "resource_identity_preservation_report": "expansion-result.json",
+  "pools": [
+    "ru-2"
+  ],
+  "nodes": [
+    "app",
+    "es1",
+    "es2",
+    "es3"
+  ]
+}

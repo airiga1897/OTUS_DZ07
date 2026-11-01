@@ -1,0 +1,69 @@
+{
+  "artifact_delivery": "s3",
+  "elastic_download_base": "https://artifacts.elastic.co/downloads",
+  "elastic_version": "8.19.0",
+  "elastic_heap": "2g",
+  "initial_masters": [
+    "es1",
+    "es2",
+    "es3"
+  ],
+  "kibana_port": 5601,
+  "logs": {
+    "all": [],
+    "roles": {
+      "es": [
+        {
+          "service": "elasticsearch",
+          "paths": [
+            "/var/log/elasticsearch/*.log",
+            "/var/log/elasticsearch/*_server.json"
+          ]
+        }
+      ],
+      "app": [
+        {
+          "service": "nginx",
+          "paths": [
+            "/var/log/nginx/otus-access.log",
+            "/var/log/nginx/otus-error.log"
+          ]
+        },
+        {
+          "service": "haproxy",
+          "paths": [
+            "/var/log/haproxy.log"
+          ]
+        },
+        {
+          "service": "postgresql",
+          "paths": [
+            "/var/log/postgresql/otus-*.log"
+          ]
+        },
+        {
+          "service": "django",
+          "journal_units": [
+            "otus-dz07.service"
+          ]
+        },
+        {
+          "service": "kibana",
+          "journal_units": [
+            "kibana.service"
+          ]
+        }
+      ],
+      "db": [
+        {
+          "service": "postgresql",
+          "paths": [
+            "/var/log/postgresql/otus-*.log"
+          ]
+        }
+      ],
+      "kibana": []
+    }
+  },
+  "kibana_host": "app"
+}

@@ -1,0 +1,17 @@
+{
+  "success": true,
+  "providers": {
+    "terraform-provider-openstack/openstack": "3.4.0",
+    "selectel/selectel": "8.6.0"
+  },
+  "download_source": "https://tf-proxy.selectel.ru/mirror/v1/",
+  "local_mirror": ".tools/terraform-providers",
+  "existing_repository_locks_unchanged": true,
+  "offline_lock_verification": true,
+  "cloud_stage_installs_from_local_mirror": true,
+  "tls_verification_disabled": false,
+  "certificate_pinning": false,
+  "tests": 3,
+  "controller_tests": 194,
+  "service_delivery_tests": 45
+}

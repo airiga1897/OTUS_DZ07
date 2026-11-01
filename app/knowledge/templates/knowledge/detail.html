@@ -1,4 +1,4 @@
-{% extends 'knowledge/base.html' %}{% block title %}{{ article.title }} — OTUS{% endblock %}
+{% extends 'knowledge/base.html' %}{% load review_links %}{% block title %}{{ article.title }} — OTUS{% endblock %}
 {% block content %}<a href="/">← Все материалы</a><p class="eyebrow">ДЗ {{ article.lesson }}</p><h1>{{ article.title }}</h1>
 <p class="intro">{{ article.summary }}</p>{% if article.image %}<img class="illustration" src="{{ article.image.url }}" alt="{{ article.title }}">{% endif %}
-<div class="body">{{ article.body|urlize|linebreaks }}</div>{% endblock %}
+<div class="body">{{ article.body|review_sources|urlize|linebreaks }}</div>{% endblock %}

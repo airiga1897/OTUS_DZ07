@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-31",
+  "scope": "local-only",
+  "success": true,
+  "cloud_failure_evidence": "terraform-faults/es1-plan-guard-a94cc282521946cd9f86dc0f34b1ebad.json",
+  "confirmed": "The saved plan changed scheduler_hints in resource_drift and kept all planned resource actions no-op.",
+  "unconfirmed": "The original scheduler_hints values were not retained; their exact difference cannot be reconstructed.",
+  "diagnostics": [
+    "known field types and emptiness",
+    "unknown field count",
+    "group matches saved input",
+    "saved distinct-host policy"
+  ],
+  "arbitrary_values_and_group_ids_persisted": false,
+  "normalization": "Only empty optional defaults around the same nonempty configured group for an ES node with distinct-host policy enabled.",
+  "new_constraints_or_group_changes_allowed": false,
+  "planned_resource_changes_allowed": false,
+  "tests": "scripts/test_refresh_diagnostics.py",
+  "cleanup_tests": "scripts/test_cleanup_pool_dependencies.py",
+  "new_cloud_run_performed": false,
+  "publication_performed": false
+}

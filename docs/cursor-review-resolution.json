@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-29",
+  "scope": "local-only",
+  "success": true,
+  "external_networking_blocked": true,
+  "cloud_api_called": false,
+  "cloud_resources_created": false,
+  "published": false,
+  "findings": [
+    {
+      "severity": "P2",
+      "finding": "Unknown disk binding aborted remaining disk candidates",
+      "confirmed": true,
+      "fixed": true,
+      "verification": "An opaque preferred disk is skipped; confirmed Universal and SSD disks remain ordered candidates. Unknown-only disks fail closed; HTTP and network exceptions propagate."
+    },
+    {
+      "severity": "P2",
+      "finding": "Malformed flavor availability_zones aborted role preflight",
+      "confirmed": true,
+      "fixed": true,
+      "verification": "Null, scalar, string, map and malformed-list bindings are rejected independently in catalog and detail. The next verified flavor and other roles remain candidates. API errors propagate."
+    },
+    {
+      "severity": "P3",
+      "finding": "Network and full-assignment port reservations differed",
+      "confirmed": true,
+      "fixed": true,
+      "verification": "One service-port reservation helper is used in both checks. VM ports are added independently; per-node port and app floating-IP quotas are rechecked. Resume credits count only saved pending resources in their own pool."
+    }
+  ],
+  "checks": {
+    "new_regression_tests": 8,
+    "controller_tests": 270,
+    "service_tests": 66,
+    "django_tests": 23,
+    "all_passed": true,
+    "git_diff_check": true
+  },
+  "coverage": {
+    "line_percent": 81.54555940023069,
+    "branch_percent": 71.71922685656155
+  },
+  "limitations": [
+    "These fixes have not been cloud-tested.",
+    "The actual boot-volume refresh fields from the previous cloud run remain unavailable; the narrow attachment allowance was not broadened.",
+    "Catalog compatibility does not prove physical host availability."
+  ]
+}

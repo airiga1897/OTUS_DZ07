@@ -1,0 +1,41 @@
+---
+- name: Install standalone PostgreSQL
+  ansible.builtin.apt:
+    name: ["postgresql-{{ stack.postgresql.major }}", acl]
+    state: present
+    update_cache: true
+    policy_rc_d: 101
+- name: Check existing database cluster
+  ansible.builtin.stat:
+    path: '{{ stack.postgresql.data_dir }}/PG_VERSION'
+  register: pg_cluster
+- name: Create cluster only when absent
+  ansible.builtin.command:
+    argv: [pg_createcluster, '{{ stack.postgresql.major }}', main]
+  when: not pg_cluster.stat.exists
+- name: Configure database and collected logs
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ stack.postgresql.major }}/main/postgresql.conf
+    regexp: '^#?{{ item.key }}\s*='
+    line: '{{ item.key }} = {{ item.value }}'
+  loop:
+    - {key: listen_addresses, value: "'127.0.0.1'"}
+    - {key: logging_collector, value: 'on'}
+    - {key: log_directory, value: "'/var/log/postgresql'"}
+    - {key: log_filename, value: "'otus-%Y-%m-%d.log'"}
+    - {key: log_statement, value: "'none'"}
+  notify: Restart PostgreSQL
+- name: Start PostgreSQL cluster
+  ansible.builtin.systemd_service:
+    name: postgresql@{{ stack.postgresql.major }}-main
+    enabled: true
+    state: started
+- name: Apply configuration before migrations
+  ansible.builtin.meta: flush_handlers
+- name: Set local bootstrap password
+  become_user: postgres
+  ansible.builtin.command:
+    argv: [psql, -v, ON_ERROR_STOP=1, -d, postgres]
+    stdin: "ALTER ROLE postgres PASSWORD '{{ postgres_password }}';"
+  no_log: true
+  changed_when: false

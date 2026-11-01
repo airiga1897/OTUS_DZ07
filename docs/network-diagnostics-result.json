@@ -1,0 +1,19 @@
+{
+  "time_utc": "2026-10-31T20:24:15.224447+00:00",
+  "source": "owned_guest_console",
+  "root_cause_confirmed": false,
+  "nodes": {
+    "app": {
+      "guest_evidence_found": false
+    },
+    "es1": {
+      "guest_evidence_found": false
+    },
+    "es2": {
+      "guest_evidence_found": false
+    },
+    "es3": {
+      "guest_evidence_found": false
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "checked_utc": "2026-10-27T08:28:51.781844+00:00",
+  "test_cycle_run_id": "f3558f5b3d404747875e365d3e2193ba",
+  "cloud_cycle_failed_at": "network-ru-9 terraform init",
+  "original_failure_detail_available": false,
+  "original_root_cause_confirmed": false,
+  "isolated_init_without_lock": "success",
+  "isolated_init_with_repository_lock": "failed",
+  "reproduced_error": "connection_reset_during_provider_download",
+  "provider": "terraform-provider-openstack/openstack",
+  "version": "3.4.0",
+  "mirror": "https://tf-proxy.selectel.ru/mirror/v1/",
+  "tls_verification_disabled": false,
+  "certificate_pinning_added": false,
+  "isolated_checks_created_cloud_resources": false,
+  "temporary_probe_directories_removed": true,
+  "cleanup_verified_by_state_and_api": true
+}

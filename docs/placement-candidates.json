@@ -1,0 +1,37 @@
+{
+  "read_only": true,
+  "resource_creation_requests": 0,
+  "priorities_unchanged": [
+    "ru-9",
+    "ru-3"
+  ],
+  "disk_type_patterns": [
+    "universal.*",
+    "basicssd.*"
+  ],
+  "candidates": [
+    {
+      "region": "ru-9",
+      "availability_zone": "ru-9a",
+      "network_availability_zone": "ru-9a",
+      "router_availability_zone": "ru-9a",
+      "volume_type": "universal.ru-9a"
+    },
+    {
+      "region": "ru-3",
+      "availability_zone": "ru-3a",
+      "network_availability_zone": "ru-3a",
+      "router_availability_zone": "ru-3a",
+      "volume_type": "universal.ru-3a"
+    },
+    {
+      "region": "ru-3",
+      "availability_zone": "ru-3b",
+      "network_availability_zone": "ru-3a",
+      "router_availability_zone": "ru-3a",
+      "volume_type": "universal.ru-3b"
+    }
+  ],
+  "physical_capacity_confirmed": false,
+  "vm_network_connectivity_tested": false
+}

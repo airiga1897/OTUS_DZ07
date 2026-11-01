@@ -1,0 +1,14 @@
+{
+  "stage": "es3",
+  "operation": "show",
+  "returncode": 1,
+  "run_id": "2063f4bf71d140878f64637281710488",
+  "recorded_utc": "2026-10-30T20:14:19.109225+00:00",
+  "placement": {
+    "region": "ru-9",
+    "availability_zone": "ru-9a",
+    "network_availability_zone": "ru-9a",
+    "router_availability_zone": "ru-9a"
+  },
+  "terraform_error": "\u001b[31m╷\u001b[0m\u001b[0m\n\u001b[31m│\u001b[0m \u001b[0m\u001b[1m\u001b[31mError: \u001b[0m\u001b[0m\u001b[1mFailed to load plugin schemas\u001b[0m\n\u001b[31m│\u001b[0m \u001b[0m\n\u001b[31m│\u001b[0m \u001b[0m\u001b[0mError while loading schemas for plugin components: Failed to obtain\n\u001b[31m│\u001b[0m \u001b[0mprovider schema: Could not load the schema for provider\n\u001b[31m│\u001b[0m \u001b[0mregistry.terraform.io/terraform-provider-openstack/openstack: failed to\n\u001b[31m│\u001b[0m \u001b[0minstantiate provider\n\u001b[31m│\u001b[0m \u001b[0m\"registry.terraform.io/terraform-provider-openstack/openstack\" to obtain\n\u001b[31m│\u001b[0m \u001b[0mschema: timeout while waiting for plugin to start..\n\u001b[31m╵\u001b[0m\u001b[0m\n"
+}

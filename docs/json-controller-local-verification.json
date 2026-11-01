@@ -1,0 +1,24 @@
+{
+  "scope": "local-only",
+  "success": true,
+  "defect": "SSH helper combined stderr diagnostics with machine-readable JSON stdout",
+  "fix": "return stdout only; independently drain stderr and save redacted stream sections",
+  "checks": {
+    "legacy_combined_stream_json_error_reproduced": true,
+    "real_local_subprocess_with_json_and_stderr": true,
+    "baseline_snapshot_integration": true,
+    "large_stderr_drained": true,
+    "stderr_redacted_in_log": true,
+    "nonzero_exit_rejected": true,
+    "timeout_closes_channel": true,
+    "stdin_preserved": true,
+    "malformed_stdout_still_rejected": true
+  },
+  "regression_tests": 7,
+  "controller_tests": 201,
+  "service_and_delivery_tests": 48,
+  "ssh_channel": "mocked",
+  "cloud_run_performed": false,
+  "publication_performed": false,
+  "cloud_fix_verified": false
+}

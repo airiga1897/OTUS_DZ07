@@ -1,0 +1,81 @@
+{
+  "checked_utc": "2026-10-25T10:47:00.290062+00:00",
+  "read_only": true,
+  "resources_created_by_attempt": false,
+  "local_empty": true,
+  "global_router": {
+    "routers": {
+      "accessible": false,
+      "error_type": "HTTPError",
+      "http_status": 403
+    },
+    "networks": {
+      "accessible": false,
+      "error_type": "HTTPError",
+      "http_status": 403
+    },
+    "subnets": {
+      "accessible": false,
+      "error_type": "HTTPError",
+      "http_status": 403
+    },
+    "zones": {
+      "accessible": false,
+      "error_type": "HTTPError",
+      "http_status": 403
+    },
+    "quotas": {
+      "accessible": false,
+      "error_type": "HTTPError",
+      "http_status": 403
+    }
+  },
+  "pools": {
+    "gis-1": {
+      "namespace_empty": true
+    },
+    "gis-2": {
+      "namespace_empty": true
+    },
+    "ke-1": {
+      "namespace_empty": true
+    },
+    "kz-1": {
+      "namespace_empty": true
+    },
+    "ru-1": {
+      "namespace_empty": true
+    },
+    "ru-2": {
+      "namespace_empty": true
+    },
+    "ru-3": {
+      "namespace_empty": true
+    },
+    "ru-4": {
+      "namespace_empty": true
+    },
+    "ru-5": {
+      "namespace_empty": true
+    },
+    "ru-6": {
+      "namespace_empty": true
+    },
+    "ru-7": {
+      "namespace_empty": true
+    },
+    "ru-8": {
+      "namespace_empty": true
+    },
+    "ru-9": {
+      "namespace_empty": true
+    },
+    "uz-1": {
+      "namespace_empty": true
+    },
+    "uz-2": {
+      "namespace_empty": true
+    }
+  },
+  "full_audit_confirmed": false
+}

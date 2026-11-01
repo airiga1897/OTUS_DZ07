@@ -1,0 +1,129 @@
+{
+  "read_only": true,
+  "resource_creation_requests": 0,
+  "priorities_unchanged": [
+    "ru-9",
+    "ru-3"
+  ],
+  "excluded_vm_pools": [
+    "ru-7"
+  ],
+  "cleanup": {
+    "verified": true,
+    "evidence": "cleanup-audit.json",
+    "managed_resources": 0,
+    "own_floating_ips": 0
+  },
+  "regions": {
+    "ru-9": {
+      "compute_segments": [
+        "ru-9a"
+      ],
+      "volume_segments": [
+        "ru-9a"
+      ],
+      "network_segments": [
+        "ru-9a"
+      ],
+      "router_segments": [
+        "ru-9a"
+      ],
+      "allowed_disk_types": {
+        "ru-9a": [
+          "basicssd.ru-9a",
+          "universal.ru-9a"
+        ]
+      },
+      "configured_flavors": [
+        "SL1.1-2048",
+        "SL1.2-4096",
+        "SL1.2-8192"
+      ],
+      "compatible_ubuntu_image_present": true,
+      "quota_sufficient": true,
+      "physical_capacity": "unknown",
+      "physical_capacity_http_status": 403,
+      "deleted_server_http_status": 404,
+      "deleted_actions_http_status": 404
+    },
+    "ru-3": {
+      "compute_segments": [
+        "ru-3a",
+        "ru-3b"
+      ],
+      "volume_segments": [
+        "ru-3a",
+        "ru-3b"
+      ],
+      "network_segments": [
+        "ru-3a"
+      ],
+      "router_segments": [
+        "ru-3a",
+        "ru-3a-paas"
+      ],
+      "allowed_disk_types": {
+        "ru-3a": [
+          "universal.ru-3a"
+        ],
+        "ru-3b": [
+          "basicssd.ru-3b",
+          "universal.ru-3b"
+        ]
+      },
+      "configured_flavors": [
+        "SL1.1-2048",
+        "SL1.2-4096",
+        "SL1.2-8192"
+      ],
+      "catalog_alternatives_not_enabled": [
+        "SL2.2-4096-AMD",
+        "SL2.2-8192-AMD"
+      ],
+      "compatible_ubuntu_image_present": true,
+      "quota_sufficient": true,
+      "physical_capacity": "unknown",
+      "physical_capacity_http_status": 403,
+      "deleted_server_http_status": 404,
+      "deleted_actions_http_status": 404
+    }
+  },
+  "vm_profiles": {
+    "app": {
+      "vcpus": 1,
+      "ram_mb": 2048
+    },
+    "postgresql_and_kibana": {
+      "vcpus": 2,
+      "ram_mb": 4096
+    },
+    "elasticsearch": {
+      "vcpus": 2,
+      "ram_mb": 8192
+    }
+  },
+  "diagnosis": {
+    "observed_stage": "Nova server creation before application configuration",
+    "recorded_error_class": "scheduler_capacity_unavailable",
+    "exact_provider_root_cause": "not established",
+    "fault_details_retained": false,
+    "quota_exhaustion_not_indicated": true,
+    "image_missing_or_hash_mismatch_not_indicated": true,
+    "ru3b_compatibility": "Supported by documented pool-wide L2 scope and live compute/storage/network API catalogs; no VM connectivity test performed.",
+    "anti_affinity_sole_cause": "not supported: app and Kibana outside anti-affinity groups also failed in ru-3a",
+    "limitations": [
+      "After cleanup the deleted server and action endpoints return 404; raw fault details were not retained before cleanup.",
+      "The scheduler-capacity classifier groups several messages, including exhausted scheduling retries; it does not establish a unique underlying fault.",
+      "Flavor catalog presence and positive project quotas do not establish free compute hosts.",
+      "Provider networking scheduling domains must not be assumed equivalent to compute segment names."
+    ],
+    "ru3b_skipped_reason_before_correction": "Current selector intersects compute, network and router availability-zone names; network/router catalogs do not list ru-3b.",
+    "current_selection_evidence": "placement-candidates.json",
+    "fault_capture_for_future_failures": "Full available fault retained in docs/placement-faults before deletion; unavailable API results recorded separately."
+  },
+  "sources": [
+    "https://docs.selectel.ru/cloud-servers/about/cloud-servers-availability-by-location/",
+    "https://docs.selectel.ru/migrations/migrate-to-cloud-servers/faq-cloud-servers-migration/",
+    "https://docs.selectel.ru/infrastructure/locations/"
+  ]
+}

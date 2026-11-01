@@ -1,0 +1,40 @@
+{
+  "date": "2026-11-01",
+  "scope": "local mock API and isolated temporary state",
+  "success": true,
+  "commands": [
+    "scripts/lab.py verify --es-failover",
+    "scripts/lab.py add-es4"
+  ],
+  "test_files": [
+    "scripts/test_optional_elasticsearch.py",
+    "scripts/test_es4_lifecycle.py",
+    "scripts/test_optional_provider_contracts.py",
+    "scripts/test_cli_routing.py"
+  ],
+  "focused_test_count": 26,
+  "full_project_tests": 742,
+  "verified": [
+    "Master VM pool and UUID come from saved per-node placement",
+    "Failure or lost stop reply always triggers restoration; original error is preserved",
+    "Retry after failed restoration recovers the same VM without another shutdown",
+    "Unknown or foreign master/VM binding and pending Ansible operations are blocked",
+    "Interrupt and diagnostic-save failure do not bypass restoration",
+    "Explicit es4 request is retained in the same stand context; base topology stays four VMs",
+    "Existing resource IDs, control data and media are retained by the staged local controller",
+    "Following deploy and retry after configuration failure do not allocate es4 again",
+    "Corrupt infrastructure snapshots block allocation",
+    "es4 is data/ingest; es1-es3 remain bootstrap/master-eligible nodes",
+    "Cleanup uses saved five-node topology without current optional settings",
+    "Ordinary verify uses False; test-cycle rejects es4 before deployment",
+    "Expected saved node count and green status are required before shutdown and when confirming restoration"
+  ],
+  "new_module_line_percent": 100.0,
+  "new_module_branch_percent": 98.14814814814815,
+  "cloud_run_performed": false,
+  "real_vm_power_changed": false,
+  "real_es4_created": false,
+  "publication_performed": false,
+  "cloud_compatibility_unconfirmed": true,
+  "documentation_links_checked": 127
+}

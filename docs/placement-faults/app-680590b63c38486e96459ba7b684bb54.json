@@ -1,0 +1,18 @@
+{
+  "stage": "app",
+  "read_only": true,
+  "nodes": {
+    "app": {
+      "status": "ERROR",
+      "fault": {
+        "code": 500,
+        "created": "2026-10-29T15:28:35Z",
+        "message": "No valid host was found. There are not enough hosts available."
+      },
+      "OS-EXT-AZ:availability_zone": "ru-3a",
+      "OS-EXT-STS:vm_state": "error",
+      "OS-EXT-STS:task_state": null
+    }
+  },
+  "terraform_error": "\n[Terraform invocation]\nmodule.stage.openstack_blockstorage_volume_v3.boot: Creating...\nmodule.stage.openstack_networking_floatingip_v2.app[0]: Creating...\nmodule.stage.openstack_networking_port_v2.node: Creating...\nmodule.stage.openstack_networking_port_v2.node: Creation complete after 2s [id=<resource-id>]\nmodule.stage.openstack_networking_floatingip_v2.app[0]: Creation complete after 2s [id=<resource-id>]\nmodule.stage.openstack_networking_floatingip_associate_v2.app[0]: Creating...\nmodule.stage.openstack_networking_floatingip_associate_v2.app[0]: Creation complete after 2s [id=<resource-id>]\nmodule.stage.openstack_blockstorage_volume_v3.boot: Creation complete after 5s [id=<resource-id>]\nmodule.stage.openstack_compute_instance_v2.node: Creating...\n\nError: Error waiting for instance (<resource-id>) to become ready: unexpected state 'ERROR', wanted target 'ACTIVE'. last error: %!s(<nil>)\n\n  with module.stage.openstack_compute_instance_v2.node,\n  on ..\\..\\..\\terraform-selectel\\staged\\node\\main.tf line 45, in resource \"openstack_compute_instance_v2\" \"node\":\n  45: resource \"openstack_compute_instance_v2\" \"node\" {\n\n\n[Terraform invocation]\nmodule.stage.openstack_compute_instance_v2.node: Destroying... [id=<resource-id>]\nmodule.stage.openstack_networking_floatingip_associate_v2.app[0]: Destroying... [id=<resource-id>]\nmodule.stage.openstack_networking_floatingip_associate_v2.app[0]: Destruction complete after 2s\nmodule.stage.openstack_networking_floatingip_v2.app[0]: Destroying... [id=<resource-id>]\nmodule.stage.openstack_compute_instance_v2.node: Destruction complete after 2s\nmodule.stage.openstack_blockstorage_volume_v3.boot: Destroying... [id=<resource-id>]\nmodule.stage.openstack_networking_port_v2.node: Destroying... [id=<resource-id>]\nmodule.stage.openstack_networking_floatingip_v2.app[0]: Destruction complete after 1s\nmodule.stage.openstack_networking_port_v2.node: Destruction complete after 0s\nmodule.stage.openstack_blockstorage_volume_v3.boot: Destruction complete after 3s\n\nApply complete! Resources: 0 added, 0 changed, 5 destroyed.\n\n[Terraform invocation]\nmodule.stage.openstack_networking_floatingip_v2.app[0]: Creating...\nmodule.stage.openstack_blockstorage_volume_v3.boot: Creating...\nmodule.stage.openstack_networking_port_v2.node: Creating...\nmodule.stage.openstack_networking_port_v2.node: Creation complete after 2s [id=<resource-id>]\nmodule.stage.openstack_networking_floatingip_v2.app[0]: Creation complete after 3s [id=<resource-id>]\nmodule.stage.openstack_networking_floatingip_associate_v2.app[0]: Creating...\nmodule.stage.openstack_networking_floatingip_associate_v2.app[0]: Creation complete after 1s [id=<resource-id>]\nmodule.stage.openstack_blockstorage_volume_v3.boot: Creation complete after 5s [id=<resource-id>]\nmodule.stage.openstack_compute_instance_v2.node: Creating...\n\nError: Error waiting for instance (<resource-id>) to become ready: unexpected state 'ERROR', wanted target 'ACTIVE'. last error: %!s(<nil>)\n\n  with module.stage.openstack_compute_instance_v2.node,\n  on ..\\..\\..\\terraform-selectel\\staged\\node\\main.tf line 45, in resource \"openstack_compute_instance_v2\" \"node\":\n  45: resource \"openstack_compute_instance_v2\" \"node\" {\n\n"
+}

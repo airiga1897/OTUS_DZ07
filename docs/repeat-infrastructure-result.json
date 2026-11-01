@@ -1,0 +1,15 @@
+{
+  "run_id": "bc260f2b15ae44e284b87abf4fabb495",
+  "success": true,
+  "scope": "Terraform infrastructure reapply only; repeated Ansible and application verification did not finish",
+  "existing_stage_zero_change_apply_observed": {
+    "app": true,
+    "network-ru-9": true,
+    "global": true,
+    "connection-ru-9": true,
+    "es1": true,
+    "es2": true,
+    "es3": true
+  },
+  "publication_performed": false
+}

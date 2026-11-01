@@ -1,0 +1,47 @@
+{
+  "date": "2026-11-01",
+  "scope": "local-only",
+  "success": true,
+  "tests": [
+    "scripts/test_release_artifacts.py",
+    "scripts/test_release_configuration.py",
+    "scripts/test_release_current_clone.py"
+  ],
+  "test_count": 18,
+  "full_project_tests": 742,
+  "real_temporary_git_repository_and_clean_clone": true,
+  "current_project_snapshot_tested": true,
+  "two_commit_binding_tested": true,
+  "isolated_consumer_process": true,
+  "synthetic_package_delivery_tested": true,
+  "https": "in-memory transport; external networking forbidden",
+  "s3_client_calls_for_release": 0,
+  "current_cached_official_packages_sha512_verified": {
+    "filebeat-8.19.0-amd64.deb": true,
+    "elasticsearch-8.19.0-amd64.deb": true,
+    "kibana-8.19.0-amd64.deb": true
+  },
+  "configure_module_line_coverage": 100.0,
+  "configure_module_branch_coverage": 100.0,
+  "configure_blocks_existing_local_stand": true,
+  "configure_preserves_parallel_edits": true,
+  "configure_serialized_with_deploy_destroy": true,
+  "doc_links": {
+    "markdown_files": 19,
+    "existing_relative_links_checked": 119,
+    "broken_links": []
+  },
+  "default_delivery_unchanged": "s3",
+  "actual_release_built_from_dirty_project": false,
+  "actual_public_release_available": false,
+  "cloud_vm_release_delivery_verified": false,
+  "publication_performed": false,
+  "main_repository_commit_created": false,
+  "verified": [
+    "Exact source commit archive, release hashes and SHA512SUMS",
+    "Current-source clone receives source and three packages and builds four-node inventory without S3 credentials",
+    "Wrong identity, corruption, dirty tree, existing state and concurrent edits are rejected",
+    "README, deployment commands and evidence distinguish the successful S3 cloud trial from local Release tests"
+  ],
+  "remaining_required_step": "After agreeing and committing the source, build and configure the real bundle; publication and cloud delivery require separate authorization."
+}

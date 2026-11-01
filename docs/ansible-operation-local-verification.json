@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-31",
+  "scope": "local mock SSH/systemd, isolated private directories",
+  "success": true,
+  "cloud_execution_verified": false,
+  "publication_performed": false,
+  "tests": [
+    "scripts/test_ansible_operation.py",
+    "scripts/test_ansible_operation_edges.py",
+    "scripts/test_operation_lifecycle.py"
+  ],
+  "verified": [
+    "disconnect before reservation and start",
+    "lost reply after systemd unit creation",
+    "same-operation observation after controller restart",
+    "stand/VM/parameters mismatch rejection",
+    "parallel operation rejection",
+    "successful/failed/unknown/corrupt result",
+    "operation and connection deadlines",
+    "SIGTERM and process-group termination",
+    "control-group child inspection before deletion",
+    "unknown stop blocks all VM deletion",
+    "primary error preserved after finalizer failure",
+    "private SFTP timeout and permissions",
+    "atomic result replacement",
+    "public diagnostic value filtering"
+  ],
+  "user_commands_changed": false,
+  "new_virtual_machines_created": 0,
+  "limitations": "Real systemd/SSH recovery and delivery to app need a separately authorized cloud trial.",
+  "test_count": 55,
+  "full_project_test_count": 742,
+  "private_file_permissions_and_short_transport_tested": true,
+  "cleanup_failed_marker_and_resource_preservation_tested": true,
+  "privileged_child_signal_error_preserves_primary_timeout": true,
+  "new_controller_line_coverage": 100,
+  "new_worker_line_coverage": 100,
+  "completed_ansible_result_preserved_during_destroy": true,
+  "finishing_pending_flag_cleared_after_recovery": true,
+  "exec_acknowledgement_and_sftp_open_deadlines_tested": true,
+  "known_failed_operation_allows_next_explicit_deploy": true
+}

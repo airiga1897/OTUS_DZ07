@@ -1,0 +1,60 @@
+scope: otus-dz07
+namespace: /service/
+name: db1
+restapi:
+  listen: 10.77.0.21:8008
+  connect_address: 10.77.0.21:8008
+  authentication:
+    username: patroni
+    password: REPLACE_WITH_GENERATED_SECRET
+etcd3:
+  hosts:
+  - 10.77.0.21:2379
+  - 10.77.0.22:2379
+  - 10.77.0.23:2379
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 5
+    retry_timeout: 5
+    maximum_lag_on_failover: 1048576
+    synchronous_mode: true
+    synchronous_mode_strict: true
+    synchronous_node_count: 1
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        wal_level: replica
+        hot_standby: 'on'
+        max_wal_senders: 10
+        max_replication_slots: 10
+        wal_keep_size: 128MB
+        password_encryption: scram-sha-256
+  initdb:
+  - encoding: UTF8
+  - data-checksums
+  pg_hba:
+  - local all postgres peer
+  - local all all scram-sha-256
+  - host replication replicator 10.77.0.0/24 scram-sha-256
+  - host all all 10.77.0.0/24 scram-sha-256
+postgresql:
+  listen: 10.77.0.21:5432
+  connect_address: 10.77.0.21:5432
+  data_dir: /var/lib/postgresql/patroni
+  bin_dir: /usr/lib/postgresql/16/bin
+  authentication:
+    superuser:
+      username: postgres
+      password: REPLACE_WITH_GENERATED_SECRET
+    replication:
+      username: replicator
+      password: REPLACE_WITH_GENERATED_SECRET
+  parameters:
+    unix_socket_directories: /var/run/postgresql
+watchdog:
+  mode: 'off'
+tags:
+  nofailover: false
+  noloadbalance: false

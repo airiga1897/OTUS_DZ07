@@ -1,0 +1,28 @@
+{
+  "scope": "isolated-local-tests",
+  "success": true,
+  "preferred_pools": [
+    "ru-2",
+    "ru-9",
+    "ru-3"
+  ],
+  "additional_excluded_pool": "ru-6",
+  "excluded_segments": [
+    "ru-1b"
+  ],
+  "quota_rejections_remain_dynamic": [
+    "ru-1a",
+    "ru-2b"
+  ],
+  "catalog_compatible_alternatives_retained": [
+    "ru-1c",
+    "ru-8a"
+  ],
+  "saved_placement_preserved": true,
+  "generator_segment_discovery_tested": true,
+  "source": "scripts/test_preferred_placement_policy.py",
+  "full_project_tests": 709,
+  "new_cloud_run_performed": false,
+  "previous_ru2_trial": "ru2-test-cycle-summary.json",
+  "publication_performed": false
+}

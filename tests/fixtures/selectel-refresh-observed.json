@@ -1,0 +1,113 @@
+{
+  "anonymized": true,
+  "resource_drift": [
+    {
+      "address": "module.stage.openstack_blockstorage_volume_v3.boot",
+      "type": "openstack_blockstorage_volume_v3",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "attachment": [],
+          "id": "own-disk"
+        },
+        "after": {
+          "attachment": [
+            {
+              "device": "/dev/vda",
+              "id": "own-disk",
+              "instance_id": "own-vm"
+            }
+          ],
+          "id": "own-disk"
+        }
+      }
+    },
+    {
+      "address": "module.stage.openstack_compute_instance_v2.node",
+      "type": "openstack_compute_instance_v2",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "all_metadata": {
+            "dz07_owner": "otus-dz07-synthetic"
+          },
+          "id": "own-vm",
+          "tags": null
+        },
+        "after": {
+          "all_metadata": {
+            "dz07_owner": "otus-dz07-synthetic",
+            "x_cloud_maintenance": "provider-maintenance-state"
+          },
+          "id": "own-vm",
+          "tags": []
+        }
+      }
+    },
+    {
+      "address": "module.stage.openstack_networking_floatingip_v2.app[0]",
+      "type": "openstack_networking_floatingip_v2",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "fixed_ip": "",
+          "id": "own-fip",
+          "port_id": "",
+          "tags": null
+        },
+        "after": {
+          "fixed_ip": "10.77.0.10",
+          "id": "own-fip",
+          "port_id": "own-port",
+          "tags": []
+        }
+      }
+    },
+    {
+      "address": "module.stage.openstack_networking_port_v2.node",
+      "type": "openstack_networking_port_v2",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "device_id": "",
+          "device_owner": "",
+          "dns_assignment": [
+            {
+              "fqdn": "host-10-77-0-10.cloud.test.",
+              "hostname": "host-10-77-0-10",
+              "ip_address": "10.77.0.10"
+            }
+          ],
+          "dns_name": "",
+          "id": "own-port",
+          "qos_policy_id": "",
+          "tags": null
+        },
+        "after": {
+          "device_id": "own-vm",
+          "device_owner": "compute:nova",
+          "dns_assignment": [
+            {
+              "fqdn": "otus-dz07-app.cloud.test.",
+              "hostname": "otus-dz07-app",
+              "ip_address": "10.77.0.10"
+            }
+          ],
+          "dns_name": "otus-dz07-app",
+          "id": "own-port",
+          "qos_policy_id": "00000000-0000-4000-8000-000000000004",
+          "tags": []
+        }
+      }
+    }
+  ],
+  "provenance": "Field shapes observed with OpenStack provider 3.4.0; all IDs, values, addresses and DNS labels are synthetic. Configured baseline fields are supplied by the test fixture."
+}

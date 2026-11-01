@@ -1,0 +1,6 @@
+{
+  "stage": "connection-ru-9",
+  "read_only": true,
+  "nodes": {},
+  "terraform_error": "{\"network_id\":\"<resource-id>\",\"subnet_id\":\"<resource-id>\"}\n"
+}

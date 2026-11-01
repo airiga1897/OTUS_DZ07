@@ -1,0 +1,264 @@
+{
+  "scope": "local-only",
+  "date": "2026-11-01",
+  "cloud_run_performed": false,
+  "tests": 750,
+  "line_percent": 100.0,
+  "branch_percent": 98.21428571428571,
+  "excluded_lines": 0,
+  "files": {
+    "scripts\\cache_packages.py": {
+      "lines": [],
+      "branches": [
+        [
+          27,
+          -25
+        ]
+      ]
+    },
+    "scripts\\elastic_options.py": {
+      "lines": [],
+      "branches": [
+        [
+          111,
+          -109
+        ]
+      ]
+    },
+    "scripts\\lab.py": {
+      "lines": [],
+      "branches": [
+        [
+          480,
+          486
+        ]
+      ]
+    },
+    "scripts\\local_runtime.py": {
+      "lines": [],
+      "branches": [
+        [
+          82,
+          89
+        ],
+        [
+          132,
+          122
+        ]
+      ]
+    },
+    "scripts\\observability.py": {
+      "lines": [],
+      "branches": [
+        [
+          38,
+          40
+        ]
+      ]
+    },
+    "scripts\\pool_selection.py": {
+      "lines": [],
+      "branches": [
+        [
+          289,
+          295
+        ],
+        [
+          393,
+          398
+        ]
+      ]
+    },
+    "scripts\\remote\\ansible_job.py": {
+      "lines": [],
+      "branches": [
+        [
+          149,
+          -145
+        ],
+        [
+          167,
+          174
+        ],
+        [
+          182,
+          -176
+        ],
+        [
+          212,
+          -206
+        ],
+        [
+          236,
+          241
+        ]
+      ]
+    },
+    "scripts\\remote\\fetch_artifacts.py": {
+      "lines": [],
+      "branches": [
+        [
+          39,
+          79
+        ],
+        [
+          117,
+          132
+        ]
+      ]
+    },
+    "scripts\\render.py": {
+      "lines": [],
+      "branches": [
+        [
+          68,
+          70
+        ]
+      ]
+    },
+    "scripts\\selectel_adapter.py": {
+      "lines": [],
+      "branches": [
+        [
+          259,
+          258
+        ],
+        [
+          264,
+          267
+        ],
+        [
+          288,
+          302
+        ]
+      ]
+    },
+    "scripts\\selectel_api.py": {
+      "lines": [],
+      "branches": [
+        [
+          42,
+          -29
+        ],
+        [
+          80,
+          77
+        ]
+      ]
+    },
+    "scripts\\selectel_staged.py": {
+      "lines": [],
+      "branches": [
+        [
+          98,
+          92
+        ],
+        [
+          105,
+          102
+        ],
+        [
+          234,
+          236
+        ],
+        [
+          289,
+          291
+        ],
+        [
+          320,
+          322
+        ],
+        [
+          424,
+          423
+        ],
+        [
+          513,
+          515
+        ],
+        [
+          549,
+          -547
+        ],
+        [
+          550,
+          549
+        ],
+        [
+          616,
+          -610
+        ],
+        [
+          626,
+          -619
+        ],
+        [
+          638,
+          642
+        ],
+        [
+          653,
+          660
+        ],
+        [
+          695,
+          697
+        ]
+      ]
+    },
+    "scripts\\selectel_staged_audit.py": {
+      "lines": [],
+      "branches": [
+        [
+          111,
+          113
+        ],
+        [
+          232,
+          228
+        ]
+      ]
+    },
+    "scripts\\selectel_staged_capacity.py": {
+      "lines": [],
+      "branches": [
+        [
+          82,
+          81
+        ]
+      ]
+    },
+    "scripts\\staged_runtime.py": {
+      "lines": [],
+      "branches": [
+        [
+          87,
+          -80
+        ],
+        [
+          228,
+          -187
+        ]
+      ]
+    },
+    "scripts\\test_cycle.py": {
+      "lines": [],
+      "branches": [
+        [
+          62,
+          58
+        ]
+      ]
+    },
+    "scripts\\verification.py": {
+      "lines": [],
+      "branches": [
+        [
+          79,
+          83
+        ]
+      ]
+    }
+  }
+}
