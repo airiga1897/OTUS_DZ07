@@ -115,7 +115,7 @@ class RetainedLifecycleTest(unittest.TestCase):
         stack = ExitStack()
         stack.enter_context(patch('staged_runtime.Backend',return_value=provider))
         stack.enter_context(patch('operator_network.discover_cidrs',return_value=['8.8.8.8/32']))
-        stack.enter_context(patch('s3_artifacts.prepare'))
+        stack.enter_context(patch('delivery.prepare'))
         stack.enter_context(patch('selectel_staged_audit.assert_stage_owned'))
         return stack
 
