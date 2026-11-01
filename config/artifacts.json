@@ -1,5 +1,11 @@
 {
-  "github_release": {},
+  "github_release": {
+    "repository": "airiga1897/OTUS_DZ07",
+    "tag": "v1.0.0",
+    "commit": "5d9684c8d2726a898e1144af7a94786974871c98",
+    "manifest_sha512": "181cc7bc36984c96c84738a90bcbea35bee0bf2d28eb44e97538fd8fd1a5506226118f0b41339ee37ed4a7791678d6bc7ad4fb7f1d37f5de0427a0d644402166",
+    "manifest_size": 1426
+  },
   "s3": {
     "endpoint": "https://s3.ru-7.storage.selcloud.ru",
     "region": "ru-7",

@@ -1,5 +1,5 @@
 {
-  "artifact_delivery": "s3",
+  "artifact_delivery": "release",
   "elastic_download_base": "https://artifacts.elastic.co/downloads",
   "elastic_version": "8.19.0",
   "elastic_heap": "2g",
