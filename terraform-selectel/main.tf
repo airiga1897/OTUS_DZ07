@@ -67,11 +67,6 @@ resource "openstack_networking_port_v2" "node" {
     ip_address = local.addresses[each.key]
   }
 }
-resource "openstack_compute_servergroup_v2" "db" {
-  count    = anytrue([for n in var.nodes : n.role == "db"]) ? 1 : 0
-  name     = "${var.name_prefix}-db"
-  policies = ["anti-affinity"]
-}
 resource "openstack_compute_servergroup_v2" "es" {
   name     = "${var.name_prefix}-es"
   policies = ["anti-affinity"]
@@ -108,8 +103,8 @@ resource "openstack_compute_instance_v2" "node" {
   }
   network { port = openstack_networking_port_v2.node[each.key].id }
   dynamic "scheduler_hints" {
-    for_each = contains(["db", "es"], each.value.role) ? [1] : []
-    content { group = each.value.role == "db" ? openstack_compute_servergroup_v2.db[0].id : openstack_compute_servergroup_v2.es.id }
+    for_each = each.value.role == "es" ? [1] : []
+    content { group = openstack_compute_servergroup_v2.es.id }
   }
   user_data = "#cloud-config\n${yamlencode({
     hostname         = "${var.name_prefix}-${each.key}"
@@ -158,7 +153,6 @@ output "lab" {
     server_ids    = { for name, n in openstack_compute_instance_v2.node : name => n.id }
     volume_ids    = { for name, n in openstack_blockstorage_volume_v3.boot : name => n.id }
     port_ids      = { for name, n in openstack_networking_port_v2.node : name => n.id }
-    etcd_members  = var.etcd_members
   }
 }
 
@@ -174,7 +168,7 @@ output "infrastructure" {
     })
     subnet_cidr = var.subnet_cidr
     nodes = { for name, node in var.nodes : name => {
-      roles      = concat([node.role], contains(var.etcd_members, name) ? ["etcd"] : [])
+      roles      = [node.role]
       id         = openstack_compute_instance_v2.node[name].id
       volume_id  = openstack_blockstorage_volume_v3.boot[name].id
       port_id    = openstack_networking_port_v2.node[name].id

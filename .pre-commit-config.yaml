@@ -1,0 +1,19 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: Ruff lint
+        entry: .tools/venv/Scripts/python.exe -m ruff check
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: Ruff format
+        entry: .tools/venv/Scripts/python.exe -m ruff format --check
+        language: system
+        types: [python]
+      - id: mypy
+        name: mypy contracts
+        entry: .tools/venv/Scripts/python.exe scripts/quality.py mypy
+        language: system
+        pass_filenames: false
+        types: [python]

@@ -13,10 +13,17 @@ try {
 $env:TEMP = Join-Path $taskRoot '.local/tmp'
 $env:TMP = $env:TEMP
 $env:PIP_CACHE_DIR = Join-Path $taskRoot '.local/pip-cache'
-python -m venv (Join-Path $taskRoot '.tools/venv')
-if ($LASTEXITCODE) { throw 'Python venv creation failed.' }
-& (Join-Path $taskRoot '.tools/venv/Scripts/python.exe') -m pip install -r (Join-Path $taskRoot 'requirements-local.txt')
+$taskPython = Join-Path $taskRoot '.tools/venv/Scripts/python.exe'
+if (-not (Test-Path -LiteralPath $taskPython -PathType Leaf)) {
+    py -3.12 -m venv (Join-Path $taskRoot '.tools/venv')
+    if ($LASTEXITCODE) { throw 'Python venv creation failed.' }
+}
+& $taskPython -c 'import sys; sys.exit(0 if sys.version_info[:2] == (3, 12) else 1)'
+if ($LASTEXITCODE) { throw 'Project virtual environment must use Python 3.12. Credentials were not changed.' }
+& $taskPython -m pip install -r (Join-Path $taskRoot 'requirements-quality.txt')
 if ($LASTEXITCODE) { throw 'Local dependency installation failed.' }
+& $taskPython -c 'import _cffi_backend, paramiko, yaml, jinja2, boto3, coverage'
+if ($LASTEXITCODE) { throw 'Virtual environment dependency imports failed; repair .tools/venv with its original Python version. No cloud resources created.' }
 $taskTarget = Join-Path $taskRoot '.tools/terraform.exe'
 if ($TerraformPath) {
     $taskSource = (Resolve-Path -LiteralPath $TerraformPath -ErrorAction Stop).Path
@@ -28,7 +35,7 @@ if ($TerraformPath) {
 }
 & $taskTarget version
 if ($LASTEXITCODE) { throw 'Local Terraform executable check failed.' }
-& (Join-Path $taskRoot '.tools/venv/Scripts/python.exe') (Join-Path $taskRoot 'scripts/terraform_plugins.py')
+& $taskPython (Join-Path $taskRoot 'scripts/terraform_plugins.py')
 if ($LASTEXITCODE) { throw 'Terraform provider preparation failed; no cloud resources created.' }
 Write-Host 'Local Python and Terraform tools prepared; no cloud resources created.'
 } finally {

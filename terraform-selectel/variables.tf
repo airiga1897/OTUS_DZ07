@@ -2,9 +2,6 @@ variable "region" { type = string }
 variable "nodes" {
   type = map(object({ host = number, role = string }))
 }
-variable "etcd_members" {
-  type = list(string)
-}
 variable "availability_zone" { type = string }
 variable "network_availability_zone" {
   type    = string

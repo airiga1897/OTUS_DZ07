@@ -17,7 +17,7 @@
     "postgresql_colocated_with_app": true
   },
   "checks": {
-    "controller_tests": 658,
+    "controller_tests": 779,
     "artifact_and_observability_tests": 66,
     "django_tests": 26,
     "terraform_mock_runs": 13,
@@ -77,7 +77,8 @@
     "es4_repeat_does_not_allocate_again": true,
     "es4_cloud_verified": false,
     "optional_es_failover_cloud_verified": false,
-    "es_failover_checks_saved_membership": true
+    "es_failover_checks_saved_membership": true,
+    "progress_and_connector_verification": "progress-connector-local-verification.json"
   },
   "cloud_run_performed": false,
   "publication_performed": false,
@@ -93,7 +94,7 @@
   "coverage": {
     "date": "2026-11-01",
     "line_percent": 100.0,
-    "branch_percent": 98.21428571428571,
+    "branch_percent": 100.0,
     "baseline_line_percent": 68.4789,
     "baseline_branch_percent": 58.0898,
     "external_networking_blocked": true,
@@ -104,9 +105,9 @@
     ],
     "production_excluded_lines": 0,
     "remaining_uncovered_lines": 0,
-    "remaining_uncovered_branches": 42,
-    "target_line_percent": 95,
-    "target_branch_percent": 90,
+    "remaining_uncovered_branches": 0,
+    "target_line_percent": 100,
+    "target_branch_percent": 100,
     "targets_met": true,
     "verification_report": "coverage-target-verification.json",
     "namespace_packages_included": true,
@@ -126,5 +127,11 @@
   "cursor_full_review_adoption": "cursor-full-review-adoption.json",
   "separate_ru2_cloud_report": "ru2-test-cycle-summary.json",
   "separate_single_pool_cloud_report": "release-cloud-acceptance.json",
-  "separate_public_release_report": "release-public-verification.json"
+  "separate_public_release_report": "release-public-verification.json",
+  "destroy_scope_verification": "destroy-scope-local-verification.json",
+  "ansible_progress_verification": "ansible-progress-local-verification.json",
+  "ansible_progress_cloud_verified": false,
+  "documentation_verification": "documentation-scope-verification.json",
+  "source_python_sha256": "8de47872c0778dc121bf51c616528959c07b91301725091342cf5b96e640bb04",
+  "progress_diagnostics_verification": "progress-diagnostics-local-verification.json"
 }

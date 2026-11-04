@@ -1,0 +1,3 @@
+class Task:
+    no_log: bool | None
+    def get_ds(self) -> object: ...

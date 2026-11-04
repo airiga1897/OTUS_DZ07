@@ -1,11 +1,11 @@
-"""DZ07 Ansible configuration runs independently of the operator's SSH session."""
-from stack_config import load
+"""Ansible operation boundary, without import-time configuration."""
 
-STACK = load()
-REMOTE = STACK['paths']['remote_root']
-RUNTIME = REMOTE + '/.ansible-runtime'
+from inventory_types import Inventory
+from paramiko import SSHClient
+from runtime_ports import OperationPort
 
 
-def configure(api, app, inventory: dict) -> None:
+def configure(api: OperationPort, app: SSHClient | None, inventory: Inventory) -> None:
     from ansible_operation import configure
+
     return configure(api, app, inventory)

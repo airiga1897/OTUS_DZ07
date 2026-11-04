@@ -5,30 +5,36 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Article',
+            name="Article",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=180, verbose_name='Заголовок')),
-                ('slug', models.SlugField(unique=True, verbose_name='Адрес')),
-                ('lesson', models.PositiveSmallIntegerField(verbose_name='Номер ДЗ')),
-                ('summary', models.CharField(max_length=320, verbose_name='Краткое описание')),
-                ('body', models.TextField(verbose_name='Материал')),
-                ('image', models.ImageField(blank=True, upload_to='articles/%Y/%m/', validators=[django.core.validators.FileExtensionValidator(['png', 'jpg', 'jpeg', 'webp'])], verbose_name='Изображение')),
-                ('published', models.BooleanField(default=False, verbose_name='Опубликовано')),
-                ('updated_at', models.DateTimeField(auto_now=True)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("title", models.CharField(max_length=180, verbose_name="Заголовок")),
+                ("slug", models.SlugField(unique=True, verbose_name="Адрес")),
+                ("lesson", models.PositiveSmallIntegerField(verbose_name="Номер ДЗ")),
+                ("summary", models.CharField(max_length=320, verbose_name="Краткое описание")),
+                ("body", models.TextField(verbose_name="Материал")),
+                (
+                    "image",
+                    models.ImageField(
+                        blank=True,
+                        upload_to="articles/%Y/%m/",
+                        validators=[django.core.validators.FileExtensionValidator(["png", "jpg", "jpeg", "webp"])],
+                        verbose_name="Изображение",
+                    ),
+                ),
+                ("published", models.BooleanField(default=False, verbose_name="Опубликовано")),
+                ("updated_at", models.DateTimeField(auto_now=True)),
             ],
             options={
-                'verbose_name': 'Материал',
-                'verbose_name_plural': 'Материалы',
-                'ordering': ['lesson', 'title'],
+                "verbose_name": "Материал",
+                "verbose_name_plural": "Материалы",
+                "ordering": ["lesson", "title"],
             },
         ),
     ]

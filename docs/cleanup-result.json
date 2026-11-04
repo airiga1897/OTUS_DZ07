@@ -1,23 +1,10 @@
 {
   "success": true,
   "staged": true,
-  "empty_without_context": true,
+  "managed_remaining": 0,
   "pools_audited": [
-    "gis-1",
-    "gis-2",
-    "ke-1",
-    "kz-1",
-    "ru-1",
-    "ru-2",
-    "ru-3",
-    "ru-4",
-    "ru-5",
-    "ru-6",
-    "ru-7",
-    "ru-8",
-    "ru-9",
-    "uz-1",
-    "uz-2"
+    "ru-2"
   ],
-  "global_router_remaining": 0
+  "global_router_remaining": 0,
+  "audit_complete": true
 }

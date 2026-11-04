@@ -9,7 +9,7 @@
   "s3": {
     "endpoint": "https://s3.ru-7.storage.selcloud.ru",
     "region": "ru-7",
-    "bucket": "otus-dz07-artifacts-elk",
+    "bucket": "",
     "prefix": "otus-dz07",
     "expires_seconds": 3600
   }

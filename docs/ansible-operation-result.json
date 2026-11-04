@@ -1,9 +1,10 @@
 {
-  "state": "succeeded",
+  "state": "stopped",
   "phase": "configure",
-  "exit_code": 0,
-  "created_utc": "2026-11-01T11:41:42.512245+00:00",
-  "started_utc": "2026-11-01T11:42:20.705122+00:00",
-  "finished_utc": "2026-11-01T11:43:41.037506+00:00",
-  "operation_id": "1c0047e579414307922a61e096ca255d"
+  "exit_code": 143,
+  "reason": "stopped",
+  "created_utc": "2026-11-02T17:55:08.930247+00:00",
+  "started_utc": "2026-11-02T17:57:35.643267+00:00",
+  "finished_utc": "2026-11-02T18:06:30.210791+00:00",
+  "operation_id": "3f2d4f111b4c479a9000a2946db136e8"
 }

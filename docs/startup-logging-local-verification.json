@@ -1,0 +1,45 @@
+{
+  "scope": "local isolated tests; external socket networking blocked",
+  "command": ".\\.tools\\venv\\Scripts\\python.exe -u scripts/check.py",
+  "success": true,
+  "results": {
+    "scripts": {
+      "tests": 781,
+      "success": true
+    },
+    "tests": {
+      "tests": 66,
+      "success": true
+    },
+    "django": {
+      "success": true
+    }
+  },
+  "coverage": {
+    "covered_lines": 6953,
+    "num_statements": 6953,
+    "percent_covered": 100.0,
+    "percent_covered_display": "100",
+    "missing_lines": 0,
+    "excluded_lines": 0,
+    "percent_statements_covered": 100.0,
+    "percent_statements_covered_display": "100",
+    "num_branches": 2504,
+    "num_partial_branches": 0,
+    "covered_branches": 2504,
+    "missing_branches": 0,
+    "percent_branches_covered": 100.0,
+    "percent_branches_covered_display": "100"
+  },
+  "django_tests": 26,
+  "total_tests": 873,
+  "checks": [
+    "logging starts before cloud and SSH imports",
+    "explicit log level respected before heavy imports",
+    "library import does not configure logging",
+    "preparation duration printed before access checks and dispatch"
+  ],
+  "cloud_run_performed": false,
+  "publication_performed": false,
+  "limitation": "The cause of the reported two-minute delay has not been established; the next manual run can measure dependency loading."
+}

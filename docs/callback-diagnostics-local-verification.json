@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-02",
+  "scope": "isolated local tests with mock Ansible, SSH and systemd; external socket connections blocked",
+  "command": ".\\.tools\\venv\\Scripts\\python.exe -u scripts/check.py",
+  "exit_code": 0,
+  "success": true,
+  "tests": {"scripts": 797, "tests": 66, "django": 26, "total": 889, "callback_regression_tests": 10},
+  "coverage": {
+    "covered_lines": 7022, "total_lines": 7022,
+    "covered_branches": 2528, "total_branches": 2528,
+    "line_percent": 100, "branch_percent": 100, "excluded_lines": 0
+  },
+  "regression_evidence": {
+    "three_new_tests_failed_before_fix": true,
+    "covered_failures": ["task.get_ds() returned None", "no_log task source was accessed", "valid Unicode name exceeded ASCII-escaped line size"],
+    "metadata_shape_matrix_cases": 54,
+    "matrix_includes_nullable_loop_results": true
+  },
+  "checks": [
+    "missing task data source uses a hidden name without calling get_name",
+    "nullable results do not disable progress; unknown payload shapes are hidden",
+    "no_log never reads the task source",
+    "valid Unicode task names remain inside the existing journal size bound",
+    "initialization, metadata and write failures have allowlisted categories",
+    "atomic diagnostic writes use the existing private file writer",
+    "no exception text, task names, module output, credentials or URLs in the failure marker",
+    "native result is unchanged by reading callback diagnostics",
+    "legacy, malformed and oversized diagnostics are handled safely",
+    "failure to write both structured and legacy diagnostics never escapes into Ansible",
+    "later callback results preserve the first failure cause",
+    "console warnings contain only validated phase/category and independently known operation state"
+  ],
+  "upstream_contract_reference": "https://github.com/ansible/ansible/blob/stable-2.18/lib/ansible/playbook/base.py",
+  "prior_cloud_warning_exact_cause_confirmed": false,
+  "limitation": "The prior marker had no cause. Mock contract tests and full coverage do not establish cloud operation or full compliance with all project coding requirements.",
+  "cloud_run_performed": false,
+  "publication_performed": false,
+  "credentials_changed": false
+}

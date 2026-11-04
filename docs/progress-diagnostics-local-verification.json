@@ -1,0 +1,47 @@
+{
+  "scope": "local isolated tests with mock SSH/systemd",
+  "success": true,
+  "command": ".\\.tools\\venv\\Scripts\\python.exe -u scripts/check.py",
+  "exit_code": 0,
+  "tests": {
+    "scripts": 779,
+    "tests": 66,
+    "django": 26,
+    "total": 871,
+    "diagnostic_cases": 16
+  },
+  "coverage": {
+    "covered_lines": 6940,
+    "total_lines": 6940,
+    "covered_branches": 2502,
+    "total_branches": 2502,
+    "line_percent": 100.0,
+    "branch_percent": 100.0,
+    "production_excluded_lines": 0
+  },
+  "source_python_sha256": "8de47872c0778dc121bf51c616528959c07b91301725091342cf5b96e640bb04",
+  "startup_wait_removed": true,
+  "operation_limits_unchanged": {
+    "operation_timeout_seconds": 1800,
+    "connection_wait_seconds": 120,
+    "poll_interval_seconds": 5,
+    "stop_wait_seconds": 30
+  },
+  "checks": [
+    "temporary SSH/RPC/read failure is INFO",
+    "elapsed time never promotes missing progress to WARNING",
+    "INFO uses the independently confirmed operation state",
+    "confirmed observer/protocol faults have allowlisted WARNING reasons",
+    "permission denial differs from a temporary journal read failure",
+    "no exception text, credentials or signed URLs in diagnostics",
+    "same diagnostic suppressed until state/reason changes or recovery",
+    "successful reads clear diagnostics",
+    "legacy worker without a reason is not treated as a confirmed fault",
+    "missing journal before configure is not a confirmed problem",
+    "cursor save error is a local WARNING and preserves its old position",
+    "result, operation ID, launch count, execution deadline and cleanup rules preserved"
+  ],
+  "cloud_runs_performed": false,
+  "publication_performed": false,
+  "limitation": "Locally verified only; the cause of the prior live generic warning was not inferred."
+}

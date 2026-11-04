@@ -53,16 +53,7 @@
             "kibana.service"
           ]
         }
-      ],
-      "db": [
-        {
-          "service": "postgresql",
-          "paths": [
-            "/var/log/postgresql/otus-*.log"
-          ]
-        }
-      ],
-      "kibana": []
+      ]
     }
   },
   "kibana_host": "app"

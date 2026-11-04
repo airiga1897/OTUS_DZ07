@@ -9,3 +9,6 @@ terraform.tfvars*
 !terraform.tfvars.example.json
 *.sqlite3
 .env
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/

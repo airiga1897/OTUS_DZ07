@@ -1,0 +1,14 @@
+target-version = "py312"
+line-length = 120
+
+[lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "A", "C4", "SIM"]
+ignore = ["E501", "UP042"]
+
+[lint.pep8-naming]
+# Preserve established exception imports and diagnostic names at recovery boundaries.
+extend-ignore-names = [
+    "OperationUnknown", "OperationFailed", "ProgressUnavailable", "ProgressProblem",
+    "ArtifactUnavailable", "CandidateUnavailable", "CapacityRetry",
+    "GlobalRouterPlacementUnavailable", "RecoveryContextMissing", "PlacementExhausted",
+]

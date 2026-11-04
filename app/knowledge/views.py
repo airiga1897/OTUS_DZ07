@@ -1,9 +1,11 @@
 import os
 from pathlib import Path
+
 from django.conf import settings
 from django.db import DatabaseError, connection
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
+
 from .models import Article
 
 

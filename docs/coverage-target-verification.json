@@ -5,23 +5,23 @@
   "exit_code": 0,
   "success": true,
   "tests": {
-    "scripts": 658,
+    "scripts": 779,
     "artifacts_and_observability": 66,
     "django": 26,
-    "total": 750,
-    "new_tests_since_cursor_adoption": 370,
+    "total": 871,
+    "new_tests_since_cursor_adoption": 491,
     "all_groups_passed": true,
-    "new_tests_in_latest_extension": 8
+    "new_tests_in_latest_extension": 16
   },
   "coverage": {
-    "covered_lines": 6304,
-    "total_lines": 6304,
+    "covered_lines": 6940,
+    "total_lines": 6940,
     "line_percent": 100.0,
-    "target_line_percent": 95,
-    "covered_branches": 2310,
-    "total_branches": 2352,
-    "branch_percent": 98.21428571428571,
-    "target_branch_percent": 90,
+    "target_line_percent": 100,
+    "covered_branches": 2502,
+    "total_branches": 2502,
+    "branch_percent": 100.0,
+    "target_branch_percent": 100,
     "targets_met_without_rounding": true,
     "production_exclusions_added": false,
     "excluded_lines": 0,
@@ -122,5 +122,11 @@
   "publication_performed": false,
   "credentials_loaded_or_deleted": false,
   "other_projects_changed": false,
-  "limitation": "Local tests do not establish cloud operability or replace the separately authorized Selectel test-cycle."
+  "limitation": "Local tests do not establish cloud operability or replace the separately authorized Selectel test-cycle.",
+  "destroy_scope_verification": "destroy-scope-local-verification.json",
+  "ansible_progress_verification": "ansible-progress-local-verification.json",
+  "documentation_verification": "documentation-scope-verification.json",
+  "branch_reachability_review": "branch-reachability-review.json",
+  "source_python_sha256": "8de47872c0778dc121bf51c616528959c07b91301725091342cf5b96e640bb04",
+  "progress_diagnostics_verification": "progress-diagnostics-local-verification.json"
 }

@@ -1,0 +1,119 @@
+{
+  "scope": "local verified behavior-preserving control-flow changes",
+  "coverage_version": "7.17.0",
+  "remaining_count": 0,
+  "classification": {
+    "bounded_retry_loop_exit": 4,
+    "compact_return_or_raise_in_non_suppressing_with": 5
+  },
+  "reproduction": {
+    "source": "from contextlib import contextmanager\n\n\n@contextmanager\ndef non_suppressing_lock():\n    yield\n\n\ndef bounded_retry(fail):\n    for attempt in range(3):\n        if not fail:\n            return 'success'\n        if attempt == 2:\n            raise OSError('last attempt')\n\n\ndef return_inside_lock(early):\n    with non_suppressing_lock():\n        if early: return 'early'\n        return 'normal'\n\n\ndef raise_inside_lock(fail):\n    with non_suppressing_lock():\n        if fail: raise OSError('expected failure')\n        return 'normal'\n",
+    "all_valid_outcomes_exercised": true,
+    "coverage": {
+      "covered_lines": 18,
+      "num_statements": 18,
+      "percent_covered": 89.28571428571429,
+      "percent_covered_display": "89",
+      "missing_lines": 0,
+      "excluded_lines": 0,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100",
+      "num_branches": 10,
+      "num_partial_branches": 3,
+      "covered_branches": 7,
+      "missing_branches": 3,
+      "percent_branches_covered": 70.0,
+      "percent_branches_covered_display": "70"
+    },
+    "missing_arcs": [
+      [
+        10,
+        -9
+      ],
+      [
+        19,
+        -17
+      ],
+      [
+        25,
+        -23
+      ]
+    ]
+  },
+  "status": "resolved; 100% statements and branches without extra exclusions",
+  "constraint": "Architecture, CLI, security rules, retry counts and coverage omissions unchanged.",
+  "before_refactor_remaining_transitions": {
+    "scripts\\cache_packages.py": {
+      "lines": [],
+      "branches": [
+        [
+          27,
+          -25
+        ]
+      ]
+    },
+    "scripts\\elastic_options.py": {
+      "lines": [],
+      "branches": [
+        [
+          111,
+          -109
+        ]
+      ]
+    },
+    "scripts\\remote\\ansible_events.py": {
+      "lines": [],
+      "branches": [
+        [
+          73,
+          -67
+        ]
+      ]
+    },
+    "scripts\\remote\\ansible_job.py": {
+      "lines": [],
+      "branches": [
+        [
+          149,
+          -145
+        ],
+        [
+          193,
+          -187
+        ],
+        [
+          245,
+          -239
+        ],
+        [
+          269,
+          278
+        ]
+      ]
+    },
+    "scripts\\remote\\fetch_artifacts.py": {
+      "lines": [],
+      "branches": [
+        [
+          39,
+          79
+        ]
+      ]
+    },
+    "scripts\\selectel_api.py": {
+      "lines": [],
+      "branches": [
+        [
+          42,
+          -29
+        ]
+      ]
+    }
+  },
+  "before_refactor_remaining_count": 9,
+  "changes": [
+    "Multiline return/raise conditions preserve lock/finally behavior.",
+    "Retry loops terminate explicitly by success or the last original error.",
+    "Zero/negative helper budgets and partial-file cleanup preserve previous behavior."
+  ]
+}

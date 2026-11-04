@@ -9,10 +9,8 @@ variables {
   image_id          = "00000000-0000-4000-8000-000000000001"
   volume_type       = "synthetic-volume-type"
   flavor_ids = {
-    app    = "00000000-0000-4000-8000-000000000002"
-    db     = "00000000-0000-4000-8000-000000000003"
-    es     = "00000000-0000-4000-8000-000000000004"
-    kibana = "00000000-0000-4000-8000-000000000005"
+    app = "00000000-0000-4000-8000-000000000002"
+    es  = "00000000-0000-4000-8000-000000000004"
   }
   admin_cidrs         = ["192.0.2.1/32"]
   ssh_public_key_path = "tests/mock-public-key.txt"
@@ -23,7 +21,6 @@ variables {
     es2 = { host = 32, role = "es" }
     es3 = { host = 33, role = "es" }
   }
-  etcd_members = []
 }
 
 run "initial" {
