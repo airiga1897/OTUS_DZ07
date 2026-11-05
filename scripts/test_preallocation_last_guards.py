@@ -11,8 +11,16 @@ import selectel_staged as staged
 import test_controller_boundaries as controller_fixture
 import test_staged_backend as backend_fixture
 from cloud_contract import Capability, CapabilityStatus
+from placement_config import PlacementPolicy
 from selectel_global_router import GlobalRouter
 from test_runtime_support import lab
+
+
+def mocked(value: object) -> Mock:
+    if not isinstance(value, Mock):
+        raise AssertionError("Expected test double")
+    return value
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -25,8 +33,17 @@ class PreallocationLastGuards(unittest.TestCase):
             clouds["ru-9"].compute["az_quotas"]["ru-9a"]["cores"]["limit"] = 0
             clouds["ru-3"] = backend_fixture.QuotaCloud("ru-3", instances=4)
 
-            def candidates(config, auth, **kwargs):
-                return [helper.choice(pool, next(iter(config["profiles"]))) for pool in config["pools"]]
+            def candidates(config: dict[str, object], auth: object, **kwargs: object) -> list[PlacementPolicy]:
+                selected = config["pools"]
+                profiles = config["profiles"]
+                if not isinstance(selected, list) or not all(isinstance(pool, str) for pool in selected):
+                    raise AssertionError("expected candidate pools")
+                if not isinstance(profiles, dict) or not profiles:
+                    raise AssertionError("expected profiles")
+                role = next(iter(profiles))
+                if not isinstance(role, str):
+                    raise AssertionError("expected role name")
+                return [helper.choice(pool, role) for pool in selected]
 
             with (
                 patch.object(
@@ -34,7 +51,7 @@ class PreallocationLastGuards(unittest.TestCase):
                     "discover_capabilities",
                     return_value={"ownership_tags": Capability(CapabilityStatus.SUPPORTED, "synthetic")},
                 ),
-                patch.object(staged.pools, "candidates", side_effect=candidates),
+                patch("pool_selection.candidates", side_effect=candidates),
                 patch.object(staged, "reject_cloud_resources"),
                 patch("selectel_staged_audit.audit_namespace"),
             ):
@@ -53,32 +70,42 @@ class PreallocationLastGuards(unittest.TestCase):
             b.policy["pools"] = ["auto"]
             b.cloud = Mock(catalog=helper.catalog(["ru-9", "ru-3"]))
             router = GlobalRouter.__new__(GlobalRouter)
-            router.listing = Mock(
-                return_value=[
-                    {"name": r, "service": "vpc", "enable": True, "groups": [{"id": r}]} for r in ("ru-9", "ru-3")
-                ]
-            )
-            router.preflight = Mock()
             b.global_router = router
 
-            def candidates(config, auth, **kwargs):
-                role = next(iter(config["profiles"]))
+            def candidates(config: dict[str, object], auth: object, **kwargs: object) -> list[PlacementPolicy]:
+                profiles = config["profiles"]
+                if not isinstance(profiles, dict) or not profiles:
+                    raise AssertionError("expected profiles")
+                role = next(iter(profiles))
+                if not isinstance(role, str):
+                    raise AssertionError("expected role name")
                 return [helper.choice("ru-9" if role == "app" else "ru-3", role)]
 
             with (
+                patch.object(
+                    router,
+                    "listing",
+                    Mock(
+                        return_value=[
+                            {"name": r, "service": "vpc", "enable": True, "groups": [{"id": r}]}
+                            for r in ("ru-9", "ru-3")
+                        ]
+                    ),
+                ),
+                patch.object(router, "preflight", Mock()) as preflight,
                 patch.object(
                     staged,
                     "discover_capabilities",
                     return_value={"ownership_tags": Capability(CapabilityStatus.SUPPORTED, "synthetic")},
                 ),
-                patch.object(staged.pools, "candidates", side_effect=candidates),
+                patch("pool_selection.candidates", side_effect=candidates),
                 patch.object(staged, "reject_cloud_resources"),
                 patch("selectel_staged_audit.audit_namespace"),
                 self.assertRaisesRegex(ValueError, "No complete compatible"),
             ):
                 b.preflight()
-            router.preflight.assert_not_called()
-            b.api.save.assert_not_called()
+            preflight.assert_not_called()
+            mocked(b.api).save.assert_not_called()
 
     def test_missing_endpoint_or_region_cannot_be_replaced_from_supplied_configuration(self) -> None:
         schema = {"auth_url": "https://identity.invalid/v3", "region": "ru-9", "fields": {"username": {}}}
@@ -104,7 +131,10 @@ class PreallocationLastGuards(unittest.TestCase):
             patch("staged_runtime.deploy") as deploy,
         ):
             self.assertEqual(lab.infrastructure_output(), "synthetic-result")
-            self.assertEqual(lab.discover_route({"site_url": "http://8.8.8.8"}), ["8.8.8.8/32"])
+            discover: object = lab.discover_route
+            if not callable(discover):
+                raise AssertionError("expected route discovery")
+            self.assertEqual(discover({"site_url": "http://8.8.8.8"}), ["8.8.8.8/32"])
             lab.deploy_selected()
         output.assert_called_once_with(lab)
         deploy.assert_called_once_with(lab)

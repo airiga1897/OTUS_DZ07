@@ -30,11 +30,11 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger("otus_dz07." + name)
 
 
-def configure(level: str | None = None, root: Path = ROOT) -> None:
+def configure(level: object = None, root: Path = ROOT) -> None:
     global _status_interval
     settings = json.loads((root / "config/logging.json").read_text(encoding="utf-8-sig"))
     selected = level if level is not None else settings["level"]
-    if selected not in LEVELS:
+    if not isinstance(selected, str) or selected not in LEVELS:
         raise ValueError("Invalid progress logging level")
     interval = settings.get("status_interval_seconds", 60)
     if type(interval) is not int or not 1 <= interval <= 3600:

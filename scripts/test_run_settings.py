@@ -9,8 +9,14 @@ from unittest.mock import Mock, patch
 
 import pool_selection
 import run_settings
+from artifact_content import source_archive
+from cloud_contract import InfrastructureNode, InfrastructureResult
+from placement_config import PlacementPolicy
+from selectel_adapter import SelectelAdapter
+from selectel_api import CatalogService
 from selectel_global_router import GlobalRouter
 from selectel_staged import Backend
+from stage_store import StageStore
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -20,7 +26,6 @@ class RunSettingsTests(unittest.TestCase):
         import tarfile
 
         from remote.fetch_artifacts import extract
-        from s3_artifacts import source_archive
 
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -31,16 +36,17 @@ class RunSettingsTests(unittest.TestCase):
             with tarfile.open(destination) as archive:
                 self.assertIn(".env.example", archive.getnames())
                 self.assertNotIn(".env", archive.getnames())
-                self.assertTrue(
-                    all(b"not-shipped" not in archive.extractfile(name).read() for name in archive.getnames())
-                )
+                for name in archive.getnames():
+                    payload = archive.extractfile(name)
+                    if payload is not None:
+                        self.assertNotIn(b"not-shipped", payload.read())
             target = root / "received"
             target.mkdir()
             extract(destination, target)
             self.assertEqual((target / ".env.example").read_bytes(), (root / ".env.example").read_bytes())
             self.assertFalse((target / ".env").exists())
 
-    def fixture(self, root) -> None:
+    def fixture(self, root: Path) -> None:
         (root / "config").mkdir()
         (root / ".env.example").write_bytes((ROOT / ".env.example").read_bytes())
         (root / "config/placement.json").write_bytes((ROOT / "config/placement.json").read_bytes())
@@ -96,7 +102,7 @@ class RunSettingsTests(unittest.TestCase):
 
     def test_subnet_allocation_is_stable_private_and_nonoverlapping(self) -> None:
         policy = run_settings.placement(ROOT)
-        assigned = {}
+        assigned: dict[str, str] = {}
         for pool in ("ru-9", "ru-3", "ru-8", "kz-1", "gis-1"):
             assigned[pool] = run_settings.pool_subnet(policy, pool, assigned)
         self.assertEqual(len(set(assigned.values())), len(assigned))
@@ -130,7 +136,7 @@ class RunSettingsTests(unittest.TestCase):
             local.mkdir()
             (root / ".env").write_text("REQUIRE_DISTINCT_HOSTS=false")
 
-            def save(path, value) -> None:
+            def save(path: Path, value: object) -> None:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(json.dumps(value))
 
@@ -178,30 +184,38 @@ class ProviderDiscoveryTests(unittest.TestCase):
     def test_diagnostic_verification_records_same_host_without_claiming_separation(self) -> None:
         from selectel_staged_audit import verify_networks
 
-        nodes = {
+        nodes: dict[str, InfrastructureNode] = {
             name: {
                 "id": name,
                 "region": "ru-3",
                 "port_id": name + "-port",
-                "private_ip": "10.78.0." + str(i),
+                "volume_id": name + "-volume",
+                "private_ip": "10.78.0." + str(index),
                 "roles": ["es"],
             }
-            for i, name in enumerate(("es1", "es2", "es3"), 31)
+            for index, name in enumerate(("es1", "es2", "es3"), 31)
         }
-        b = SimpleNamespace(
-            journal={
-                "require_distinct_hosts": False,
-                "stages": {
-                    "network-ru-3": {
-                        "status": "pending",
-                        "output": {"network_id": "net", "security_group_id": "sg", "server_group_id": "group"},
-                    }
-                },
+        b = Backend.__new__(Backend)
+        b.journal = {
+            "require_distinct_hosts": False,
+            "stages": {
+                "network-ru-3": {
+                    "status": "pending",
+                    "output": {"network_id": "net", "security_group_id": "sg", "server_group_id": "group"},
+                }
             },
-            result=Mock(return_value=SimpleNamespace(nodes=nodes)),
+        }
+        cloud = SelectelAdapter.__new__(SelectelAdapter)
+        result = InfrastructureResult(
+            "selectel",
+            {"project_id": "synthetic"},
+            "synthetic",
+            {"region": "ru-3", "zone": "ru-3a"},
+            nodes,
+            "10.78.0.0/24",
         )
 
-        def get(service, path):
+        def get(service: str, path: str, payload: object = None) -> dict[str, object]:
             path = path.split("?", 1)[0]
             if path.startswith("/servers/"):
                 return {"server": {"hostId": "same-physical-host"}}
@@ -221,26 +235,34 @@ class ProviderDiscoveryTests(unittest.TestCase):
                 return {"server_groups": [{"id": "group", "policies": ["anti-affinity"], "members": []}]}
             raise AssertionError(path)
 
-        b.region = Mock(return_value=SimpleNamespace(get=get))
-        report = verify_networks(b)
-        self.assertEqual(report["es_distinct_hosts"], 1)
-        self.assertFalse(report["physical_host_separation_verified"])
-        b.journal["require_distinct_hosts"] = True
-        with self.assertRaises(RuntimeError):
-            verify_networks(b)
+        with (
+            patch.object(b, "result", return_value=result),
+            patch.object(b, "region", return_value=cloud),
+            patch.object(cloud, "get", get),
+        ):
+            report = verify_networks(b)
+            self.assertEqual(report["es_distinct_hosts"], 1)
+            self.assertFalse(report["physical_host_separation_verified"])
+            b.journal["require_distinct_hosts"] = True
+            with self.assertRaises(RuntimeError):
+                verify_networks(b)
 
     def test_preferences_do_not_exclude_other_catalog_pools(self) -> None:
-        catalog = [
+        catalog: list[CatalogService] = [
             {
                 "type": kind,
                 "endpoints": [
-                    {"region": r, "interface": "public", "url": "https://example.invalid/" + kind}
-                    for r in ("ru-9", "ru-3", "ru-7", "ru-8", "kz-1")
+                    {"region": region, "interface": "public", "url": "https://example.invalid/" + kind}
+                    for region in ("ru-9", "ru-3", "ru-7", "ru-8", "kz-1")
                 ],
             }
             for kind in pool_selection.SERVICES
         ]
-        config = {"pools": ["auto"], "preferred_pools": ["ru-9", "ru-3"], "excluded_pools": ["ru-7"]}
+        config: PlacementPolicy = {
+            "pools": ["auto"],
+            "preferred_pools": ["ru-9", "ru-3"],
+            "excluded_pools": ["ru-7"],
+        }
         values = pool_selection.ordered_pools(config, catalog)
         self.assertEqual(values[:2], ["ru-9", "ru-3"])
         self.assertEqual(set(values), {"ru-9", "ru-3", "ru-8", "kz-1"})
@@ -272,26 +294,29 @@ class ProviderDiscoveryTests(unittest.TestCase):
 class DelayedConnectionTests(unittest.TestCase):
     def test_untracked_server_group_member_blocks_network_cleanup(self) -> None:
         from selectel_staged_audit import assert_stage_owned
+        from terraform_state_types import StateEntry
 
         kind = "openstack_compute_servergroup_v2"
-        entry = {"type": kind, "attrs": {"id": "group", "name": "owned-group"}}
-        b = SimpleNamespace(
-            owner="owner",
-            credentials={"project_id": "project"},
-            desired={"nodes": {}},
-            journal={"stages": {"network-ru-9": {"status": "active", "candidate": {"region": "ru-9"}}}},
-            store=SimpleNamespace(entries=Mock(return_value=[entry])),
-        )
-        group = {"id": "group", "name": "owned-group", "members": ["foreign-vm"]}
-        with patch("selectel_staged_audit.inventory", return_value={kind: {"group": group}}):
+        entry: StateEntry = {"type": kind, "attrs": {"id": "group", "name": "owned-group"}}
+        b = Backend.__new__(Backend)
+        b.credentials = {"project_id": "project"}
+        b.desired = {"nodes": {}}
+        b.journal = {"stages": {"network-ru-9": {"status": "active", "candidate": {"region": "ru-9"}}}}
+        store = StageStore.__new__(StageStore)
+        b.store = store
+        group: dict[str, object] = {"id": "group", "name": "owned-group", "members": ["foreign-vm"]}
+        with (
+            patch.object(store, "entries", return_value=[entry]),
+            patch("selectel_staged_audit.inventory", return_value={kind: {"group": group}}),
+        ):
             with self.assertRaises(ValueError):
                 assert_stage_owned(b, "network-ru-9")
             group["members"] = []
             assert_stage_owned(b, "network-ru-9")
 
-    def backend(self):
+    def backend(self) -> Backend:
         b = Backend.__new__(Backend)
-        b.desired = {"nodes": {"app": {"role": "app"}, "es1": {"role": "es"}}}
+        b.desired = {"nodes": {"app": {"host": 10, "role": "app"}, "es1": {"host": 31, "role": "es"}}}
         b.journal = {
             "stages": {
                 "app": {"status": "pending", "candidate": {"region": "ru-9"}},
@@ -299,68 +324,88 @@ class DelayedConnectionTests(unittest.TestCase):
             }
         }
         b._temporary_networks = {"network-ru-9"}
-        b.save = Mock()
-        b.connect_pool = Mock()
-        b.store = SimpleNamespace(
-            identities=Mock(return_value={"vm": "one"}), state=Mock(return_value={"lineage": "line"})
-        )
+        store = StageStore.__new__(StageStore)
+        b.store = store
+        self.saved = Mock()
+        self.connected = Mock()
+        self.identities = Mock(return_value={"vm": "one"})
+        self.state = Mock(return_value={"lineage": "line"})
+        for patcher in (
+            patch.object(b, "save", self.saved),
+            patch.object(b, "connect_pool", self.connected),
+            patch.object(store, "identities", self.identities),
+            patch.object(store, "state", self.state),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
         return b
 
     def test_connection_is_attempted_only_after_persisting_active_vm_identity(self) -> None:
         b = self.backend()
 
-        def fail(pool) -> None:
+        def fail(pool: str) -> None:
             self.assertEqual(b.journal["stages"]["app"]["status"], "active")
             self.assertEqual(b.journal["stages"]["app"]["identities"], {"vm": "one"})
-            b.save.assert_called()
+            self.saved.assert_called()
             raise RuntimeError("attachment failed")
 
-        b.connect_pool.side_effect = fail
+        self.connected.side_effect = fail
         with self.assertRaises(RuntimeError):
             b.finish("app")
         self.assertEqual(b.journal["stages"]["app"]["status"], "active")
 
     def test_unused_new_network_is_pruned_but_a_successful_vm_protects_it(self) -> None:
         b = self.backend()
-        b.cleanup_attempt = Mock()
-        b.store.identities.side_effect = lambda n: {"vm": "one"} if n == "es1" else {}
-        b.journal["stages"]["es1"] = {"candidate": {"region": "ru-9"}, "status": "active"}
-        b.prune_unused_network("ru-9")
-        b.cleanup_attempt.assert_not_called()
-        b.store.identities.side_effect = lambda n: {}
-        b.prune_unused_network("ru-9")
-        b.cleanup_attempt.assert_called_once_with("network-ru-9")
+
+        def occupied(name: str) -> dict[str, str]:
+            return {"vm": "one"} if name == "es1" else {}
+
+        def empty(name: str) -> dict[str, str]:
+            return {}
+
+        cleanup = Mock()
+        with patch.object(b, "cleanup_attempt", cleanup):
+            self.identities.side_effect = occupied
+            b.journal["stages"]["es1"] = {"candidate": {"region": "ru-9"}, "status": "active"}
+            b.prune_unused_network("ru-9")
+            cleanup.assert_not_called()
+            self.identities.side_effect = empty
+            b.prune_unused_network("ru-9")
+            cleanup.assert_called_once_with("network-ru-9")
 
     def test_preexisting_saved_network_is_never_pruned_as_a_new_attempt(self) -> None:
         b = self.backend()
         b._temporary_networks = set()
-        b.cleanup_attempt = Mock()
-        b.prune_unused_network("ru-9")
-        b.cleanup_attempt.assert_not_called()
+        cleanup = Mock()
+        with patch.object(b, "cleanup_attempt", cleanup):
+            b.prune_unused_network("ru-9")
+            cleanup.assert_not_called()
 
     def test_vm_preparation_does_not_create_global_resources(self) -> None:
         b = self.backend()
-        b.completed = Mock(return_value=False)
         b.choices = {}
         b.journal["stages"]["network-ru-9"]["candidate"] = {"region": "ru-9"}
         candidate = {"region": "ru-9", "network_availability_zone": "ru-9a", "router_availability_zone": "ru-9a"}
         with (
+            patch.object(b, "completed", return_value=False),
             patch("selectel_staged_capacity.require_network_capacity"),
             patch("selectel_stage_operations.place") as place,
         ):
             b.ensure_pool(candidate)
             self.assertEqual([c.args[1] for c in place.call_args_list], ["network-ru-9"])
-        b.connect_pool.assert_not_called()
+        self.connected.assert_not_called()
 
     def test_audited_network_exhaustion_allows_other_pool_but_unknown_errors_do_not(self) -> None:
         from staged_deploy import PlacementExhausted
 
         b = self.backend()
-        b.completed = Mock(return_value=False)
         b.choices = {}
         candidate = {"region": "ru-9", "network_availability_zone": "ru-9a", "router_availability_zone": "ru-9a"}
-        b.store.identities.return_value = {}
-        with patch("selectel_staged_capacity.require_network_capacity"):
+        self.identities.return_value = {}
+        with (
+            patch.object(b, "completed", return_value=False),
+            patch("selectel_staged_capacity.require_network_capacity"),
+        ):
             with (
                 patch("selectel_stage_operations.place", side_effect=PlacementExhausted("audited empty")),
                 self.assertRaises(pool_selection.CandidateUnavailable),
@@ -375,23 +420,31 @@ class DelayedConnectionTests(unittest.TestCase):
     def test_retry_active_vm_retries_only_configuration_and_connection(self) -> None:
         b = self.backend()
         record = b.journal["stages"]["app"]
-        record.update(status="active", kind="node", inputs={"same": "saved"})
-        b.configure_stage = Mock()
-        b.store.apply = Mock(return_value={"id": "one"})
-        with patch("selectel_staged_audit.assert_stage_owned"):
+        record["status"] = "active"
+        record["kind"] = "node"
+        record["inputs"] = {"same": "saved"}
+        applied = Mock(return_value={"id": "one"})
+        with (
+            patch.object(b, "configure_stage"),
+            patch.object(b.store, "apply", applied),
+            patch("selectel_staged_audit.assert_stage_owned"),
+        ):
             b.reapply("app")
-        b.store.apply.assert_called_once_with("app", unchanged=True)
-        b.connect_pool.assert_called_once_with("ru-9")
+        applied.assert_called_once_with("app", unchanged=True)
+        self.connected.assert_called_once_with("ru-9")
 
     def test_full_destroy_never_triggers_extra_network_pruning(self) -> None:
         b = self.backend()
         b.journal["destroy_requested"] = True
-        b.prune_unused_network = Mock()
-        with tempfile.TemporaryDirectory() as folder:
-            b.store.entries = Mock(return_value=[])
-            b.store.folder = Mock(return_value=Path(folder) / "app")
-            b.store.identities.return_value = {}
-            with patch("selectel_staged_audit.assert_stage_owned"), patch("selectel_staged_audit.assert_stage_absent"):
+        pruned = Mock()
+        with tempfile.TemporaryDirectory() as folder, patch.object(b, "prune_unused_network", pruned):
+            with (
+                patch.object(b.store, "entries", return_value=[]),
+                patch.object(b.store, "folder", return_value=Path(folder) / "app"),
+                patch.object(b.store, "identities", return_value={}),
+                patch("selectel_staged_audit.assert_stage_owned"),
+                patch("selectel_staged_audit.assert_stage_absent"),
+            ):
                 b.cleanup_attempt("app")
-            b.prune_unused_network.assert_not_called()
+            pruned.assert_not_called()
             self.assertEqual(b.journal["stages"]["app"]["status"], "deleted")

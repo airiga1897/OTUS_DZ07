@@ -5,22 +5,31 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from typing import cast
 from unittest.mock import patch
 
 import pool_selection as pools
 import run_settings
 import test_catalog_rejection_paths as catalogs
+from placement_config import PlacementPolicy
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def call_unchecked(function: object, *args: object) -> None:
+    if not callable(function):
+        raise AssertionError("expected callable")
+    function(*args)
+
+
 class GlanceImagePolicy(unittest.TestCase):
-    def policy(self):
-        value = json.loads((ROOT / "config/placement.json").read_text())
-        value.update(boot_disk_gb=20, profiles={"app": {"ram_mb": 8192}})
+    def policy(self) -> PlacementPolicy:
+        value = run_settings.placement(ROOT)
+        value["boot_disk_gb"] = 20
+        value["profiles"] = {"app": {"ram_mb": 8192}}
         return value
 
-    def image(self):
+    def image(self) -> dict[str, object]:
         policy = self.policy()
         return {
             "id": "synthetic-image",
@@ -50,16 +59,17 @@ class GlanceImagePolicy(unittest.TestCase):
 
     def test_known_digest_cannot_override_wrong_name_or_properties(self) -> None:
         config = self.policy()
+        wrong_values: dict[str, list[object]] = {
+            "name": ["Ubuntu", "Ubuntu 24.04 LTS 64-bit extra"],
+            "visibility": ["private", None],
+            "status": ["queued", "deactivated", None],
+            "os_distro": ["debian", None],
+            "architecture": ["aarch64"],
+            "min_disk": [21],
+            "min_ram": [16384],
+        }
         for digest in config["image_checksums"]:
-            for field, values in {
-                "name": ["Ubuntu", "Ubuntu 24.04 LTS 64-bit extra"],
-                "visibility": ["private", None],
-                "status": ["queued", "deactivated", None],
-                "os_distro": ["debian", None],
-                "architecture": ["aarch64"],
-                "min_disk": [21],
-                "min_ram": [16384],
-            }.items():
+            for field, values in wrong_values.items():
                 for value in values:
                     with self.subTest(field=field, value=value, digest=digest):
                         image = dict(self.image(), checksum=digest, **{field: value})
@@ -68,13 +78,13 @@ class GlanceImagePolicy(unittest.TestCase):
 
     def test_allowlist_configuration_fails_closed(self) -> None:
         for value in (None, [], "a" * 32, [None], ["invalid"], ["a" * 32, "a" * 32]):
-            config = dict(self.policy(), image_checksums=value)
+            invalid = dict(self.policy(), image_checksums=value)
             with self.subTest(value=value), self.assertRaisesRegex(ValueError, "Glance MD5"):
-                pools.compatible_images([], config)
-        config = self.policy()
-        del config["image_checksums"]
+                call_unchecked(pools.compatible_images, [], invalid)
+        kept = self.policy()
+        del kept["image_checksums"]
         with self.assertRaises(ValueError):
-            pools.compatible_images([self.image()], config)
+            pools.compatible_images([self.image()], kept)
 
     def test_excluded_pools_never_reach_service_or_image_requests(self) -> None:
         config, catalog, values = catalogs.CatalogRejectionPaths().fixture()
@@ -82,15 +92,24 @@ class GlanceImagePolicy(unittest.TestCase):
             root = Path(directory)
             (root / ".env.example").write_bytes((ROOT / ".env.example").read_bytes())
             defaults = run_settings.load(root, environ={})
-        config.update(
-            pools=["auto"], excluded_pools=defaults["excluded_pools"], preferred_pools=defaults["preferred_pools"]
-        )
-        catalog = copy.deepcopy(catalog)
+        config["pools"] = ["auto"]
+        config["excluded_pools"] = defaults["excluded_pools"]
+        config["preferred_pools"] = defaults["preferred_pools"]
+        expanded: list[dict[str, object]] = []
         for service in catalog:
-            service["endpoints"] += [
+            if type(service) is not dict:
+                raise AssertionError("expected catalog service")
+            mutable = cast(dict[str, object], copy.deepcopy(service))
+            endpoints = mutable["endpoints"]
+            if type(endpoints) is not list:
+                raise AssertionError("expected service endpoints")
+            rows = cast(list[object], endpoints)
+            rows.extend(
                 {"interface": "public", "region": pool, "url": "https://excluded.invalid/" + pool}
                 for pool in ("ru-4", "ru-5", "ru-7")
-            ]
+            )
+            expanded.append(mutable)
+        catalog = tuple(expanded)
         fixture = catalogs.CatalogRejectionPaths()
         choices, _ = fixture.choices(config, catalog, values)
         self.assertEqual({c["region"] for c in choices}, {"ru-9"})
@@ -110,5 +129,6 @@ class GlanceImagePolicy(unittest.TestCase):
             (root / ".local/placement.json").write_text(json.dumps(saved))
             with patch.dict("os.environ", {}, clear=True):
                 selected = pools.policy(root, "placement.json", "context.json")
-            for key, value in saved.items():
-                self.assertEqual(selected[key], value)
+            self.assertEqual(selected["region"], saved["region"])
+            self.assertEqual(selected["availability_zone"], saved["availability_zone"])
+            self.assertEqual(selected["image_id"], saved["image_id"])

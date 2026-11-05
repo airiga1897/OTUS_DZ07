@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from cloud_contract import InfrastructureResult, StandDescription
-from cloud_settings import staged_backend as backend_factory
+from cloud_settings import staged_backend
 from local_runtime import checked_tree
 from progress_logging import get_logger
 from runtime_ports import ApplicationPort, FilePort, RetainedLifecyclePort, StagedControllerPort, TerraformPort
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from selectel_staged import Backend
 
 LOGGER = get_logger(__name__)
+backend_factory = staged_backend
 
 
 def read_journal(root: Path) -> StageJournal:

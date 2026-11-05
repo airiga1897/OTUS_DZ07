@@ -1,11 +1,14 @@
 """Retained stages reject ambiguous identities and preserve deletion evidence."""
 
 import ipaddress
+import json
 import unittest
 from unittest.mock import Mock, patch
 
 import selectel_stage_operations as stage_operations
 import test_selectel_retained_contracts as fixtures
+from cloud_contract import StandDescription
+from plan_diagnostics import PlannedResource
 
 
 class BackendLifecycleEdges(unittest.TestCase):
@@ -17,15 +20,21 @@ class BackendLifecycleEdges(unittest.TestCase):
 
     def test_ambiguous_or_deleted_partial_identity_cannot_be_adopted(self) -> None:
         b = self.b
-        b.store.entries = Mock(
-            return_value=[{"type": "vm", "attrs": {"id": "one"}}, {"type": "vm", "attrs": {"id": "two"}}]
-        )
-        with self.assertRaisesRegex(ValueError, "Ambiguous"):
+        with (
+            patch.object(
+                b.store,
+                "entries",
+                return_value=[{"type": "vm", "attrs": {"id": "one"}}, {"type": "vm", "attrs": {"id": "two"}}],
+            ),
+            self.assertRaisesRegex(ValueError, "Ambiguous"),
+        ):
             b.saved_id("es1", "vm", "id")
         b.journal["stages"]["es1"] = {"status": "deleted", "output": {"id": "old"}}
         self.assertIsNone(b.saved_id("es1", "vm", "id"))
-        b.store.identities = Mock(return_value={"vm": "owned"})
-        with self.assertRaisesRegex(ValueError, "resources remaining"):
+        with (
+            patch.object(b.store, "identities", return_value={"vm": "owned"}),
+            self.assertRaisesRegex(ValueError, "resources remaining"),
+        ):
             b.begin("es1", {"region": "ru-3"})
         self.assertEqual(b.journal["stages"]["es1"]["status"], "deleted")
 
@@ -36,14 +45,14 @@ class BackendLifecycleEdges(unittest.TestCase):
             "es1": {"status": "pending", "candidate": {"region": "ru-3"}},
             "es2": {"status": "deleted", "candidate": {"region": "ru-3"}},
         }
-        b.store.identities = Mock(side_effect=lambda n: {"vm": n + "-id"} if n != "es2" else {})
-        self.assertEqual(b.identities(exclude_pending=True), {("app", "vm"): "app-id"})
-        self.assertEqual(b.pending("es1"), {"region": "ru-3"})
-        self.assertIsNone(b.pending("es2"))
-        self.assertIsNone(b.pending("unknown"))
-        b.assert_preserved({("app", "vm"): "app-id"})
-        with self.assertRaisesRegex(RuntimeError, "identity changed"):
-            b.assert_preserved({("app", "vm"): "replacement"})
+        with patch.object(b.store, "identities", side_effect=lambda n: {"vm": n + "-id"} if n != "es2" else {}):
+            self.assertEqual(b.identities(exclude_pending=True), {("app", "vm"): "app-id"})
+            self.assertEqual(b.pending("es1"), {"region": "ru-3"})
+            self.assertIsNone(b.pending("es2"))
+            self.assertIsNone(b.pending("unknown"))
+            b.assert_preserved({("app", "vm"): "app-id"})
+            with self.assertRaisesRegex(RuntimeError, "identity changed"):
+                b.assert_preserved({("app", "vm"): "replacement"})
 
     def test_connection_uses_live_pool_set_and_same_global_identity(self) -> None:
         b = self.b
@@ -52,10 +61,12 @@ class BackendLifecycleEdges(unittest.TestCase):
             "connection-ru-3": {"status": "active", "candidate": {"region": "ru-3"}},
             "connection-ru-8": {"status": "deleted", "candidate": {"region": "ru-8"}},
         }
-        with patch.object(stage_operations, "place") as place:
+        preflight = Mock()
+        place = Mock()
+        with patch.object(b.global_router, "preflight", preflight), patch.object(stage_operations, "place", place):
             b.connect_pool("ru-9")
-        b.global_router.preflight.assert_called_once_with(["ru-3", "ru-9"], b.api.PREFIX, "router")
-        self.assertEqual([c.args[1] for c in place.call_args_list], ["global", "connection-ru-9"])
+        self.assertEqual(preflight.call_args.args, (["ru-3", "ru-9"], b.api.PREFIX, "router"))
+        self.assertEqual([c.args[1] for c in place.call_args_list], ["global", "connection-ru-3", "connection-ru-9"])
 
     def populate_node_outputs(self) -> None:
         b = self.b
@@ -98,13 +109,15 @@ class BackendLifecycleEdges(unittest.TestCase):
         target = self.b.configuration_target()
         self.assertTrue(target.deletion_verified)
         self.assertEqual(target.lab, {"server_ids": {"app": "app-id"}})
-        app["output"]["id"] = None
+        output = json.loads(json.dumps(app["output"]))
+        output["id"] = None
+        app["output"] = output
         with self.assertRaisesRegex(ValueError, "saved VM identity"):
             self.b.configuration_target()
 
     def test_global_diagnostics_delegation_is_scoped_to_saved_node_pool(self) -> None:
         b = self.b
-        value = {"node_regions": {"es1": "ru-3"}, "server_ids": {"es1": "owned"}}
+        value: StandDescription = {"node_regions": {"es1": "ru-3"}, "server_ids": {"es1": "owned"}}
         cloud = Mock()
         cloud.get.return_value = {"output": "synthetic console"}
         with patch.object(b, "region", return_value=cloud) as region:
@@ -116,19 +129,19 @@ class BackendLifecycleEdges(unittest.TestCase):
     def test_audit_refuses_untracked_named_or_owner_marked_floating_ip(self) -> None:
         b = self.b
         b.journal["stages"] = {"es1": {"candidate": {"region": "ru-9"}}}
-        b.global_router.assert_absent = Mock()
-        for objects in (
-            [{"name": b.api.PREFIX + "-app"}],
-            [{"description": b.owner}],
-            [{"metadata": {"dz07_owner": b.owner}}],
-            [{"tags": [b.owner]}],
-        ):
-            with (
-                patch("selectel_staged_audit.assert_stage_absent"),
-                patch("selectel_staged_audit.objects", return_value=objects),
-                self.assertRaisesRegex(RuntimeError, "namespace is not empty"),
+        with patch.object(b.global_router, "assert_absent", create=True):
+            for objects in (
+                [{"name": b.api.PREFIX + "-app"}],
+                [{"description": b.owner}],
+                [{"metadata": {"dz07_owner": b.owner}}],
+                [{"tags": [b.owner]}],
             ):
-                b.audit_deletion()
+                with (
+                    patch("selectel_staged_audit.assert_stage_absent"),
+                    patch("selectel_staged_audit.objects", return_value=objects),
+                    self.assertRaisesRegex(RuntimeError, "namespace is not empty"),
+                ):
+                    b.audit_deletion()
 
     def test_network_cleanup_reuses_saved_inputs_and_only_marks_deleted_after_api_absence(self) -> None:
         b = self.b
@@ -142,30 +155,33 @@ class BackendLifecycleEdges(unittest.TestCase):
         folder = b.store.folder(name)
         folder.mkdir(parents=True)
         (folder / "main.tf.json").write_text("{}")
-        b.store.entries = Mock(return_value=[])
-        b.store.apply = Mock()
-        b.configure_stage = Mock()
         with (
+            patch.object(b.store, "entries", return_value=[]),
+            patch.object(b.store, "apply") as apply,
+            patch.object(b, "configure_stage") as configure_stage,
             patch("selectel_staged_audit.assert_stage_owned"),
             patch("selectel_staged_audit.assert_stage_absent", side_effect=OSError("API unavailable")),
             self.assertRaises(OSError),
         ):
             b.cleanup_attempt(name)
         self.assertEqual(b.journal["stages"][name]["status"], "deleting")
-        b.store.apply.assert_called_once_with(name, destroy=True)
-        b.configure_stage.assert_called_once_with(name, "network", {"name": "own"})
+        apply.assert_called_once_with(name, destroy=True)
+        configure_stage.assert_called_once_with(name, "network", {"name": "own"})
 
     def test_unsupported_and_unchanged_refresh_are_not_accepted(self) -> None:
         b = self.b
         for kind in ("selectel_global_router_router_v1", "openstack_networking_network_v2"):
-            self.assertFalse(
-                b.allow_refresh(
-                    "network-ru-9", {"type": kind, "change": {"before": {"id": "same"}, "after": {"id": "same"}}}
-                )
-            )
+            change: PlannedResource = {
+                "address": "network-ru-9",
+                "type": kind,
+                "change": {"actions": ["update"], "before": {"id": "same"}, "after": {"id": "same"}},
+            }
+            self.assertFalse(b.allow_refresh("network-ru-9", change))
         b.journal["stages"] = {"global": {"candidate": {"region": "ru-9"}, "status": "pending"}}
-        b.inputs = Mock(return_value=("global", {"name": "saved"}))
-        b.configure_stage = Mock()
-        b.store.apply = Mock(return_value={"router_id": "new"})
-        with patch("selectel_staged_audit.assert_stage_owned"):
+        with (
+            patch.object(b, "inputs", return_value=("global", {"name": "saved"})),
+            patch.object(b, "configure_stage"),
+            patch.object(b.store, "apply", return_value={"router_id": "new"}),
+            patch("selectel_staged_audit.assert_stage_owned"),
+        ):
             self.assertEqual(b.apply("global"), {"router_id": "new"})

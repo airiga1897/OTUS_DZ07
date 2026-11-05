@@ -13,9 +13,16 @@ import privacy
 import progress_logging as progress
 import selectel_staged
 import staged_runtime
+from stage_journal import StageRecord
 from test_runtime_support import lab
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def call_unchecked(function: object, *args: object) -> None:
+    if not callable(function):
+        raise AssertionError("expected callable")
+    function(*args)
 
 
 class ProgressLoggingTests(unittest.TestCase):
@@ -53,7 +60,7 @@ class ProgressLoggingTests(unittest.TestCase):
             self.assertLogs(lab.LOGGER, "INFO") as logs,
         ):
 
-            def check(*args, **kwargs) -> None:
+            def check(*args: object, **kwargs: object) -> None:
                 self.assertTrue(any("длительность 2.0 с" in line for line in logs.output))
 
             access.side_effect = check
@@ -111,16 +118,17 @@ class ProgressLoggingTests(unittest.TestCase):
         self.assertEqual(stream.getvalue().count("single error"), 1)
 
     def test_invalid_level_is_rejected_without_changing_handlers(self) -> None:
-        for level in ("TRACE", 123, {}):
+        invalid_levels: tuple[object, ...] = ("TRACE", 123, {})
+        for level in invalid_levels:
             with self.subTest(level=level), self.assertRaisesRegex(ValueError, "logging level"):
-                progress.configure(level, self.root)
+                call_unchecked(progress.configure, level, self.root)
         self.assertEqual(self.logger.handlers, [])
 
     def test_preflight_announces_checks_before_their_calls(self) -> None:
         provider = Mock(policy={"operator_ip_services": ["synthetic"], "admin_cidrs": []}, journal={})
         with self.assertLogs(staged_runtime.LOGGER, "INFO") as captured:
 
-            def address(*args):
+            def address(*args: object) -> list[str]:
                 self.assertIn("IPv4 оператора: начало", captured.output[-1])
                 return ["8.8.8.8/32"]
 
@@ -136,7 +144,7 @@ class ProgressLoggingTests(unittest.TestCase):
                 patch.object(staged_runtime, "backend_factory", return_value=provider),
                 patch("operator_network.discover_cidrs", side_effect=address),
             ):
-                self.assertIs(staged_runtime.checked_backend(object()), provider)
+                self.assertIs(staged_runtime.checked_backend(lab), provider)
         self.assertIn("размещения: успешно", captured.output[-1])
 
     def test_pool_catalog_start_is_visible_even_when_the_first_api_request_fails(self) -> None:
@@ -150,7 +158,7 @@ class ProgressLoggingTests(unittest.TestCase):
         original = OSError("private transport detail")
         with self.assertLogs(pool_selection.LOGGER, "INFO") as captured:
 
-            def images(*args) -> None:
+            def images(*args: object) -> None:
                 self.assertIn("Пул ru-2: начало чтения каталогов", captured.output[-1])
                 raise original
 
@@ -177,22 +185,22 @@ class ProgressLoggingTests(unittest.TestCase):
         for failed in (False, True):
             with self.subTest(failed=failed):
                 backend = selectel_staged.Backend.__new__(selectel_staged.Backend)
-                record = {"status": "active", "candidate": {"region": "ru-2"}}
+                record: StageRecord = {"status": "active", "candidate": {"region": "ru-2"}}
                 backend.journal = {"stages": {"es1": record}, "destroy_requested": True}
-                backend.desired = {"nodes": {"es1": {"role": "es"}}}
-                backend.save = Mock()
+                backend.desired = {"nodes": {"es1": {"host": 31, "role": "es"}}}
+                save = Mock()
                 backend.store = Mock()
                 backend.store.folder.return_value = self.root
                 (self.root / "main.tf.json").write_text("{}")
-                with self.assertLogs("otus_dz07", "INFO") as captured:
+                with patch.object(backend, "save", save), self.assertLogs("otus_dz07", "INFO") as captured:
 
-                    def owned(*args, **kwargs) -> None:
+                    def owned(*args: object, **kwargs: object) -> None:
                         self.assertIn("начало проверки принадлежности", captured.output[-1])
 
-                    def apply(*args, **kwargs) -> None:
+                    def apply(*args: object, **kwargs: object) -> None:
                         self.assertIn("начало Terraform apply", captured.output[-1])
 
-                    def absent(*args, failed=failed) -> None:
+                    def absent(*args: object, failed: bool = failed) -> None:
                         self.assertIn("начало подтверждения через state и API", captured.output[-1])
                         if failed:
                             raise RuntimeError("API unavailable")

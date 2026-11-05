@@ -16,15 +16,17 @@ from jinja2 import Environment, StrictUndefined
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import observability
 import topology
+from cloud_contract import StandDescription
+from observability import NodeServiceSettings
 from remote import validate_filebeat
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class FilebeatValidationTests(unittest.TestCase):
-    def settings(self, name):
+    def settings(self, name: str) -> NodeServiceSettings:
         desired = topology.load(ROOT)
-        lab = {
+        lab: StandDescription = {
             "private_ips": {n: "10.77.0." + str(v["host"]) for n, v in desired["nodes"].items()},
             "node_roles": {n: v["role"] for n, v in desired["nodes"].items()},
         }

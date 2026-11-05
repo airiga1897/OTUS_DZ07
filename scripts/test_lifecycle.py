@@ -1,5 +1,6 @@
 """Regression checks for resource ownership on deployment errors; no cloud calls."""
 
+import io
 import json
 import os
 import shutil
@@ -12,6 +13,12 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from selectel_adapter import SelectelAdapter
 from test_runtime_support import lab
+
+
+class ResponseBytesIO(io.BytesIO):
+    def __init__(self, initial_bytes: bytes) -> None:
+        super().__init__(initial_bytes)
+        self.headers: dict[str, str] = {}
 
 
 class LifecycleTests(unittest.TestCase):
@@ -152,12 +159,9 @@ class LifecycleTests(unittest.TestCase):
                     self.assertTrue(operator.exists())
 
     def test_cloud_retries_timed_out_reads(self) -> None:
-        import io
-
         cloud = SelectelAdapter.__new__(SelectelAdapter)
         cloud.endpoints, cloud.token = {"compute": "https://example.invalid"}, "test-token"
-        response = io.BytesIO(b'{"servers": []}')
-        response.headers = {}
+        response = ResponseBytesIO(b'{"servers": []}')
         opener = Mock()
         opener.open.side_effect = [TimeoutError(), response]
         with patch("selectel_api.urllib.request.build_opener", return_value=opener), patch("selectel_api.time.sleep"):
@@ -226,7 +230,7 @@ class LifecycleTests(unittest.TestCase):
                 lab.main()
                 cleanup.assert_called_once_with()
 
-    def check_deploy_failure(self, existing):
+    def check_deploy_failure(self, existing: dict[str, str]) -> int:
         with (
             patch.object(lab, "managed_ids", return_value=existing),
             patch.object(lab, "preflight"),

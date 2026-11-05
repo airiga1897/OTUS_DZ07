@@ -27,7 +27,7 @@ class BootstrapWorkers(unittest.TestCase):
             (2, "done", [], {"errors": ["fatal"]}, False),
             (2, "done", [], {"errors": []}, True),
         ):
-            result = {
+            result: dict[str, object] = {
                 "status": status,
                 "errors": errors,
                 "modules-final": nested,

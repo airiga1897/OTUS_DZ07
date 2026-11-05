@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch
 
 import staged_runtime as runtime
 import test_staged_contracts as fixtures
+from cloud_contract import InfrastructureResult
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,7 +23,7 @@ class RuntimeBoundaries(unittest.TestCase):
         self.addCleanup(folder.cleanup)
         return Path(folder.name)
 
-    def context(self):
+    def context(self) -> tuple[SimpleNamespace, InfrastructureResult]:
         return fixtures.LocalDistributedResultTests().fixture(self.root())
 
     def test_local_ids_and_output_reject_each_stale_context_dimension(self) -> None:

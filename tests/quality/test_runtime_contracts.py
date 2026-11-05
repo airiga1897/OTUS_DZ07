@@ -129,7 +129,7 @@ def test_controller_settings_reject_malformed_config_before_subprocess(clone: Pa
     from remote import ansible_control
 
     (clone / "config/stack.json").write_text(json.dumps(document), encoding="utf-8")
-    with patch.object(ansible_control.subprocess, "run") as run, pytest.raises(ValueError):
+    with patch("subprocess.run") as run, pytest.raises(ValueError):
         ansible_control.load_settings(clone)
     run.assert_not_called()
 

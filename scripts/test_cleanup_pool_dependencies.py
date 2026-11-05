@@ -14,14 +14,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class PoolCleanupTests(unittest.TestCase):
     def test_malformed_or_unknown_pool_preserves_every_possible_parent(self) -> None:
-        for record in (
+        records: tuple[object, ...] = (
             None,
             {"candidate": None},
             {"candidate": []},
             {"candidate": {"region": 7}},
             {"candidate": {"region": "unknown"}},
-        ):
-            stages = {
+        )
+        for record in records:
+            stages: dict[str, object] = {
                 "app": record,
                 "network-ru-9": {},
                 "connection-ru-9": {},
@@ -45,28 +46,34 @@ class PoolCleanupTests(unittest.TestCase):
             }
             provider.objects = {n: n + "-owned" for n in names}
             real = provider.cleanup_attempt
-            attempted = []
+            attempted: list[str] = []
 
-            def cleanup(name) -> None:
+            def cleanup(name: str) -> None:
                 attempted.append(name)
                 if name == "es1":
                     raise OSError("synthetic fault")
                 real(name)
 
-            provider.cleanup_attempt = cleanup
-            with helper.patches(provider), self.assertRaises(RuntimeError):
+            with (
+                patch.object(provider, "cleanup_attempt", side_effect=cleanup),
+                helper.patches(provider),
+                self.assertRaises(RuntimeError),
+            ):
                 staged_runtime.cleanup(api)
             self.assertIn("network-ru-3", attempted)
             self.assertLess(attempted.index("connection-ru-3"), attempted.index("network-ru-3"))
             self.assertEqual(set(provider.objects), {"es1", "network-ru-9", "connection-ru-9", "global"})
-            provider.cleanup_attempt = real
-            provider.audit_deletion = Mock(return_value={})
-            with helper.patches(provider), patch("artifact_lifecycle.release"):
+            with (
+                patch.object(provider, "audit_deletion", Mock(return_value={})),
+                patch.object(provider, "cleanup_attempt", side_effect=real),
+                helper.patches(provider),
+                patch("artifact_lifecycle.release"),
+            ):
                 staged_runtime.cleanup(api)
             self.assertFalse(provider.objects)
 
     def test_unknown_placement_blocks_all_potential_parents(self) -> None:
-        stages = {"app": {}, "network-ru-9": {}, "connection-ru-9": {}, "global": {}}
+        stages: dict[str, dict[str, object]] = {"app": {}, "network-ru-9": {}, "connection-ru-9": {}, "global": {}}
         result = children(stages, {"app": {}})
         self.assertEqual(result["network-ru-9"], {"app", "connection-ru-9"})
         self.assertEqual(result["connection-ru-9"], {"app"})

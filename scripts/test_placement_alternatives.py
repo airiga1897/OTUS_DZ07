@@ -7,10 +7,12 @@ from unittest.mock import patch
 
 import pool_selection as pools
 import run_settings
+from placement_config import PlacementPolicy
+from selectel_api import CatalogEndpoint, CatalogService
 
 
 class PlacementAlternativesTests(unittest.TestCase):
-    def flavors(self):
+    def flavors(self) -> list[dict[str, object]]:
         return [
             {
                 "id": "intel",
@@ -30,7 +32,7 @@ class PlacementAlternativesTests(unittest.TestCase):
             },
         ]
 
-    def config(self):
+    def config(self) -> PlacementPolicy:
         return {
             "pools": ["ru-3"],
             "profiles": {"app": {"vcpus": 4, "ram_mb": 8192}},
@@ -56,15 +58,14 @@ class PlacementAlternativesTests(unittest.TestCase):
             pools.flavor_choices([], self.config())
 
     def test_every_allowed_flavor_disk_combination_obeys_zone_bindings(self) -> None:
-        catalog = [
-            {
-                "type": k,
-                "endpoints": [{"interface": "public", "region": "ru-3", "url": "https://synthetic.invalid/" + k}],
-            }
-            for k in pools.SERVICES
-        ]
+        catalog: list[CatalogService] = []
+        for kind in pools.SERVICES:
+            endpoints: list[CatalogEndpoint] = [
+                {"interface": "public", "region": "ru-3", "url": "https://synthetic.invalid/" + kind}
+            ]
+            catalog.append({"type": kind, "endpoints": endpoints})
 
-        def get(url, **kwargs):
+        def get(url: str, **kwargs: object) -> tuple[object, object]:
             if "images?" in url:
                 return {
                     "images": [

@@ -41,13 +41,14 @@ class ScopeRecoveryEdges(unittest.TestCase):
 
     def test_global_zone_catalog_is_cached_but_live_routers_are_not(self) -> None:
         router = GlobalRouter.__new__(GlobalRouter)
-        router.get = Mock(side_effect=lambda path: [{"id": "zone"}] if "/zones?" in path else [])
-        first = router.listing("zones")
-        first[0]["id"] = "changed"
-        self.assertEqual(router.listing("zones"), [{"id": "zone"}])
-        router.listing("routers")
-        router.listing("routers")
-        self.assertEqual(router.get.call_count, 3)
+        get_mock = Mock(side_effect=lambda path: [{"id": "zone"}] if "/zones?" in path else [])
+        with patch.object(router, "get", get_mock):
+            first = router.listing("zones")
+            first[0]["id"] = "changed"
+            self.assertEqual(router.listing("zones"), [{"id": "zone"}])
+            router.listing("routers")
+            router.listing("routers")
+        self.assertEqual(get_mock.call_count, 3)
 
     def test_unknown_marker_schema_blocks_audit_and_renamed_resources_are_found(self) -> None:
         self.assertTrue(namespace_match({"metadata": {"dz07_owner": "otus-dz07-own"}}, "otus-dz07"))
@@ -128,7 +129,7 @@ class ScopeRecoveryEdges(unittest.TestCase):
         self.assertIs(caught.exception, original)
 
         @progress.timed("function")
-        def function():
+        def function() -> int:
             return 7
 
         self.assertEqual(function(), 7)

@@ -55,7 +55,7 @@ class OptionalElasticsearchTests(unittest.TestCase):
         self.cloud = Mock()
         self.backend.region.return_value = self.cloud
 
-        def save(path, value) -> None:
+        def save(path: Path, value: object) -> None:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(value))
 
@@ -71,11 +71,12 @@ class OptionalElasticsearchTests(unittest.TestCase):
             verify=Mock(return_value={"logs": True}),
         )
 
-        def command(api, action):
+        def command(api: object, action: str) -> dict[str, object]:
             if action == "master":
                 return {"node": "es2"}
             if action == "failure":
-                return {"new_master": {"node": "es1"}}
+                replacement: dict[str, object] = {"node": "es1"}
+                return {"new_master": replacement}
             return {"status": "green", "number_of_nodes": 3}
 
         self.command = Mock(side_effect=command)
@@ -89,7 +90,10 @@ class OptionalElasticsearchTests(unittest.TestCase):
 
     def test_master_uses_its_pool_and_restore_confirms_cluster(self) -> None:
         result = options.verify_failover(self.api)
-        self.assertTrue(result["failover"]["restored"])
+        report = result["failover"]
+        if not isinstance(report, dict):
+            raise AssertionError("expected failover report")
+        self.assertTrue(report["restored"])
         self.assertEqual([c.args for c in self.backend.region.call_args_list], [("ru-3",), ("ru-3",)])
         self.assertEqual([c.kwargs["running"] for c in self.cloud.set_power.call_args_list], [False, True])
         self.assertTrue(all(c.args[:2] == ("es2", "id-es2") for c in self.cloud.set_power.call_args_list))
@@ -128,8 +132,13 @@ class OptionalElasticsearchTests(unittest.TestCase):
     def test_stop_response_lost_and_restore_failure_preserve_primary_and_recovery(self) -> None:
         primary = OSError("PRIVATE-STOP")
 
-        def fail(name, identity, **kwargs) -> None:
-            raise primary if not kwargs["running"] else TimeoutError("PRIVATE-RESTORE")
+        def fail(name: str, identity: str, **kwargs: object) -> None:
+            running = kwargs["running"]
+            if type(running) is not bool:
+                raise AssertionError("expected power state")
+            if running:
+                raise TimeoutError("PRIVATE-RESTORE")
+            raise primary
 
         self.cloud.set_power.side_effect = fail
         with self.assertRaises(OSError) as caught:

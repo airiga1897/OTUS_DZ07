@@ -42,7 +42,11 @@ class QuotaCloud:
             "server_groups": self.q(5),
             "server_group_members": self.q(10),
         }
-        self.volumes = {"gigabytes": self.q(1000), "volumes": self.q(20), "gigabytes_universal." + zone: self.q(1000)}
+        self.volumes: dict[str, object] = {
+            "gigabytes": self.q(1000),
+            "volumes": self.q(20),
+            "gigabytes_universal." + zone: self.q(1000),
+        }
         self.network = {
             k: self.q(100)
             for k in ("network", "subnet", "router", "security_group", "security_group_rule", "port", "floatingip")
@@ -107,9 +111,9 @@ class StagedBackendTests(unittest.TestCase):
                 config: PlacementPolicy, credentials: Mapping[str, str], **kwargs: object
             ) -> list[dict[str, object]]:
                 role = next(iter(config["profiles"]))
-                result = []
+                result: list[dict[str, object]] = []
                 for region in config["pools"]:
-                    item = self.choice(region, role)
+                    item: dict[str, object] = dict(self.choice(region, role))
                     if region == "ru-8":
                         item.update(
                             availability_zone="ru-8a",
@@ -194,7 +198,7 @@ class StagedBackendTests(unittest.TestCase):
         provider.choices = {role: [self.choice(pool, role) for pool in ("ru-9", "ru-3")] for role in ("app", "es")}
         return provider, clouds
 
-    def choice(self, pool: str, role: str) -> dict[str, object]:
+    def choice(self, pool: str, role: str) -> PlacementPolicy:
         zone = "ru-9a" if pool == "ru-9" else "ru-3b"
         return {
             "region": pool,
@@ -255,7 +259,7 @@ class StagedBackendTests(unittest.TestCase):
 
             def choices(
                 config: PlacementPolicy, credentials: Mapping[str, str], **kwargs: object
-            ) -> list[dict[str, object]]:
+            ) -> list[PlacementPolicy]:
                 role = next(iter(config["profiles"]))
                 return [self.choice("ru-9", role)] if role == "app" else [self.choice("ru-3", role)]
 

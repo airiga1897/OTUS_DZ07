@@ -8,12 +8,14 @@ from unittest.mock import patch
 
 import pool_selection as pools
 import run_settings
+from placement_config import PlacementPolicy
+from selectel_api import CatalogEndpoint, CatalogService
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class PreferredPlacementPolicy(unittest.TestCase):
-    def fixture(self, root) -> None:
+    def fixture(self, root: Path) -> None:
         (root / ".env.example").write_bytes((ROOT / ".env.example").read_bytes())
         (root / "config").mkdir()
         (root / "config/placement.json").write_bytes((ROOT / "config/placement.json").read_bytes())
@@ -39,23 +41,22 @@ class PreferredPlacementPolicy(unittest.TestCase):
             "gis-1",
             "uz-1",
         )
-        catalog = [
-            {
-                "type": kind,
-                "endpoints": [
-                    {"interface": "public", "region": region, "url": "https://example.invalid/" + kind}
-                    for region in regions
-                ],
-            }
-            for kind in pools.SERVICES
-        ]
+        catalog: list[CatalogService] = []
+        for kind in pools.SERVICES:
+            endpoints: list[CatalogEndpoint] = []
+            for region in regions:
+                endpoints.append({"interface": "public", "region": region, "url": "https://example.invalid/" + kind})
+            catalog.append({"type": kind, "endpoints": endpoints})
         self.assertEqual(pools.ordered_pools(policy, catalog), ["ru-2", "ru-9", "ru-3", "ru-8", "ru-1"])
         self.assertEqual(policy["disk_type_patterns"], ["universal.*", "basicssd.*"])
         self.assertTrue(policy["require_distinct_hosts"])
 
     def test_segment_exclusion_consumes_a_generator_once_and_preserves_other_segments(self) -> None:
         source = (zone for zone in ("ru-1b", "ru-1c", "ru-1a", "ru-2b", "ru-2a"))
-        selected = pools.ordered_zones({"preferred_segments": ["ru-2a"], "excluded_segments": ["ru-1b"]}, source)
+        selected = pools.ordered_zones(
+            PlacementPolicy(preferred_segments=["ru-2a"], excluded_segments=["ru-1b"]),
+            source,
+        )
         self.assertEqual(selected, ["ru-2a", "ru-1a", "ru-1c", "ru-2b"])
         # Quotas are re-read, not converted into permanent segment exclusions.
         self.assertIn("ru-1a", selected)
@@ -73,7 +74,7 @@ class PreferredPlacementPolicy(unittest.TestCase):
                 with self.subTest(value=value), self.assertRaises(ValueError):
                     run_settings.load(root, environ={"SELECTEL_EXCLUDED_SEGMENTS": value})
         with self.assertRaises(ValueError):
-            pools.ordered_zones({"excluded_segments": ["invalid"]}, [])
+            pools.ordered_zones(PlacementPolicy(excluded_segments=["invalid"]), [])
 
     def test_saved_preferences_and_ids_remain_authoritative(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -89,8 +90,10 @@ class PreferredPlacementPolicy(unittest.TestCase):
             (root / ".local/placement.json").write_text(json.dumps(saved))
             with patch.dict("os.environ", {}, clear=True):
                 policy = pools.policy(root, "placement.json", "context.json")
-            for key, value in saved.items():
-                self.assertEqual(policy[key], value)
+            self.assertEqual(policy["region"], saved["region"])
+            self.assertEqual(policy["availability_zone"], saved["availability_zone"])
+            self.assertEqual(policy["image_id"], saved["image_id"])
+            self.assertEqual(policy["flavor_ids"], saved["flavor_ids"])
             snapshot = run_settings.snapshot(policy)
             self.assertEqual(snapshot["excluded_segments"], ["ru-1b"])
             self.assertEqual(snapshot["preferred_pools"], ["ru-2", "ru-9", "ru-3"])

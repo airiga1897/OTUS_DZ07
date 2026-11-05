@@ -3,15 +3,19 @@
 import unittest
 
 import pool_selection as pools
+from placement_config import PlacementPolicy
+from selectel_api import CatalogEndpoint, CatalogService
 from selectel_staged_capacity import require_named_quota
 
 
 class CatalogFindings(unittest.TestCase):
     def test_missing_api_reports_the_actual_service(self) -> None:
-        catalog = [
-            {"type": k, "endpoints": [{"interface": "public", "region": "ru-4", "url": "https://example.invalid"}]}
-            for k in ("compute", "image", "network")
-        ]
+        catalog: list[CatalogService] = []
+        for kind in ("compute", "image", "network"):
+            endpoints: list[CatalogEndpoint] = [
+                {"interface": "public", "region": "ru-4", "url": "https://example.invalid"}
+            ]
+            catalog.append({"type": kind, "endpoints": endpoints})
         with self.assertRaisesRegex(pools.CandidateUnavailable, "volumev3"):
             pools.endpoints_for(catalog, "ru-4")
 
@@ -37,17 +41,21 @@ class CatalogFindings(unittest.TestCase):
 
     def test_unapproved_universal2_is_reported_but_not_selected(self) -> None:
         types = [{"name": "universal2.ru-6a", "extra_specs": {"RESKEY:availability_zones": "ru-6a"}}]
+
+        def unsupported_get(service: str, path: str) -> object:
+            raise AssertionError(service + " " + path)
+
         with self.assertRaisesRegex(pools.CandidateUnavailable, "universal2"):
-            pools.disks_for_zone(types, ["universal.*", "basicssd.*"], "ru-6a", None)
+            pools.disks_for_zone(types, ["universal.*", "basicssd.*"], "ru-6a", unsupported_get)
 
     def test_image_checksum_diagnostic_does_not_accept_another_image(self) -> None:
-        config = {
+        config: PlacementPolicy = {
             "image_name": "Ubuntu",
             "image_checksums": ["a" * 32],
             "boot_disk_gb": 20,
             "profiles": {"app": {"ram_mb": 8192}},
         }
-        images = [
+        images: list[dict[str, object]] = [
             {"name": "Ubuntu", "visibility": "public", "status": "active", "os_distro": "ubuntu", "checksum": "b" * 32}
         ]
         self.assertEqual(pools.compatible_images(images, config), [])

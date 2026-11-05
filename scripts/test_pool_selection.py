@@ -8,11 +8,29 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from cloud_contract import TerraformError
+from placement_config import PlacementPolicy
+from selectel_api import CatalogEndpoint, CatalogService
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import pool_selection as pools
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def call_unchecked(function: object, *args: object) -> None:
+    if not callable(function):
+        raise AssertionError("expected callable")
+    function(*args)
+
+
+def catalog_for(regions: list[str]) -> list[CatalogService]:
+    catalog: list[CatalogService] = []
+    for kind in pools.SERVICES:
+        endpoints: list[CatalogEndpoint] = []
+        for region in regions:
+            endpoints.append({"interface": "public", "region": region, "url": "https://" + region + ".invalid/" + kind})
+        catalog.append({"type": kind, "endpoints": endpoints})
+    return catalog
 
 
 class PoolSelectionTests(unittest.TestCase):
@@ -27,16 +45,10 @@ class PoolSelectionTests(unittest.TestCase):
             "flavor_name_template": "SL1.{vcpus}-{ram_mb}",
             "profiles": {"db": {"vcpus": 2, "ram_mb": 4096}},
         }
-        catalog = [
-            {
-                "type": kind,
-                "endpoints": [{"interface": "public", "region": "ru-3", "url": "https://ru-3.invalid/" + kind}],
-            }
-            for kind in pools.SERVICES
-        ]
+        catalog = catalog_for(["ru-3"])
         for preferred in (False, True):
 
-            def request(url, *, preferred=preferred, **kwargs):
+            def request(url: str, *, preferred: bool = preferred, **kwargs: object) -> tuple[object, object]:
                 if "images?" in url:
                     return {
                         "images": [
@@ -102,25 +114,19 @@ class PoolSelectionTests(unittest.TestCase):
 
     def test_preferred_segments_order_without_disabling_fallback(self) -> None:
         self.assertEqual(
-            pools.ordered_zones({"preferred_segments": ["ru-9b"]}, ["ru-9a", "ru-9b", "ru-9c"]),
+            pools.ordered_zones(PlacementPolicy(preferred_segments=["ru-9b"]), ["ru-9a", "ru-9b", "ru-9c"]),
             ["ru-9b", "ru-9a", "ru-9c"],
         )
-        self.assertEqual(pools.ordered_zones({"preferred_segments": ["ru-9a"]}, ["ru-3b", "ru-3a"]), ["ru-3a", "ru-3b"])
+        self.assertEqual(
+            pools.ordered_zones(PlacementPolicy(preferred_segments=["ru-9a"]), ["ru-3b", "ru-3a"]),
+            ["ru-3a", "ru-3b"],
+        )
         with self.assertRaises(ValueError):
-            pools.ordered_zones({"preferred_segments": ["invalid"]}, [])
+            pools.ordered_zones(PlacementPolicy(preferred_segments=["invalid"]), [])
 
     def test_excluded_pool_is_never_restored_by_explicit_or_auto_selection(self) -> None:
-        catalog = [
-            {
-                "type": kind,
-                "endpoints": [
-                    {"interface": "public", "region": region, "url": "https://" + region + ".invalid/" + kind}
-                    for region in ["ru-3", "ru-7", "ru-9"]
-                ],
-            }
-            for kind in pools.SERVICES
-        ]
-        config = {"pools": ["ru-3", "ru-7", "ru-9", "auto"], "excluded_pools": ["ru-7"]}
+        catalog = catalog_for(["ru-3", "ru-7", "ru-9"])
+        config: PlacementPolicy = {"pools": ["ru-3", "ru-7", "ru-9", "auto"], "excluded_pools": ["ru-7"]}
         self.assertEqual(pools.ordered_pools(config, catalog), ["ru-3", "ru-9"])
         config["pools"] = ["auto"]
         self.assertEqual(pools.ordered_pools(config, catalog), ["ru-9", "ru-3"])
@@ -138,16 +144,21 @@ class PoolSelectionTests(unittest.TestCase):
         }
         newer = dict(verified, checksum="b" * 32, created_at="2099-01-01")
         missing = {k: v for k, v in verified.items() if k != "checksum"}
-        config = {
+        config: PlacementPolicy = {
             "image_name": "Ubuntu",
             "image_checksums": ["a" * 32],
             "boot_disk_gb": 20,
             "profiles": {"app": {"ram_mb": 2048}},
         }
         self.assertEqual(pools.compatible_images([newer, missing, verified], config), [verified])
-        config["image_checksums"] = "invalid"
+        invalid_config = {
+            "image_name": "Ubuntu",
+            "image_checksums": "invalid",
+            "boot_disk_gb": 20,
+            "profiles": {"app": {"ram_mb": 2048}},
+        }
         with self.assertRaises(ValueError):
-            pools.compatible_images([verified], config)
+            call_unchecked(pools.compatible_images, [verified], invalid_config)
 
     def test_image_catalog_reads_later_pages_and_rejects_foreign_next_link(self) -> None:
         first = {"images": [{"name": "other"}], "next": "/v2/images?marker=next"}
@@ -184,18 +195,9 @@ class PoolSelectionTests(unittest.TestCase):
             "flavor_name_template": "SL1.{vcpus}-{ram_mb}",
             "profiles": {"db": {"vcpus": 2, "ram_mb": 4096}},
         }
-        catalog = [
-            {
-                "type": kind,
-                "endpoints": [
-                    {"interface": "public", "region": region, "url": "https://" + region + ".invalid/" + kind}
-                    for region in ["ru-7", "ru-9", "kz-1"]
-                ],
-            }
-            for kind in pools.SERVICES
-        ]
+        catalog = catalog_for(["ru-7", "ru-9", "kz-1"])
 
-        def request(url, **kwargs):
+        def request(url: str, **kwargs: object) -> tuple[object, object]:
             pool = "ru-7" if "ru-7." in url else "ru-9"
             if "images?" in url:
                 return {
@@ -242,9 +244,9 @@ class PoolSelectionTests(unittest.TestCase):
         self.assertEqual(choices[2]["flavor_ids"], {"db": "flavor"})
 
     def test_capacity_fallback_follows_successful_cleanup(self) -> None:
-        events = []
+        events: list[str] = []
 
-        def apply():
+        def apply() -> str:
             events.append("apply")
             if events.count("apply") == 1:
                 events.append("state-and-api-empty")
@@ -283,7 +285,10 @@ class PoolSelectionTests(unittest.TestCase):
             pools.phase(root, "destroyed")
             pools.select(root, {"region": "ru-9"}, "project", "context.json")
             self.assertEqual((local / "key").read_text(), "synthetic")
-            self.assertEqual(pools.selected(root)["region"], "ru-9")
+            selected = pools.selected(root)
+            if selected is None:
+                self.fail("Expected saved placement selection")
+            self.assertEqual(selected["region"], "ru-9")
 
     def test_configuration_error_is_not_retried_as_capacity_failure(self) -> None:
         self.assertFalse(pools.scheduler_unavailable(RuntimeError("configuration"), ROOT, Mock(), "otus-dz07"))

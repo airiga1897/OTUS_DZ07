@@ -1,5 +1,6 @@
 """Execute original CLI guards in private namespaces with isolated destinations."""
 
+import http.client
 import io
 import json
 import tarfile
@@ -7,6 +8,7 @@ import tempfile
 import unittest
 import urllib.error
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import Mock, patch
 
 import cache_packages
@@ -27,7 +29,7 @@ class WorkerDispatchTests(unittest.TestCase):
         self.root = Path(directory.name)
         (self.root / "config").mkdir()
 
-    def execute(self, module, **overrides):
+    def execute(self, module: ModuleType, **overrides: object) -> dict[str, object]:
         namespace = {**vars(module), "__name__": "__main__", **overrides}
         exec(entrypoint_code(module), namespace)
         return namespace
@@ -123,7 +125,9 @@ class WorkerDispatchTests(unittest.TestCase):
         )
         for code in (403, 503):
             fetch = Mock(
-                side_effect=urllib.error.HTTPError("https://artifacts.elastic.co", code, "synthetic", {}, None)
+                side_effect=urllib.error.HTTPError(
+                    "https://artifacts.elastic.co", code, "synthetic", http.client.HTTPMessage(), None
+                )
             )
             with (
                 self.subTest(code=code),
@@ -155,7 +159,9 @@ class WorkerDispatchTests(unittest.TestCase):
         (self.root / "app/source.py").write_text("public source")
         (self.root / "config/secrets.json").write_text('{"app":"synthetic-private-secret"}')
         archive = self.root / "source.tar.gz"
-        s3_artifacts.source_archive(self.root, archive)
+        archive_builder = vars(s3_artifacts)["source_archive"]
+        assert callable(archive_builder)
+        archive_builder(self.root, archive)
         with tarfile.open(archive) as stream:
             self.assertIn("app/source.py", stream.getnames())
             self.assertNotIn("config/secrets.json", stream.getnames())

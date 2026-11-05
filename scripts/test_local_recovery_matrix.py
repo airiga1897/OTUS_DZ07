@@ -5,6 +5,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from typing import cast
 from unittest.mock import Mock, patch
 
 import local_runtime as runtime
@@ -12,6 +13,19 @@ import test_cycle as cycle
 import test_runtime_contract as fixtures
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def instance_attributes(state: dict[str, object]) -> dict[str, object]:
+    resources = state["resources"]
+    if not isinstance(resources, list) or not resources or not isinstance(resources[0], dict):
+        raise AssertionError("Expected state resources")
+    instances = resources[0]["instances"]
+    if not isinstance(instances, list) or not instances or not isinstance(instances[0], dict):
+        raise AssertionError("Expected state instances")
+    attributes = instances[0]["attributes"]
+    if not isinstance(attributes, dict):
+        raise AssertionError("Expected instance attributes")
+    return cast(dict[str, object], attributes)
 
 
 class LocalRecoveryMatrix(unittest.TestCase):
@@ -29,7 +43,7 @@ class LocalRecoveryMatrix(unittest.TestCase):
         changes = ("inactive", "lineage", "deployment", "project", "region", "name", "no-resources", "address")
         for change in changes:
             state, context, saved = copy.deepcopy(original), dict(original_context), copy.deepcopy(original_saved)
-            attrs = state["resources"][0]["instances"][0]["attributes"]
+            attrs = instance_attributes(state)
             if change == "inactive":
                 context["phase"] = "creating"
             elif change == "lineage":

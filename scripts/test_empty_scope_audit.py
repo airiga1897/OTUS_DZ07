@@ -1,5 +1,6 @@
 """A pre-allocation failure still requires an explicit, scoped API absence audit."""
 
+import http.client
 import json
 import tempfile
 import unittest
@@ -45,7 +46,7 @@ class EmptyScopeAuditContracts(unittest.TestCase):
         )
         self.patches.enter_context(patch("selectel_global_router.GlobalRouter", return_value=self.global_api))
 
-    def empty_response(self, service, path):
+    def empty_response(self, service: str, path: str) -> dict[str, object]:
         from selectel_adapter import OWNED_COLLECTIONS
 
         for kind, url, key in OWNED_COLLECTIONS:
@@ -77,9 +78,11 @@ class EmptyScopeAuditContracts(unittest.TestCase):
     def test_missing_floating_api_only_counts_absent_if_router_extension_is_absent(self) -> None:
         for declared in (False, True):
 
-            def read(service, path, *, declared=declared):
+            def read(service: str, path: str, *, declared: bool = declared) -> dict[str, object]:
                 if "floatingips" in path:
-                    raise urllib.error.HTTPError("https://example.invalid", 404, "Not found", {}, None)
+                    raise urllib.error.HTTPError(
+                        "https://example.invalid", 404, "Not found", http.client.HTTPMessage(), None
+                    )
                 if "extensions" in path:
                     return {"extensions": [{"alias": "router"}] if declared else []}
                 return self.empty_response(service, path)
@@ -92,12 +95,29 @@ class EmptyScopeAuditContracts(unittest.TestCase):
                 self.assertTrue(selectel_staged.audit_empty_scope(self.api)["empty_without_context"])
 
     def test_remaining_cloud_objects_and_api_failures_never_confirm_cleanup(self) -> None:
-        self.global_api.listing.return_value = [{"name": "otus-dz07-global", "tags": []}]
-        with self.assertRaises(RuntimeError):
-            selectel_staged.audit_empty_scope(self.api)
+        owned = (
+            [{"name": "otus-dz07-global", "tags": []}],
+            [{"name": "otus-dz07"}],
+            [{"name": "foreign", "tags": ["otus-dz07-owner"]}],
+            [{"name": None, "tags": ["note", "otus-dz07-owner"]}],
+            [{"tags": [1, "other", "otus-dz07-owner"]}],
+        )
+        for items in owned:
+            self.global_api.listing.return_value = items
+            with self.assertRaises(RuntimeError):
+                selectel_staged.audit_empty_scope(self.api)
+        self.global_api.listing.return_value = [
+            {"name": "foreign"},
+            {"name": "foreign", "tags": "otus-dz07-owner"},
+            {"name": "foreign", "tags": []},
+            {"name": "foreign", "tags": [1, "other"]},
+            {"name": None, "tags": []},
+            {},
+        ]
+        self.assertTrue(selectel_staged.audit_empty_scope(self.api)["empty_without_context"])
         self.global_api.listing.return_value = []
 
-        def remaining(service, path):
+        def remaining(service: str, path: str) -> dict[str, object]:
             return (
                 {"floatingips": [{"description": "otus-dz07-owned"}]}
                 if "floatingips" in path

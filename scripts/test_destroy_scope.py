@@ -11,7 +11,9 @@ from unittest.mock import Mock, patch
 import selectel_intent as intents
 import selectel_scope_audit as scope
 import selectel_staged as staged
+from placement_config import PlacementPolicy
 from stage_store import RecoveryContextMissing, require_context
+from terraform_state_types import StateEntry
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -25,7 +27,7 @@ class DestroyScopeTests(unittest.TestCase):
         self.local.mkdir()
         self.api = SimpleNamespace(ROOT=self.root, LOCAL=self.local, PREFIX="otus-dz07", save=Mock())
 
-    def context(self, value) -> None:
+    def context(self, value: object) -> None:
         (self.local / "context.json").write_text(json.dumps(value))
 
     def test_saved_scope_ignores_new_preferences_and_collects_node_attempt_pools(self) -> None:
@@ -125,7 +127,9 @@ class DestroyScopeTests(unittest.TestCase):
             scope.read_independent([("ru-2", fail), ("ru-9", other), ("global", lambda: events.append("global"))], 2)
         self.assertIs(raised.exception, original)
         self.assertEqual(set(events), {"denied", "other", "global"})
-        self.assertEqual(original.audit_incomplete, {"ru-2": "PermissionError", "ru-9": "TimeoutError"})
+        self.assertEqual(
+            getattr(original, "audit_incomplete", None), {"ru-2": "PermissionError", "ru-9": "TimeoutError"}
+        )
         self.assertEqual(scope.read_independent([], 1), {})
         self.assertEqual(scope.read_independent([("x", lambda: 7)], 1), {"x": 7})
 
@@ -148,28 +152,29 @@ class DestroyScopeTests(unittest.TestCase):
     def test_create_intent_is_saved_before_any_create_and_orphans_block_deletion(self) -> None:
         b = staged.Backend.__new__(staged.Backend)
         b.api, b.credentials = self.api, {"project_id": "p"}
-        b.desired = {"nodes": {"app": {"role": "app"}, "es1": {"role": "es"}}}
-        b.store, b.save, b.journal = Mock(), Mock(), {"deployment_id": "owner", "stages": {}}
-        b.store.identities.return_value = {}
-        candidate = {"region": "ru-2"}
-        b.begin("app", candidate)
-        b.save.assert_called_once()
-        value = b.journal["stages"]["app"]["intent"]
-        self.assertEqual(value["pool"], "ru-2")
-        self.assertIn("openstack_networking_floatingip_v2", value["resource_types"])
-        kind = "openstack_compute_instance_v2"
-        found = {kind: {"unrecorded": {"name": "otus-dz07-app"}}}
-        with self.assertRaisesRegex(RuntimeError, "missing from state"):
-            intents.check_unrecorded(b, "app", [], found)
-        entries = [{"type": kind, "attrs": {"id": "unrecorded"}}]
-        intents.check_unrecorded(b, "app", entries, found)
-        intents.check_unrecorded(b, "app", [], {kind: {"foreign": {"name": "other-app"}}})
-        fip = "openstack_networking_floatingip_v2"
-        with self.assertRaisesRegex(RuntimeError, "missing from state"):
-            intents.check_unrecorded(b, "app", [], {fip: {"ip": {"description": "otus-dz07-app:" + b.owner}}})
-        b.journal["stages"]["app"]["intent"]["pool"] = "ru-9"
-        with self.assertRaises(ValueError):
-            intents.validate(b, "app")
+        b.desired = {"nodes": {"app": {"host": 10, "role": "app"}, "es1": {"host": 31, "role": "es"}}}
+        b.store, b.journal = Mock(), {"deployment_id": "owner", "stages": {}}
+        candidate: PlacementPolicy = {"region": "ru-2"}
+        with patch.object(b, "save") as save, patch.object(b.store, "identities", return_value={}):
+            b.begin("app", candidate)
+            save.assert_called_once()
+            value = b.journal["stages"]["app"]["intent"]
+            assert value is not None
+            self.assertEqual(value["pool"], "ru-2")
+            self.assertIn("openstack_networking_floatingip_v2", value["resource_types"])
+            kind = "openstack_compute_instance_v2"
+            found = {kind: {"unrecorded": {"name": "otus-dz07-app"}}}
+            with self.assertRaisesRegex(RuntimeError, "missing from state"):
+                intents.check_unrecorded(b, "app", [], found)
+            entries: list[StateEntry] = [{"type": kind, "attrs": {"id": "unrecorded"}}]
+            intents.check_unrecorded(b, "app", entries, found)
+            intents.check_unrecorded(b, "app", [], {kind: {"foreign": {"name": "other-app"}}})
+            fip = "openstack_networking_floatingip_v2"
+            with self.assertRaisesRegex(RuntimeError, "missing from state"):
+                intents.check_unrecorded(b, "app", [], {fip: {"ip": {"description": "otus-dz07-app:" + b.owner}}})
+            value["pool"] = "ru-9"
+            with self.assertRaises(ValueError):
+                intents.validate(b, "app")
         for name in ("es1", "global", "network-ru-2", "connection-ru-2"):
             self.assertEqual(intents.intent(b, name, candidate)["pool"], "ru-2")
         with self.assertRaises(ValueError):
@@ -191,7 +196,7 @@ class DestroyScopeTests(unittest.TestCase):
         gate, lock = threading.Event(), threading.Lock()
         counts = {"active": 0, "maximum": 0}
 
-        def read():
+        def read() -> str:
             with lock:
                 counts["active"] += 1
                 counts["maximum"] = max(counts["maximum"], counts["active"])
@@ -214,7 +219,10 @@ class DestroyScopeTests(unittest.TestCase):
 
         cloud = SelectelAdapter.__new__(SelectelAdapter)
         cloud.catalog = [
-            {"type": service, "endpoints": [{"interface": "public", "region": region}]}
+            {
+                "type": service,
+                "endpoints": [{"interface": "public", "region": region, "url": "https://example.invalid"}],
+            }
             for service, region in (("network", "ru-7"), ("volumev3", "ru-5"), ("image", "ru-6"), ("compute", "ru-2"))
         ]
         self.assertEqual(cloud.resource_regions(), ["ru-2", "ru-5", "ru-7"])

@@ -1,13 +1,7 @@
 {
   "mode": "baseline",
-  "run_id": "615d10c112e34bfd9ed73f94137e15bf",
-  "leader": "app",
-  "members": {
-    "app": {
-      "role": "primary",
-      "state": "running"
-    }
-  },
+  "run_id": "d0a1ce88000f4c8dbe92b24e25374c5e",
+  "database_host": "app",
   "sql_and_http": true,
   "application_view_write": true,
   "media_preserved": true,
@@ -15,21 +9,15 @@
   "new_write_succeeded": true,
   "new_record": {
     "id": 11,
-    "slug": "baseline-b408935d6aa74765842abe3930f89966",
-    "body": "committed-08f7106aecbc4d1d9e65ed4a9205d21b"
+    "slug": "baseline-a6bdc99e89234dc78a1491b0ce91549d",
+    "body": "committed-382420d4c79249c88c5380d1823e8303"
   },
   "preserved_records": [],
-  "replica_records_verified": false,
-  "failover_record_available": false,
-  "replication_capacity": {
-    "senders": 10,
-    "slots": 10
-  },
   "initial_data": {
     "status": "loaded",
     "loaded_now": false,
     "articles": 8,
-    "fixture_sha256": "f0710640b07783fd6c7cf6d9b11a75874fd2cbfecbdf91f1853d5ddde4cdf9ff",
+    "fixture_sha256": "f3c16fd7bedc87fff00e85168fce6546816cef729b8af1e26af7d0ad3039f807",
     "source": "bundled_DZ04_materials_fixture"
   }
 }

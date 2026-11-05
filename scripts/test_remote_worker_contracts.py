@@ -1,6 +1,7 @@
 """Execute the remote worker itself with a deterministic SQL/HTTP transport."""
 
 import contextlib
+import http.client
 import io
 import json
 import runpy
@@ -8,40 +9,54 @@ import sys
 import tempfile
 import types
 import unittest
+import urllib.error
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 from unittest.mock import MagicMock, Mock, patch
 
+import psycopg
 from remote import initial_data
 from remote import verify as worker
+from stack_types import StackSettings
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class Result:
-    def __init__(self, row=None, rows=None) -> None:
+    def __init__(self, row: worker.Row | None = None, rows: list[worker.Row] | None = None) -> None:
         self.row = row
         self.rows = rows or []
 
-    def fetchone(self):
+    def fetchone(self) -> worker.Row | None:
         return self.row
 
-    def fetchall(self):
+    def fetchall(self) -> list[worker.Row]:
         return self.rows
 
 
 class Database:
     def __init__(self) -> None:
-        self.rows = [(1, "lesson", "lesson", 7, "description", "initial-body", "", True, "timestamp")]
-        self.record = None
-        self.queries = []
+        self.rows: list[worker.Row] = [(1, "lesson", "lesson", 7, "description", "initial-body", "", True, "timestamp")]
+        self.record: worker.ProbeRecord | None = None
+        self.queries: list[tuple[str, Sequence[object] | None]] = []
 
-    def __enter__(self):
+    def __enter__(self) -> "Database":
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args: object) -> Literal[False]:
         return False
 
-    def execute(self, query, params=None):
+    def current_max(self) -> int:
+        identifiers: list[int] = []
+        for row in self.rows:
+            identifier = row[0]
+            if not isinstance(identifier, int):
+                raise AssertionError("Expected integer primary key")
+            identifiers.append(identifier)
+        return max(identifiers)
+
+    def execute(self, query: str, params: Sequence[object] | None = None) -> Result:
         self.queries.append((query, params))
         if query == "SELECT pg_is_in_recovery()":
             return Result((False,))
@@ -50,8 +65,10 @@ class Database:
         if "knowledge_initialdatastate" in query:
             return Result((1,))
         if query.startswith("SELECT COALESCE(MAX"):
-            return Result((max(row[0] for row in self.rows),))
+            return Result((self.current_max(),))
         if query.startswith("SELECT id,slug,body"):
+            if self.record is None:
+                raise AssertionError("Expected a committed record")
             return Result((self.record["id"], self.record["slug"], self.record["body"]))
         if query.startswith("SELECT * FROM knowledge_article"):
             return Result(rows=list(self.rows))
@@ -59,12 +76,14 @@ class Database:
             return Result(rows=[])
         raise AssertionError("Unexpected SQL: " + query)
 
-    def application_write(self, args, **kwargs):
-        self.record = {
-            "id": max(row[0] for row in self.rows) + 1,
-            "slug": "baseline-" + "a" * 32,
-            "body": "committed-" + "b" * 32,
-        }
+    def application_write(self, args: Sequence[str], **kwargs: object) -> str:
+        self.record = worker.checked_record(
+            {
+                "id": self.current_max() + 1,
+                "slug": "baseline-" + "a" * 32,
+                "body": "committed-" + "b" * 32,
+            }
+        )
         self.rows.append(
             (
                 self.record["id"],
@@ -85,6 +104,13 @@ class Response(io.BytesIO):
     status = 200
 
 
+class RuntimeConfig(types.ModuleType):
+    BASE: Path
+    APP: Path
+    SHARED: Path
+    STACK: StackSettings
+
+
 class RemoteWorkerContracts(unittest.TestCase):
     def folder(self) -> Path:
         directory = tempfile.TemporaryDirectory(dir=ROOT / ".tools")
@@ -100,22 +126,20 @@ class RemoteWorkerContracts(unittest.TestCase):
         settings = {"lab": {"private_ips": {"app": "10.77.0.10"}}, "passwords": {"app": "synthetic"}}
         (root / "settings.json").write_text(json.dumps(settings))
         (app / "initial-data-result.json").write_text('{"status":"loaded"}')
-        config = types.ModuleType("runtime_config")
+        config = RuntimeConfig("runtime_config")
         config.BASE = root
         config.APP = app
         config.SHARED = shared
         config.STACK = worker.STACK
         database = Database()
-        requests = []
+        requests: list[str] = []
         attempt = {"root": 0}
         run_id = "a" * 32
 
-        def http(url, **kwargs):
+        def transport(url: str, **kwargs: object) -> Response:
             requests.append(url)
             if "/articles/" in url:
-                import urllib.error
-
-                raise urllib.error.HTTPError(url, 404, "Not found", {}, None)
+                raise urllib.error.HTTPError(url, 404, "Not found", http.client.HTTPMessage(), None)
             if "/media/" in url:
                 return Response((shared / "media/probes" / f"{run_id}.txt").read_bytes())
             if url == "http://127.0.0.1/":
@@ -130,7 +154,7 @@ class RemoteWorkerContracts(unittest.TestCase):
             patch.object(sys, "prefix", str(app / "venv")),
             patch.object(sys, "argv", ["verify.py", "baseline", run_id]),
             patch("psycopg.connect", return_value=database),
-            patch("urllib.request.urlopen", side_effect=http),
+            patch("urllib.request.urlopen", side_effect=transport),
             patch("subprocess.check_output", side_effect=database.application_write) as write,
             patch("time.sleep"),
             contextlib.redirect_stdout(output),
@@ -154,7 +178,7 @@ class RemoteWorkerContracts(unittest.TestCase):
             pass
 
         root = self.folder()
-        config = types.ModuleType("runtime_config")
+        config = RuntimeConfig("runtime_config")
         config.BASE = root
         config.APP = root / "portal"
         config.SHARED = root / "shared"
@@ -174,23 +198,21 @@ class RemoteWorkerContracts(unittest.TestCase):
         connection.execute.return_value.fetchone.return_value = (True,)
         with (
             patch(
-                "remote.initial_data.psycopg.connect",
-                side_effect=[initial_data.psycopg.OperationalError("synthetic"), connection],
+                "psycopg.connect",
+                side_effect=[psycopg.OperationalError("synthetic"), connection],
             ),
             patch("remote.initial_data.time.sleep"),
         ):
             self.assertIs(initial_data.wait_for_primary("synthetic"), connection)
         connection.execute.return_value.fetchone.return_value = (False,)
         with (
-            patch("remote.initial_data.psycopg.connect", return_value=connection),
+            patch("psycopg.connect", return_value=connection),
             self.assertRaisesRegex(RuntimeError, "writable"),
         ):
             initial_data.wait_for_primary("synthetic")
         connection.close.assert_called_once()
         with (
-            patch(
-                "remote.initial_data.psycopg.connect", side_effect=initial_data.psycopg.OperationalError("synthetic")
-            ),
+            patch("psycopg.connect", side_effect=psycopg.OperationalError("synthetic")),
             patch("remote.initial_data.time.sleep"),
             self.assertRaisesRegex(RuntimeError, "unavailable"),
         ):
@@ -228,14 +250,14 @@ class RemoteWorkerContracts(unittest.TestCase):
     def test_http_and_media_detect_changed_or_public_control_data(self) -> None:
         import urllib.error
 
-        record = {"slug": "private-control"}
+        record: worker.ProbeRecord = {"id": 1, "slug": "private-control", "body": "committed"}
         for replies in (
             [Response(b"")],
             [Response(b"private-control")],
             [
                 Response(b"lessons"),
                 Response(b"ready"),
-                urllib.error.HTTPError("http://synthetic", 500, "broken", {}, None),
+                urllib.error.HTTPError("http://synthetic", 500, "broken", http.client.HTTPMessage(), None),
             ],
         ):
             with (

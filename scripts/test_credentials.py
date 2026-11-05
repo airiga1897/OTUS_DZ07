@@ -26,7 +26,7 @@ class CredentialTests(unittest.TestCase):
 
     def test_authentication_schema_checks_external_shapes_and_types(self) -> None:
         original = json.loads((ROOT / "config/selectel-auth.json").read_text())
-        cases = [
+        cases: list[object] = [
             None,
             [],
             {},
@@ -39,7 +39,8 @@ class CredentialTests(unittest.TestCase):
             invalid = copy.deepcopy(original)
             invalid["fields"]["password"][key] = value
             cases.append(invalid)
-        for field in (None, {}, []):
+        invalid_fields: tuple[object, ...] = (None, {}, [])
+        for field in invalid_fields:
             invalid = copy.deepcopy(original)
             invalid["fields"]["password"] = field
             cases.append(invalid)

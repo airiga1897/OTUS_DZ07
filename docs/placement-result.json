@@ -1,8 +1,0 @@
-{
-  "success": true,
-  "region": "ru-9",
-  "policy": "anti-affinity",
-  "database_nodes": 3,
-  "distinct_hosts": 3,
-  "compute_segment_confirmed": "ru-9a"
-}

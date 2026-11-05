@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import paramiko
+from cloud_contract import StandDescription
 from test_runtime_support import lab
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,7 +25,10 @@ class SshConnectionContracts(unittest.TestCase):
         setting = patch.multiple(lab, ROOT=self.root, LOCAL=self.local)
         setting.start()
         self.addCleanup(setting.stop)
-        self.value = {"app_public_ip": "192.0.2.10", "private_ips": {"app": "10.77.0.10", "es1": "10.77.0.31"}}
+        self.value: StandDescription = {
+            "app_public_ip": "192.0.2.10",
+            "private_ips": {"app": "10.77.0.10", "es1": "10.77.0.31"},
+        }
 
     def test_public_ssh_uses_strict_known_hosts_port22_and_confirmed_source(self) -> None:
         client = Mock()

@@ -1,12 +1,16 @@
 """Remaining recovery guards use synthetic resources and disposable roots only."""
 
+import http.client
 import io
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import Mock, patch
 
 import cloud_contract
@@ -26,36 +30,105 @@ import test_provider_postcheck_matrix as network_fixtures
 import test_runtime_contract as runtime_fixtures
 import test_staged_backend as staged_fixtures
 import test_terraform_plugins as provider_fixtures
+from cloud_contract import InfrastructureNode, StandDescription
+from placement_diagnostics import PlacementFaultReport
 from remote import verify as remote_verify
+from runtime_ports import PlacementIdentity
+from selectel_adapter import SelectelAdapter
 from selectel_staged import Backend
 from stage_store import StageStore
+from terraform_state_types import StateEntry
+from topology import Topology
+
+
+def obj(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise AssertionError("expected object")
+    return cast(dict[str, object], value)
+
+
+def rows(value: object) -> list[object]:
+    if not isinstance(value, list):
+        raise AssertionError("expected list")
+    return cast(list[object], value)
+
+
+class RecordedFailureError(RuntimeError):
+    api_error_context: dict[str, object]
+    failure_evidence: str
+
+
+class ApiPort:
+    def __init__(self, root: Path | None = None, prefix: str = "synthetic") -> None:
+        base = root or Path(".")
+        self.ROOT = base
+        self.LOCAL = base / ".local"
+        self.PREFIX = prefix
+        self.TF = base / "terraform"
+        self.RUN = base / "logs"
+
+    def save(self, path: Path, value: object) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(value))
+
+    def redact(self, text: str) -> str:
+        return text
+
+    def desired_topology(self) -> Topology:
+        return {"nodes": {}}
+
+
+class PlacementProbe:
+    def __init__(self, root: Path) -> None:
+        self.ROOT = root
+        self.LOCAL = root / ".local"
+        self.PREFIX = "otus-dz07"
+
+    def save(self, path: Path, value: object) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(value))
+
+    def redact(self, text: str) -> str:
+        return text
+
+    def placement(self) -> PlacementIdentity:
+        return {"region": "ru-9"}
+
+    def cloud(self) -> SelectelAdapter:
+        raise AssertionError("cloud read is patched")
 
 
 class RemainingFailurePaths(unittest.TestCase):
     def setUp(self) -> None:
-        secrets = patch("privacy._values", set())
+        values: set[str] = set()
+        secrets = patch("privacy._values", values)
         secrets.start()
         self.addCleanup(secrets.stop)
 
     def test_direct_lookup_permission_error_cannot_prove_resource_absence(self) -> None:
-        import urllib.error
-
-        backend = SimpleNamespace(journal={"stages": {"app": {"candidate": {"region": "ru-9"}}}}, region=Mock())
-        cloud = backend.region.return_value
-        cloud.get.side_effect = urllib.error.HTTPError("https://example.invalid", 403, "Forbidden", {}, None)
-        with patch.object(selectel_staged_audit, "objects", return_value=[]), self.assertRaises(urllib.error.HTTPError):
-            selectel_staged_audit.inventory(
-                backend, "app", [{"type": "openstack_compute_instance_v2", "attrs": {"id": "own-id"}}]
-            )
+        backend = Backend.__new__(Backend)
+        backend.journal = {"stages": {"app": {"candidate": {"region": "ru-9"}}}}
+        cloud = Mock()
+        cloud.get.side_effect = urllib.error.HTTPError(
+            "https://example.invalid", 403, "Forbidden", http.client.HTTPMessage(), None
+        )
+        entry: StateEntry = {"type": "openstack_compute_instance_v2", "attrs": {"id": "own-id"}}
+        with (
+            patch.object(backend, "region", return_value=cloud),
+            patch.object(selectel_staged_audit, "objects", return_value=[]),
+            self.assertRaises(urllib.error.HTTPError),
+        ):
+            selectel_staged_audit.inventory(backend, "app", [entry])
         cloud.get.assert_called_once_with("compute", "/servers/own-id")
 
     def test_open_prints_kibana_for_a_saved_dedicated_kibana_node(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             local, tf, state = runtime_fixtures.RuntimeContract().fixture(root, 5)
-            value = state["outputs"]["lab"]["value"]
-            value["server_ids"]["kibana"] = "kibana-id"
-            state["resources"][0]["instances"].append(
+            value = obj(obj(obj(state["outputs"])["lab"])["value"])
+            server_ids = obj(value["server_ids"])
+            server_ids["kibana"] = "kibana-id"
+            rows(obj(rows(state["resources"])[0])["instances"]).append(
                 {
                     "index_key": "kibana",
                     "attributes": {
@@ -78,12 +151,19 @@ class RemainingFailurePaths(unittest.TestCase):
             self.assertIn("Kibana: http://192.0.2.10:5601", output.getvalue())
 
     def test_invalid_node_role_is_rejected_before_address_processing(self) -> None:
+        node: InfrastructureNode = {
+            "id": "app",
+            "roles": ["foreign"],
+            "private_ip": "10.77.0.10",
+            "volume_id": "volume",
+            "port_id": "port",
+        }
         value = cloud_contract.InfrastructureResult(
             "selectel",
             {"project_id": "own"},
             "otus-dz07",
             {"region": "ru-9", "zone": "ru-9a"},
-            {"app": {"roles": ["foreign"]}},
+            {"app": node},
             "10.77.0.0/24",
         )
         with self.assertRaisesRegex(ValueError, "Invalid node name or roles"):
@@ -91,9 +171,13 @@ class RemainingFailurePaths(unittest.TestCase):
 
     def test_network_port_with_disabled_filtering_is_rejected(self) -> None:
         result, data = network_fixtures.ProviderPostcheckMatrix().network_fixture()
+
+        def reply(service: str, path: str) -> object:
+            return data[path]
+
         cloud = Mock()
-        cloud.get.side_effect = lambda service, path: data[path]
-        data["/v2.0/ports/ep"]["port"]["port_security_enabled"] = False
+        cloud.get.side_effect = reply
+        obj(obj(data["/v2.0/ports/ep"])["port"])["port_security_enabled"] = False
         with self.assertRaisesRegex(RuntimeError, "filtering or identity"):
             adapter.check_network(cloud, result, ["8.8.8.8/32"])
 
@@ -132,10 +216,10 @@ class RemainingFailurePaths(unittest.TestCase):
         sleep.assert_called_once_with(3)
 
     def test_extension_access_denied_and_malformed_response_are_not_support(self) -> None:
-        import urllib.error
-
         cloud = Mock()
-        cloud.get.side_effect = urllib.error.HTTPError("https://example.invalid", 403, "Forbidden", {}, None)
+        cloud.get.side_effect = urllib.error.HTTPError(
+            "https://example.invalid", 403, "Forbidden", http.client.HTTPMessage(), None
+        )
         with self.assertRaises(urllib.error.HTTPError):
             adapter._extensions(cloud, "network", "/v2.0/extensions")
         cloud.get.side_effect = None
@@ -150,21 +234,24 @@ class RemainingFailurePaths(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "finish destroy"):
                 backend.validate_existing()
             backend.journal["stages"]["app"] = {"status": "deleting"}
-            backend.cleanup_attempt = Mock()
-            backend.recover_attempt("app")
-            backend.cleanup_attempt.assert_called_once_with("app")
-            backend.store.entries.return_value = [{"type": "kind", "attrs": {"id": value}} for value in ("one", "two")]
-            with self.assertRaisesRegex(ValueError, "Ambiguous"):
-                backend.saved_id("app", "kind", "output")
+            entries: list[StateEntry] = [{"type": "kind", "attrs": {"id": value}} for value in ("one", "two")]
+            with patch.object(backend, "cleanup_attempt") as cleanup:
+                backend.recover_attempt("app")
+                cleanup.assert_called_once_with("app")
+            with (
+                patch.object(backend.store, "entries", return_value=entries),
+                self.assertRaisesRegex(ValueError, "Ambiguous"),
+            ):
+                backend.saved_id("app", "kind", "id")
 
     def test_destroy_refuses_lost_stage_configuration_with_remaining_resources(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             backend, _ = staged_fixtures.StagedBackendTests().backend(Path(directory))
             backend.journal["stages"]["app"] = {"status": "failed", "candidate": {"region": "ru-9"}}
-            backend.store.folder = Mock(return_value=Path(directory) / "missing-stage")
-            backend.store.identities = Mock(return_value={"vm": "preserve"})
-            backend.save = Mock()
             with (
+                patch.object(backend.store, "folder", return_value=Path(directory) / "missing-stage"),
+                patch.object(backend.store, "identities", return_value={"vm": "preserve"}),
+                patch.object(backend, "save"),
                 patch("selectel_staged_audit.assert_stage_owned"),
                 self.assertRaisesRegex(ValueError, "configuration missing"),
             ):
@@ -173,16 +260,18 @@ class RemainingFailurePaths(unittest.TestCase):
 
     def test_console_and_key_queries_use_the_saved_node_pool(self) -> None:
         backend = Backend.__new__(Backend)
-        backend.api = SimpleNamespace(PREFIX="otus-dz07")
-        cloud = Mock()
-        cloud.ssh_host_key.return_value = "ssh-ed25519 key"
-        cloud.get.return_value = {"output": "console evidence"}
-        backend.region = Mock(return_value=cloud)
-        lab = {"node_regions": {"es1": "ru-3"}, "server_ids": {"es1": "saved-id"}}
-        self.assertEqual(backend.ssh_host_key(lab, "es1", None), "ssh-ed25519 key")
-        self.assertEqual(backend.console_output(lab, "es1"), "console evidence")
-        self.assertEqual([call.args for call in backend.region.call_args_list], [("ru-3",), ("ru-3",)])
-        cloud.ssh_host_key.assert_called_once_with("es1", "saved-id", "otus-dz07", None)
+        backend.api = ApiPort(prefix="otus-dz07")
+        cloud = SelectelAdapter.__new__(SelectelAdapter)
+        lab: StandDescription = {"node_regions": {"es1": "ru-3"}, "server_ids": {"es1": "saved-id"}}
+        with (
+            patch.object(backend, "region", return_value=cloud) as region,
+            patch.object(cloud, "ssh_host_key", return_value="ssh-ed25519 key") as key,
+            patch.object(cloud, "get", return_value={"output": "console evidence"}),
+        ):
+            self.assertEqual(backend.ssh_host_key(lab, "es1", None), "ssh-ed25519 key")
+            self.assertEqual(backend.console_output(lab, "es1"), "console evidence")
+            self.assertEqual([call.args for call in region.call_args_list], [("ru-3",), ("ru-3",)])
+            key.assert_called_once_with("es1", "saved-id", "otus-dz07", None)
 
     def test_stage_provider_requirements_are_preserved_in_generated_configuration(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -233,7 +322,7 @@ class RemainingFailurePaths(unittest.TestCase):
                 remote_verify.initialize()
                 self.assertEqual(remote_verify.passwords["app"], "synthetic")
                 execute.assert_called_once_with(
-                    remote_verify.PYTHON, [remote_verify.PYTHON, remote_verify.__file__, *remote_verify.sys.argv[1:]]
+                    remote_verify.PYTHON, [remote_verify.PYTHON, remote_verify.__file__, *sys.argv[1:]]
                 )
 
     def test_remote_verifier_detects_changed_committed_record(self) -> None:
@@ -314,19 +403,26 @@ class RemainingFailurePaths(unittest.TestCase):
     def test_power_transition_timeout_never_reports_success(self) -> None:
         cloud = adapter.SelectelAdapter.__new__(adapter.SelectelAdapter)
         cloud.config = {"project_id": "own"}
-        cloud.get = Mock(return_value={"server": {"name": "otus-dz07-es1", "tenant_id": "own", "status": "BUILD"}})
-        with patch("time.sleep"), self.assertRaisesRegex(RuntimeError, "unconfirmed"):
+        with (
+            patch.object(
+                cloud,
+                "get",
+                return_value={"server": {"name": "otus-dz07-es1", "tenant_id": "own", "status": "BUILD"}},
+            ) as get,
+            patch("time.sleep"),
+            self.assertRaisesRegex(RuntimeError, "unconfirmed"),
+        ):
             cloud.set_power("es1", "id", running=True, prefix="otus-dz07")
-        self.assertEqual(cloud.get.call_count, 62)
+        self.assertEqual(get.call_count, 62)
 
     def test_cached_host_key_is_returned_only_after_identity_check(self) -> None:
         cloud = adapter.SelectelAdapter.__new__(adapter.SelectelAdapter)
-        cloud.get = Mock(return_value={"server": {"name": "otus-dz07-app"}})
-        self.assertEqual(cloud.ssh_host_key("app", "id", "otus-dz07", "ssh-ed25519 cached"), "ssh-ed25519 cached")
-        cloud.get.assert_called_once()
-        cloud.get.return_value = {"server": {"name": "foreign-app"}}
-        with self.assertRaises(ValueError):
-            cloud.ssh_host_key("app", "id", "otus-dz07", "ssh-ed25519 cached")
+        with patch.object(cloud, "get", return_value={"server": {"name": "otus-dz07-app"}}) as get:
+            self.assertEqual(cloud.ssh_host_key("app", "id", "otus-dz07", "ssh-ed25519 cached"), "ssh-ed25519 cached")
+            get.assert_called_once()
+            get.return_value = {"server": {"name": "foreign-app"}}
+            with self.assertRaises(ValueError):
+                cloud.ssh_host_key("app", "id", "otus-dz07", "ssh-ed25519 cached")
 
     def test_placement_fault_lookup_error_is_saved_without_exception_text(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -347,24 +443,29 @@ class RemainingFailurePaths(unittest.TestCase):
                 )
             )
 
-            def save(path, value) -> None:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(json.dumps(value))
-
-            api = SimpleNamespace(ROOT=root, LOCAL=root / ".local", save=save, placement=lambda: {"region": "ru-9"})
+            api = PlacementProbe(root)
             with patch.object(diagnostics, "collect_nodes", side_effect=OSError("PRIVATE-SECRET")):
                 report = json.loads(diagnostics.capture(api, RuntimeError()).read_text())
             self.assertEqual(report["provider_error"]["type"], "OSError")
             self.assertNotIn("PRIVATE", json.dumps(report))
 
     def test_missing_server_attributes_are_recorded_per_node(self) -> None:
-        cloud = Mock(config={"project_id": "own"})
-        cloud.get.side_effect = KeyError("PRIVATE")
-        report = {"region": "ru-9", "nodes": {}}
-        api = SimpleNamespace(PREFIX="otus-dz07", cloud=lambda: cloud)
-        diagnostics.collect_nodes(
-            api, [{"index_key": "app", "attributes": {"name": "otus-dz07-app", "id": "id"}}], report
-        )
+        cloud = SelectelAdapter.__new__(SelectelAdapter)
+        cloud.config = {"project_id": "own"}
+        report: PlacementFaultReport = {
+            "region": "ru-9",
+            "availability_zone": None,
+            "error_type": "RuntimeError",
+            "nodes": {},
+            "read_only": True,
+        }
+        api = PlacementProbe(Path("."))
+        instances: list[object] = [{"index_key": "app", "attributes": {"name": "otus-dz07-app", "id": "id"}}]
+        with (
+            patch.object(cloud, "get", side_effect=KeyError("PRIVATE")),
+            patch.object(api, "cloud", return_value=cloud),
+        ):
+            diagnostics.collect_nodes(api, instances, report)
         self.assertEqual(report["nodes"]["app"]["diagnostic_error"], "KeyError")
         self.assertNotIn("PRIVATE", json.dumps(report))
 
@@ -390,7 +491,7 @@ class RemainingFailurePaths(unittest.TestCase):
     def test_cycle_attaches_only_structured_error_evidence_before_cleanup(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             api = cycle_fixtures.CycleSafetyTests().fixture(Path(directory))
-            error = RuntimeError("PRIVATE")
+            error = RecordedFailureError("PRIVATE")
             error.api_error_context = {"service": "network", "http_status": 409}
             error.failure_evidence = "docs/fault.json"
             with (
@@ -408,7 +509,7 @@ class RemainingFailurePaths(unittest.TestCase):
     def test_cleanup_failure_links_evidence_and_keeps_recovery_marker(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             api = cycle_fixtures.CycleSafetyTests().fixture(Path(directory))
-            error = RuntimeError("PRIVATE")
+            error = RecordedFailureError("PRIVATE")
             error.failure_evidence = "docs/cleanup-fault.json"
             api.cleanup.side_effect = error
             with (

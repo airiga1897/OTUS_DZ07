@@ -15,7 +15,7 @@ from cloud_contract import TerraformError
 from placement_config import PlacementPolicy, VMProfile, checked, required_profiles
 from progress_logging import get_logger
 from quota_types import checked_quota
-from selectel_api import CatalogService, authenticate, request_json
+from selectel_api import CatalogService, authenticate, json_object, request_json
 from selectel_catalog_types import CatalogResponse, Flavor, flavor_rows, text, volume_rows
 from selectel_catalog_types import checked as checked_catalog_response
 from selectel_catalog_types import document as catalog_document
@@ -103,8 +103,9 @@ def ordered_pools(config: PlacementPolicy, catalog: Sequence[CatalogService]) ->
     return order
 
 
-def compatible_images[Image: Mapping[str, object]](images: Iterable[Image], config: PlacementPolicy) -> list[Image]:
-    checksums = config.get("image_checksums")
+def compatible_images[Image: Mapping[str, object]](images: Iterable[Image], config: object) -> list[Image]:
+    raw = json_object(config, "Configure a nonempty unique list of verified Glance MD5 checksums")
+    checksums = raw.get("image_checksums")
     if (
         not isinstance(checksums, list)
         or not checksums
@@ -112,7 +113,7 @@ def compatible_images[Image: Mapping[str, object]](images: Iterable[Image], conf
         or len(set(checksums)) != len(checksums)
     ):
         raise ValueError("Configure a nonempty unique list of verified Glance MD5 checksums")
-    return [image for image in images if not image_rejections(image, config)]
+    return [image for image in images if not image_rejections(image, checked(raw))]
 
 
 def image_rejections(image: Mapping[str, object], config: PlacementPolicy) -> list[str]:
@@ -222,7 +223,7 @@ def network_placement(
         # Selectel L2 connectivity spans segments of one pool. Scheduling names
         # for networks need not equal Nova/Cinder names; prefer an exact API
         # domain, otherwise require one unambiguous same-pool general domain.
-        result = {}
+        result: dict[str, str | None] = {}
         for resource in ("network", "router"):
             available = sorted(name for name in supported[resource] if re.fullmatch(re.escape(pool) + r"[a-z]", name))
             if zone in available:
@@ -590,6 +591,7 @@ def select(root: str | Path, choice: object, project: str, context_name: str) ->
     local = root / ".local"
     local.mkdir(exist_ok=True)
     from selectel_adapter import binding
+    from selectel_api import json_text
     from stack_config import load
 
     choice = checked(choice)
@@ -608,7 +610,7 @@ def select(root: str | Path, choice: object, project: str, context_name: str) ->
                 raise ValueError("Saved placement pool is unconfirmed; preserve recovery files")
             expected = binding(
                 {"project_id": project, "region": previous_region},
-                ownership["namespace"],
+                json_text(ownership["namespace"], "Saved namespace is unconfirmed"),
                 previous.get("availability_zone"),
             )
             validate_binding(json.loads(context.read_text()), expected)

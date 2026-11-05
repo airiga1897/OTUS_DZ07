@@ -8,12 +8,13 @@ from unittest.mock import Mock, patch
 import pool_selection as pools
 import test_selectel_retained_contracts as fixtures
 from cloud_contract import TerraformError
-from selectel_staged import validate_policy
+from placement_config import checked
+from selectel_staged import Backend, validate_policy
 from staged_deploy import PlacementExhausted
 
 
 class BackendRecoveryContracts(unittest.TestCase):
-    def fixture(self):
+    def fixture(self) -> Backend:
         helper = fixtures.RetainedSelectelContracts()
         helper.setUp()
         self.addCleanup(helper.doCleanups)
@@ -40,7 +41,11 @@ class BackendRecoveryContracts(unittest.TestCase):
             config = policy["sequential_placement"]
             slots = config["addresses"]
             if change == "boolean":
-                policy["require_distinct_hosts"] = "false"
+                invalid = json.loads(json.dumps(policy))
+                invalid["require_distinct_hosts"] = "false"
+                with self.subTest(change=change), self.assertRaises(ValueError):
+                    validate_policy(invalid, b.desired)
+                continue
             if change == "excluded":
                 policy["pools"] = ["ru-7"]
             if change == "pool-map":
@@ -94,8 +99,10 @@ class BackendRecoveryContracts(unittest.TestCase):
         b = self.fixture()
         b.store = Mock()
         b.store.identities.return_value = {}
-        candidate = {"region": "ru-9", "network_availability_zone": "ru-9a", "router_availability_zone": "ru-9a"}
-        b.choices = {"app": [candidate, {**candidate, "network_availability_zone": "ru-9b"}]}
+        candidate = checked(
+            {"region": "ru-9", "network_availability_zone": "ru-9a", "router_availability_zone": "ru-9a"}
+        )
+        b.choices = {"app": [candidate, checked({**dict(candidate), "network_availability_zone": "ru-9b"})]}
         b.journal["stages"]["network-ru-9"] = {"status": "pending"}
         with (
             patch("selectel_staged_capacity.require_network_capacity"),
@@ -112,17 +119,19 @@ class BackendRecoveryContracts(unittest.TestCase):
         b = self.fixture()
         b.store = Mock()
         b.store.identities.return_value = {}
-        candidate = {"region": "ru-9", "network_availability_zone": "ru-9a", "router_availability_zone": "ru-9a"}
+        candidate = checked(
+            {"region": "ru-9", "network_availability_zone": "ru-9a", "router_availability_zone": "ru-9a"}
+        )
         b.choices = {
             "app": [
                 candidate,
-                dict(candidate),
-                {**candidate, "network_availability_zone": "ru-9b"},
-                {**candidate, "region": "ru-3"},
+                checked(dict(candidate)),
+                checked({**dict(candidate), "network_availability_zone": "ru-9b"}),
+                checked({**dict(candidate), "region": "ru-3"}),
             ]
         }
 
-        def create(backend, name, choices) -> None:
+        def create(backend: Backend, name: str, choices: list[dict[str, object]]) -> None:
             backend.journal["stages"][name] = {"status": "active", "output": {"network_id": "owned"}}
 
         with (
@@ -168,15 +177,15 @@ class BackendRecoveryContracts(unittest.TestCase):
         b._temporary_networks = {network}
         b.store = Mock()
         b.store.identities.return_value = {}
-        b.cleanup_attempt = Mock()
-        b.prune_unused_network("ru-3")
-        b.cleanup_attempt.assert_not_called()
-        b.store.identities.return_value = {"owned": "vm"}
-        b.prune_unused_network("ru-9")
-        b.cleanup_attempt.assert_not_called()
-        b.store.identities.return_value = {}
-        b.prune_unused_network("ru-9")
-        self.assertEqual([call.args[0] for call in b.cleanup_attempt.call_args_list], [connection, network])
+        with patch.object(b, "cleanup_attempt") as cleanup_attempt:
+            b.prune_unused_network("ru-3")
+            cleanup_attempt.assert_not_called()
+            b.store.identities.return_value = {"owned": "vm"}
+            b.prune_unused_network("ru-9")
+            cleanup_attempt.assert_not_called()
+            b.store.identities.return_value = {}
+            b.prune_unused_network("ru-9")
+            self.assertEqual([call.args[0] for call in cleanup_attempt.call_args_list], [connection, network])
         self.assertNotIn(network, b._temporary_networks)
 
     def test_fault_capture_does_not_replace_an_error_when_diagnostics_or_disk_fail(self) -> None:
@@ -184,8 +193,10 @@ class BackendRecoveryContracts(unittest.TestCase):
         b.journal["stages"]["app"] = {"candidate": {"region": "ru-9"}}
         b.api.RUN.mkdir(parents=True)
         (b.api.RUN / "stage-app-apply.log").write_text("synthetic-secret")
-        b.api.redact = lambda value: value.replace("synthetic-secret", "[REDACTED]")
-        with patch("selectel_staged_audit.faults", side_effect=TimeoutError("synthetic-secret")):
+        with (
+            patch.object(b.api, "redact", side_effect=lambda value: value.replace("synthetic-secret", "[REDACTED]")),
+            patch("selectel_staged_audit.faults", side_effect=TimeoutError("synthetic-secret")),
+        ):
             b.capture_fault("app")
         saved = json.loads(next((b.root / "docs/placement-faults").glob("*.json")).read_text())
         self.assertEqual(saved["diagnostic_error"]["type"], "TimeoutError")

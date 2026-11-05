@@ -1,5 +1,6 @@
 """Cursor findings: isolate unknown candidates and account for ports consistently."""
 
+import http.client
 import tempfile
 import unittest
 import urllib.error
@@ -9,30 +10,36 @@ from unittest.mock import Mock, patch
 import pool_selection as pools
 import test_staged_backend as fixtures
 from cloud_contract import Capability, CapabilityStatus
+from placement_config import PlacementPolicy, checked
+from quota_types import QuotaRecord
+from selectel_api import CatalogService
+from selectel_staged import Backend
 from selectel_staged_capacity import pending_credits, require_capacity, require_network_capacity
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class CursorReviewRegressions(unittest.TestCase):
-    def backend(self):
+    def backend(self) -> tuple[Backend, dict[str, fixtures.QuotaCloud]]:
         folder = tempfile.TemporaryDirectory(dir=ROOT / ".tools")
         self.addCleanup(folder.cleanup)
         provider, clouds = fixtures.StagedBackendTests().backend(Path(folder.name))
         clouds["ru-3"] = fixtures.QuotaCloud("ru-3", instances=3)
         provider.choices = {
-            role: [fixtures.StagedBackendTests().choice(pool, role)] for role, pool in [("app", "ru-9"), ("es", "ru-3")]
+            role: [checked(fixtures.StagedBackendTests().choice(pool, role))]
+            for role, pool in [("app", "ru-9"), ("es", "ru-3")]
         }
         return provider, clouds
 
     def test_opaque_disk_never_hides_later_confirmed_disks(self) -> None:
-        for opaque in (
+        opaque_values: tuple[object, ...] = (
             {},
             [],
             {"RESKEY:availability_zones": None},
             {"RESKEY:availability_zones": 1},
             {"RESKEY:availability_zones": ""},
-        ):
+        )
+        for opaque in opaque_values:
             types = [
                 {"name": "universal.opaque", "extra_specs": opaque},
                 {"name": "universal.ru-9a", "extra_specs": {"RESKEY:availability_zones": "ru-9a"}},
@@ -60,13 +67,13 @@ class CursorReviewRegressions(unittest.TestCase):
         )
         for error in (
             TimeoutError("synthetic"),
-            urllib.error.HTTPError("https://example.invalid", 403, "Forbidden", {}, None),
+            urllib.error.HTTPError("https://example.invalid", 403, "Forbidden", http.client.HTTPMessage(), None),
         ):
             with self.subTest(error=type(error).__name__), self.assertRaises(type(error)):
                 pools.disks_for_zone(types, ["universal.*", "basicssd.*"], "ru-9a", Mock(side_effect=error))
 
     def test_catalog_unknown_flavor_is_skipped_and_missing_binding_is_deferred(self) -> None:
-        config = {
+        config: PlacementPolicy = {
             "pools": ["ru-9"],
             "boot_disk_gb": 20,
             "image_name": "Ubuntu",
@@ -75,16 +82,17 @@ class CursorReviewRegressions(unittest.TestCase):
             "disk_type_patterns": ["universal.*"],
             "flavor_name_patterns": ["SL*.4-8192*"],
         }
-        catalog = [
+        catalog: list[CatalogService] = [
             {
                 "type": kind,
                 "endpoints": [{"interface": "public", "region": "ru-9", "url": "https://example.invalid/" + kind}],
             }
             for kind in pools.SERVICES
         ]
-        for invalid in (None, 1, "ru-9a", {"ru-9a": True}, [None]):
+        invalid_values: tuple[object, ...] = (None, 1, "ru-9a", {"ru-9a": True}, [None])
+        for invalid in invalid_values:
 
-            def read(url, *, invalid=invalid, **kwargs):
+            def read(url: str, *, invalid: object = invalid, **kwargs: object) -> tuple[object, dict[str, str]]:
                 if "images?" in url:
                     return {
                         "images": [
@@ -146,33 +154,44 @@ class CursorReviewRegressions(unittest.TestCase):
         self.assertFalse(pools.flavor_available_in_zone({"availability_zones": ["ru-3b"]}, "ru-9a"))
 
     def test_actual_preflight_continues_after_unknown_flavor_detail(self) -> None:
-        for invalid in (None, 1, "ru-9a", {}, [None]):
+        invalid_values: tuple[object, ...] = (None, 1, "ru-9a", {}, [None])
+        for invalid in invalid_values:
             provider, clouds = self.backend()
             original = clouds["ru-9"].get
-            clouds["ru-9"].get = lambda service, path, *, invalid=invalid, original=original: (
-                {"flavor": {"availability_zones": invalid}} if path == "/flavors/unknown" else original(service, path)
-            )
-
-            def choices(config, credentials, **kwargs):
-                role = next(iter(config["profiles"]))
-                if role == "es":
-                    return [fixtures.StagedBackendTests().choice("ru-3", role)]
-                good = fixtures.StagedBackendTests().choice("ru-9", role)
-                return [{**good, "flavor_ids": {"app": "unknown"}}, good]
-
-            with (
-                self.subTest(invalid=invalid),
-                patch("selectel_staged.pools.candidates", side_effect=choices),
-                patch(
-                    "selectel_staged.discover_capabilities",
-                    return_value={"ownership_tags": Capability(CapabilityStatus.SUPPORTED, "synthetic")},
+            with patch.object(
+                clouds["ru-9"],
+                "get",
+                side_effect=lambda service, path, *, invalid=invalid, original=original: (
+                    {"flavor": {"availability_zones": invalid}}
+                    if path == "/flavors/unknown"
+                    else original(service, path)
                 ),
-                patch("selectel_staged.reject_cloud_resources"),
-                patch("selectel_staged_audit.audit_namespace"),
             ):
-                provider.preflight()
-                self.assertEqual([c["flavor_ids"]["app"] for c in provider.choices["app"]], ["app-flavor"])
-                self.assertEqual(provider.choices["es"][0]["region"], "ru-3")
+
+                def choices(
+                    config: PlacementPolicy, credentials: dict[str, str], **kwargs: object
+                ) -> list[PlacementPolicy]:
+                    del credentials, kwargs
+                    role = next(iter(config["profiles"]))
+                    if role == "es":
+                        return [checked(fixtures.StagedBackendTests().choice("ru-3", role))]
+                    good = checked(fixtures.StagedBackendTests().choice("ru-9", role))
+                    bad = checked({**dict(good), "flavor_ids": {"app": "unknown"}})
+                    return [bad, good]
+
+                with (
+                    self.subTest(invalid=invalid),
+                    patch("selectel_staged.pools.candidates", side_effect=choices),
+                    patch(
+                        "selectel_staged.discover_capabilities",
+                        return_value={"ownership_tags": Capability(CapabilityStatus.SUPPORTED, "synthetic")},
+                    ),
+                    patch("selectel_staged.reject_cloud_resources"),
+                    patch("selectel_staged_audit.audit_namespace"),
+                ):
+                    provider.preflight()
+                    self.assertEqual([c["flavor_ids"]["app"] for c in provider.choices["app"]], ["app-flavor"])
+                    self.assertEqual(provider.choices["es"][0]["region"], "ru-3")
 
     def test_service_reserve_and_each_vm_port_are_budgeted_once(self) -> None:
         provider, clouds = self.backend()
@@ -196,20 +215,23 @@ class CursorReviewRegressions(unittest.TestCase):
 
     def test_flavor_detail_api_error_is_not_treated_as_an_unavailable_candidate(self) -> None:
         provider, clouds = self.backend()
-        error = urllib.error.HTTPError("https://example.invalid", 403, "Forbidden", {}, None)
+        error = urllib.error.HTTPError("https://example.invalid", 403, "Forbidden", http.client.HTTPMessage(), None)
         for cloud in clouds.values():
             original = cloud.get
+            patcher = patch.object(
+                cloud,
+                "get",
+                side_effect=lambda service, path, original=original: (
+                    (_ for _ in ()).throw(error) if path.startswith("/flavors/") else original(service, path)
+                ),
+            )
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
-            def read(service, path, original=original):
-                if path.startswith("/flavors/"):
-                    raise error
-                return original(service, path)
-
-            cloud.get = read
-
-        def choices(config, credentials, **kwargs):
+        def choices(config: PlacementPolicy, credentials: dict[str, str], **kwargs: object) -> list[PlacementPolicy]:
+            del credentials, kwargs
             role = next(iter(config["profiles"]))
-            return [fixtures.StagedBackendTests().choice("ru-9" if role == "app" else "ru-3", role)]
+            return [checked(fixtures.StagedBackendTests().choice("ru-9" if role == "app" else "ru-3", role))]
 
         with (
             patch("selectel_staged.pools.candidates", side_effect=choices),
@@ -222,7 +244,9 @@ class CursorReviewRegressions(unittest.TestCase):
             self.assertRaises(urllib.error.HTTPError),
         ):
             provider.preflight()
-        provider.api.save.assert_not_called()
+        save = provider.api.save
+        assert isinstance(save, Mock)
+        save.assert_not_called()
 
     def test_per_vm_check_rejects_exhausted_ports_and_app_floating_ip(self) -> None:
         provider, clouds = self.backend()
@@ -234,7 +258,7 @@ class CursorReviewRegressions(unittest.TestCase):
         clouds["ru-9"].network["floatingip"]["limit"] = 0
         with self.assertRaises(pools.CandidateUnavailable):
             provider.check_node_quota(choice, "app")
-        provider.check_node_quota(fixtures.StagedBackendTests().choice("ru-9", "es"), "es")
+        provider.check_node_quota(checked(fixtures.StagedBackendTests().choice("ru-9", "es")), "es")
         clouds["ru-9"].network.pop("port")
         with self.assertRaises(pools.CandidateUnavailable):
             provider.check_node_quota(choice, "app")
@@ -243,12 +267,18 @@ class CursorReviewRegressions(unittest.TestCase):
         provider, clouds = self.backend()
         choice = provider.choices["app"][0]
         provider.journal["stages"]["app"] = {"status": "pending", "candidate": choice}
-        provider.store.entries.return_value = [
-            {"type": "openstack_networking_port_v2", "attrs": {"id": "synthetic-port"}},
-            {"type": "openstack_networking_floatingip_v2", "attrs": {"id": "synthetic-fip"}},
-        ]
-        for key in ("port", "floatingip"):
-            clouds["ru-9"].network[key].update(limit=1, in_use=1)
-        self.assertEqual(pending_credits(provider, "ru-9"), {"port": 1, "floatingip": 1})
-        self.assertEqual(pending_credits(provider, "ru-3"), {})
-        provider.check_node_quota(choice, "app")
+        with patch.object(
+            provider.store,
+            "entries",
+            return_value=[
+                {"type": "openstack_networking_port_v2", "attrs": {"id": "synthetic-port"}},
+                {"type": "openstack_networking_floatingip_v2", "attrs": {"id": "synthetic-fip"}},
+            ],
+        ):
+            for key in ("port", "floatingip"):
+                quota: QuotaRecord = clouds["ru-9"].network[key]
+                quota["limit"] = 1
+                quota["in_use"] = 1
+            self.assertEqual(pending_credits(provider, "ru-9"), {"port": 1, "floatingip": 1})
+            self.assertEqual(pending_credits(provider, "ru-3"), {})
+            provider.check_node_quota(choice, "app")

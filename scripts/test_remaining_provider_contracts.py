@@ -14,7 +14,10 @@ import selectel_staged_capacity as capacity
 import test_ansible_backend as ansible_fixtures
 import test_network_policy_acceptance as network_fixtures
 import test_staged_backend as placement_fixtures
+import topology
+from inventory_types import Inventory
 from remote import fetch_artifacts
+from selectel_staged import Backend
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -51,7 +54,7 @@ class RemainingProviderContracts(unittest.TestCase):
             "admin_cidrs": [],
         }
 
-        def get(service, path):
+        def get(service: str, path: str) -> dict[str, object]:
             if "subnets" in path:
                 return {"subnets": []}
             if service == "compute":
@@ -106,7 +109,9 @@ class RemainingProviderContracts(unittest.TestCase):
         cloud.get.assert_called_once_with("compute", "/servers/app-id")
 
     def test_post_create_network_audit_also_accepts_owned_active_non_network_stages(self) -> None:
-        backend, data, pages = network_fixtures.fixture()
+        backend_like, data, pages = network_fixtures.fixture()
+        backend = Backend.__new__(Backend)
+        backend.__dict__.update(backend_like.__dict__)
         backend.journal["stages"]["app"] = {"status": "active"}
         with patch.object(audit, "assert_stage_owned") as owned:
             result = audit.verify_networks(backend)
@@ -117,6 +122,7 @@ class RemainingProviderContracts(unittest.TestCase):
         b, clouds = placement_fixtures.StagedBackendTests().backend(self.root())
         for cloud in clouds.values():
             cloud.volumes["metadata"] = "synthetic catalog annotation"
+            cloud.volumes["annotation"] = {"note": "synthetic catalog annotation"}
         capacity.require_capacity(b)
 
     def test_non_package_host_downloads_source_without_fetching_package_archive(self) -> None:
@@ -136,10 +142,10 @@ class RemainingProviderContracts(unittest.TestCase):
 
     def test_observability_does_not_assign_kibana_to_app_when_configuration_says_otherwise(self) -> None:
         result, passwords, _ = ansible_fixtures.AnsibleBackendTests().inventory()
-        settings = observability.topology.services(ROOT)
+        settings = topology.services(ROOT)
         settings["kibana_host"] = "es1"
-        value = {"all": {"vars": {}, "children": {}}}
-        with patch.object(observability.topology, "services", return_value=settings):
+        value: Inventory = {"all": {"vars": {}, "children": {}}}
+        with patch.object(topology, "services", return_value=settings):
             actual = observability.inventory(result, passwords, value)
         self.assertNotIn("kibana", actual["all"]["children"])
         self.assertIn("elasticsearch", actual["all"]["children"])

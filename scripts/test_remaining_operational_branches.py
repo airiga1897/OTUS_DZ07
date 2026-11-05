@@ -6,8 +6,10 @@ import io
 import json
 import tempfile
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import Mock, patch
 
 import local_runtime
@@ -23,6 +25,11 @@ import test_runtime_contract as runtime_fixtures
 import test_selectel_retained_contracts as retained_fixtures
 import test_staged_lifecycle as lifecycle_fixtures
 from cloud_contract import TerraformError
+from placement_config import PlacementPolicy
+from plan_diagnostics import PlannedResource, PlanView
+from selectel_staged import Backend
+from stage_journal import StageOutput
+from terraform_state_types import StateEntry
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -33,7 +40,7 @@ class RemainingOperationalBranches(unittest.TestCase):
         self.addCleanup(folder.cleanup)
         return Path(folder.name)
 
-    def backend(self):
+    def backend(self) -> Backend:
         helper = retained_fixtures.RetainedSelectelContracts()
         helper.setUp()
         self.addCleanup(helper.doCleanups)
@@ -55,20 +62,24 @@ class RemainingOperationalBranches(unittest.TestCase):
             "kind": "network",
             "inputs": {},
         }
-        b.store = Mock()
-        b.store.identities.return_value = {"net": "own-network"}
-        b.store.state.return_value = {"lineage": "own-lineage"}
-        b.store.apply.return_value = {"network_id": "own-network"}
-        b.configure_stage, b.connect_pool = Mock(), Mock()
-        b.finish(name)
-        with patch.object(audit, "assert_stage_owned"):
+        store = Mock()
+        store.identities.return_value = {"net": "own-network"}
+        store.state.return_value = {"lineage": "own-lineage"}
+        store.apply.return_value = {"network_id": "own-network"}
+        with (
+            patch.object(b, "store", store),
+            patch.object(b, "configure_stage"),
+            patch.object(b, "connect_pool") as connect,
+            patch.object(audit, "assert_stage_owned"),
+        ):
+            b.finish(name)
             b.reapply(name)
-        b.connect_pool.assert_not_called()
-        self.assertTrue(b.store.apply.call_args.kwargs["unchanged"])
+        connect.assert_not_called()
+        self.assertTrue(store.apply.call_args.kwargs["unchanged"])
 
     def test_existing_vm_input_does_not_reserve_another_vm_quota(self) -> None:
         b = self.backend()
-        candidate = {
+        candidate: PlacementPolicy = {
             "region": "ru-9",
             "availability_zone": "ru-9a",
             "image_id": "image",
@@ -76,36 +87,42 @@ class RemainingOperationalBranches(unittest.TestCase):
             "volume_type": "universal.ru-9a",
         }
         b.journal["stages"]["es1"] = {"candidate": candidate}
-        network = {
+        network: StageOutput = {
             "cidr": "10.77.0.0/24",
             "gateway_ip": "10.77.0.1",
-            **{
-                k: k
-                for k in ("network_id", "subnet_id", "security_group_id", "server_group_id", "external_network_name")
-            },
+            "network_id": "network_id",
+            "subnet_id": "subnet_id",
+            "security_group_id": "security_group_id",
+            "server_group_id": "server_group_id",
+            "external_network_name": "external_network_name",
         }
         (b.root / ".local/secrets.json").write_text('{"api":"synthetic-probe-key"}')
-        b.ensure_pool = Mock(return_value=network)
-        b.saved_id = Mock(return_value="saved-vm")
-        b.check_node_quota = Mock()
-        kind, inputs = b.inputs("es1")
+        with (
+            patch.object(b, "ensure_pool", return_value=network),
+            patch.object(b, "saved_id", return_value="saved-vm"),
+            patch.object(b, "check_node_quota") as quota,
+        ):
+            kind, inputs = b.inputs("es1")
         self.assertEqual(kind, "node")
         self.assertEqual(inputs["image_id"], "image")
-        b.check_node_quota.assert_not_called()
+        quota.assert_not_called()
 
     def test_equivalent_data_and_noop_access_plans_are_accepted(self) -> None:
         b = access_fixtures.AdministrativeAccessRecoveryTests().backend()
 
-        def apply(name, validate_extra) -> None:
+        def apply(name: str, validate_extra: Callable[[PlanView], None]) -> None:
             validate_extra({"resource_changes": []})
-            validate_extra(
-                {
-                    "resource_changes": [
-                        {"mode": "data", "change": {"actions": ["read"]}},
-                        {"mode": "managed", "change": {"actions": ["no-op"]}},
-                    ]
-                }
-            )
+            data_change: PlannedResource = {
+                "mode": "data",
+                "address": "data.openstack",
+                "change": {"actions": ["read"]},
+            }
+            managed_change: PlannedResource = {
+                "mode": "managed",
+                "address": "managed.openstack",
+                "change": {"actions": ["no-op"]},
+            }
+            validate_extra({"resource_changes": [data_change, managed_change]})
 
         b.store.apply.side_effect = apply
         b.extend_admin_access({"node_regions": {"app": "ru-3"}}, "1.1.1.1/32")
@@ -129,23 +146,28 @@ class RemainingOperationalBranches(unittest.TestCase):
         b = self.backend()
         b._temporary_networks = {"network-ru-9"}
         b.journal["stages"]["network-ru-9"] = {"status": "deleted"}
-        b.cleanup_attempt = Mock()
-        b.prune_unused_network("ru-9")
-        b.cleanup_attempt.assert_not_called()
+        with patch.object(b, "cleanup_attempt") as cleanup:
+            b.prune_unused_network("ru-9")
+        cleanup.assert_not_called()
         self.assertNotIn("network-ru-9", b._temporary_networks)
 
     def test_saved_group_refresh_without_distinct_hosts_keeps_empty_membership(self) -> None:
         b = self.backend()
         b.journal["require_distinct_hosts"] = False
         b.journal["stages"]["es1"] = {"candidate": {"region": "ru-9"}}
-        b.store.entries = Mock(return_value=[{"type": "openstack_compute_instance_v2", "attrs": {"id": "own-vm"}}])
-        drift = {
+        vm_attrs: dict[str, object] = {"id": "own-vm"}
+        entry: StateEntry = {"type": "openstack_compute_instance_v2", "attrs": vm_attrs}
+        before: dict[str, object] = {"id": "same", "members": ["own-vm"]}
+        after: dict[str, object] = {"id": "same", "members": []}
+        drift: PlannedResource = {
+            "address": "module.stage.openstack_compute_servergroup_v2.group",
             "type": "openstack_compute_servergroup_v2",
-            "change": {"before": {"id": "same", "members": ["own-vm"]}, "after": {"id": "same", "members": []}},
+            "change": {"actions": ["update"], "before": before, "after": after},
         }
-        self.assertTrue(b.allow_refresh("network-ru-9", drift))
-        drift["change"]["after"]["members"] = ["foreign"]
-        self.assertFalse(b.allow_refresh("network-ru-9", drift))
+        with patch.object(b.store, "entries", return_value=[entry]):
+            self.assertTrue(b.allow_refresh("network-ru-9", drift))
+            after["members"] = ["foreign"]
+            self.assertFalse(b.allow_refresh("network-ru-9", drift))
 
     def test_empty_state_without_binding_is_validated_without_cloud_reads(self) -> None:
         root = self.root()
@@ -162,7 +184,11 @@ class RemainingOperationalBranches(unittest.TestCase):
         root = self.root()
         helper = runtime_fixtures.RuntimeContract()
         local, tf, state = helper.fixture(root, 7)
-        state["resources"].append(
+        resources = state["resources"]
+        if not isinstance(resources, list):
+            raise AssertionError(resources)
+        rows = cast(list[object], resources)
+        rows.append(
             {
                 "mode": "managed",
                 "type": "openstack_networking_network_v2",
@@ -192,17 +218,20 @@ class RemainingOperationalBranches(unittest.TestCase):
 
     def test_stage_inventory_reuses_one_regional_client_for_multiple_types(self) -> None:
         b, entry, item = audit_fixtures.ProviderAuditTests().backend()
-        b.region = Mock(return_value=Mock())
-        extra = {"type": "openstack_blockstorage_volume_v3", "attrs": {"id": "disk"}}
-        with patch.object(
-            audit,
-            "objects",
-            side_effect=lambda cloud, service, path, key: (
-                [{"id": entry["attrs"]["id"]}] if service == "compute" else [{"id": "disk"}]
-            ),
+        disk_attrs: dict[str, object] = {"id": "disk"}
+        extra: StateEntry = {"type": "openstack_blockstorage_volume_v3", "attrs": disk_attrs}
+
+        def objects(cloud: object, service: str, path: str, key: str) -> list[dict[str, object]]:
+            if service == "compute":
+                return [{"id": entry["attrs"]["id"]}]
+            return [{"id": "disk"}]
+
+        with (
+            patch.object(b, "region", return_value=Mock()) as region,
+            patch.object(audit, "objects", side_effect=objects),
         ):
             found = audit.inventory(b, "es1", [entry, extra])
-        b.region.assert_called_once()
+        region.assert_called_once()
         self.assertIn("disk", found[extra["type"]])
 
     def test_global_subnet_uses_parent_already_in_the_same_inventory(self) -> None:

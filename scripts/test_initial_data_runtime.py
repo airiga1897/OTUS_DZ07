@@ -7,12 +7,13 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import MagicMock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def initializer():
+def initializer() -> ModuleType:
     import importlib
 
     return importlib.import_module("remote.initial_data")

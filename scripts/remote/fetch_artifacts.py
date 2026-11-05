@@ -80,7 +80,7 @@ def download(
     progress: Callable[[int, int], None] | None = None,
     timeout: float = 30,
     deadline: float = 1800,
-    attempts: int = 3,
+    attempts: object = 3,
 ) -> None:
     item = _download_item(item)
     if destination.exists():
@@ -94,6 +94,8 @@ def download(
     opener = opener or urllib.request.build_opener(urllib.request.ProxyHandler({}), HTTPSRedirect())
     expires = time.monotonic() + deadline
     try:
+        if not isinstance(attempts, int):
+            raise TypeError("object cannot be interpreted as an integer")
         limit = range(attempts).stop
         if limit <= 0:
             return

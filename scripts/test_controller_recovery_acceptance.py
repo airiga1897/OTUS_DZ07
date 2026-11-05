@@ -1,11 +1,13 @@
 """Exercise retained legacy-controller paths with real files and synthetic transports."""
 
 import json
+import sys
 import unittest
 from dataclasses import asdict
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import lab as cli_module
 import test_controller_boundaries as fixtures
 from cloud_contract import InfrastructureResult
 from test_cursor_coverage import entrypoint_code
@@ -70,11 +72,15 @@ class ControllerRecoveryAcceptance(unittest.TestCase):
             patch.object(lab, "tf", side_effect=lambda op, *a, **kw: json.dumps(data) if op == "show" else ""),
         ):
             self.assertEqual(lab.checked_plan(access_cidr=cidr), self.local / "create.tfplan")
-            rule["change"]["actions"] = ["update"]
+            change = rule["change"]
+            assert isinstance(change, dict)
+            change["actions"] = ["update"]
             with self.assertRaises(ValueError):
                 lab.checked_plan(access_cidr=cidr)
-            rule["change"]["actions"] = ["create"]
-            rule["change"]["after"]["port_range_max"] = 443
+            change["actions"] = ["create"]
+            after = change["after"]
+            assert isinstance(after, dict)
+            after["port_range_max"] = 443
             with self.assertRaises(ValueError):
                 lab.checked_plan(access_cidr=cidr)
 
@@ -96,7 +102,9 @@ class ControllerRecoveryAcceptance(unittest.TestCase):
             change["index"] = "es1"
             with self.assertRaises(ValueError):
                 lab.checked_plan(allowed_new_nodes={"es2"})
-            change["change"]["actions"] = ["delete"]
+            plan_change = change["change"]
+            assert isinstance(plan_change, dict)
+            plan_change["actions"] = ["delete"]
             self.assertEqual(lab.checked_plan(destroy=True), self.local / "destroy.tfplan")
 
     def test_legacy_output_binding_and_ids_ignore_data_and_empty_instances(self) -> None:
@@ -120,7 +128,14 @@ class ControllerRecoveryAcceptance(unittest.TestCase):
         (self.tfroot / "terraform.tfstate").write_text(json.dumps(state))
         self.assertEqual(lab.managed_ids(), {("vm", "app", ""): "owned"})
 
-    def legacy_cleanup(self, *, remaining=(), remaining_state=False, recovery=False, clean_local=True) -> None:
+    def legacy_cleanup(
+        self,
+        *,
+        remaining: tuple[str, ...] = (),
+        remaining_state: bool = False,
+        recovery: bool = False,
+        clean_local: bool = True,
+    ) -> None:
         result = self.result()
         (self.local / "context.json").write_text(json.dumps(result.binding()))
         if recovery:
@@ -139,7 +154,7 @@ class ControllerRecoveryAcceptance(unittest.TestCase):
         key = self.local / "key"
         key.write_text("synthetic recovery key")
 
-        def tf(op, *args, **kwargs):
+        def tf(op: str, *args: object, **kwargs: object) -> str:
             if op == "apply":
                 (self.tfroot / "terraform.tfstate").write_text("{}")
             return (
@@ -183,7 +198,7 @@ class ControllerRecoveryAcceptance(unittest.TestCase):
 
     def test_remaining_state_or_api_objects_preserve_recovery_data(self) -> None:
         self.legacy_cleanup(remaining_state=True)
-        self.legacy_cleanup(remaining=["owned-resource"])
+        self.legacy_cleanup(remaining=("owned-resource",))
 
     def test_foreign_recovery_scope_is_rejected_before_apply(self) -> None:
         binding = self.result().binding()
@@ -207,14 +222,15 @@ class ControllerRecoveryAcceptance(unittest.TestCase):
             patch("selectel_adapter.preflight") as preflight,
             patch("verification.check_placement") as placement,
             patch("verification.verify") as verify,
-            patch.object(lab, "main") as main,
+            patch.object(cli_module, "main") as main,
+            patch.object(sys, "argv", ["lab.py"]),
         ):
             lab.preflight()
-            lab.check_placement({"synthetic": True})
+            lab.check_placement({"server_ids": {}})
             lab.verify(False)
-            exec(entrypoint_code(lab), {**vars(lab), "__name__": "__main__"})
+            exec(entrypoint_code(cli_module), {**vars(cli_module), "__name__": "__main__"})
         preflight.assert_called_once_with(lab)
-        placement.assert_called_once_with(lab, {"synthetic": True})
+        placement.assert_called_once_with(lab, {"server_ids": {}})
         verify.assert_called_once_with(lab, False)
         main.assert_called_once_with()
         with (

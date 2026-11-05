@@ -46,7 +46,7 @@ class RuntimeFixture(Runtime):
     stack_config: ModuleType = stack_config
     cloud_settings: ModuleType = cloud_settings
     SelectelAdapter: type[SelectelAdapter] = SelectelAdapter
-    Ed25519PrivateKey: type[Ed25519PrivateKey] = Ed25519PrivateKey
+    Ed25519PrivateKey: object = Ed25519PrivateKey
 
     def main(self) -> None:
         cli.main(self)

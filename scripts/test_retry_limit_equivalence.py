@@ -86,6 +86,16 @@ class RetryLimitEquivalence(unittest.TestCase):
             command.assert_not_called()
         backend.region.assert_not_called()
 
+    def test_restore_rejects_non_integer_budget_and_missing_client(self) -> None:
+        backend = Mock()
+        with patch("observability.command") as command:
+            with self.assertRaises(TypeError):
+                elastic_options.restore(None, backend, {}, {"restore_attempts": "1"})
+            with self.assertRaises(TypeError):
+                elastic_options.restore(None, backend, {}, {"restore_attempts": 1})
+        command.assert_not_called()
+        backend.region.assert_not_called()
+
     def test_restore_retries_same_vm_and_keeps_backoff_and_membership_check(self) -> None:
         cloud = Mock()
         cloud.set_power.side_effect = [OSError("first"), OSError("second"), None]
@@ -96,16 +106,21 @@ class RetryLimitEquivalence(unittest.TestCase):
         )
         request = {"region": "ru-2", "node": "es1", "server_id": "saved-vm"}
         with (
-            patch("observability.command", return_value={"status": "green", "number_of_nodes": 1}) as health,
+            patch("observability.command", return_value={"status": "green", "number_of_nodes": 1}) as health_command,
             patch("time.sleep") as delay,
         ):
             result = elastic_options.restore(api, backend, request, {"restore_attempts": 3, "restore_delay_seconds": 7})
-        self.assertEqual(result["health"]["status"], "green")
+        self.assertIsInstance(result, dict)
+        assert isinstance(result, dict)
+        membership = result["health"]
+        self.assertIsInstance(membership, dict)
+        assert isinstance(membership, dict)
+        self.assertEqual(membership["status"], "green")
         self.assertEqual(
             cloud.set_power.call_args_list, [call("es1", "saved-vm", running=True, prefix="otus-dz07")] * 3
         )
         self.assertEqual(delay.call_args_list, [call(7), call(7)])
-        health.assert_called_once_with(api, "health")
+        health_command.assert_called_once_with(api, "health")
 
     def test_api_retry_metadata_and_delay_preserve_exact_budget(self) -> None:
         for attempts in (1, 3):
@@ -124,7 +139,10 @@ class RetryLimitEquivalence(unittest.TestCase):
             ):
                 selectel_api.request_json("https://example.invalid/resource")
             self.assertIs(caught.exception, errors[-1])
-            self.assertEqual(caught.exception.api_error_context["attempts"], attempts)
+            context = caught.exception.__dict__["api_error_context"]
+            self.assertIsInstance(context, dict)
+            assert isinstance(context, dict)
+            self.assertEqual(context["attempts"], attempts)
             self.assertEqual(opener.open.call_count, attempts)
             self.assertEqual(delay.call_args_list, [call(2)] * (attempts - 1))
 

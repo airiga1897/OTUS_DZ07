@@ -10,7 +10,7 @@ def test_no_endpoint_reports_configuration_problem_without_network() -> None:
     with (
         patch.object(elk_api, "C", {"ips": {}}),
         patch.object(elk_api, "S", {"elastic": "synthetic-only"}),
-        patch.object(elk_api.urllib.request, "urlopen") as request,
+        patch("urllib.request.urlopen") as request,
         pytest.raises(RuntimeError, match="endpoint"),
     ):
         elk_api.api("/")

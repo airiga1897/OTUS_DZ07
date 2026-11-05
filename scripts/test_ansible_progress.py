@@ -9,7 +9,7 @@ import unittest
 from contextlib import ExitStack
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 from unittest.mock import MagicMock, Mock, patch
 
 import ansible_operation as controller
@@ -20,18 +20,84 @@ from remote import ansible_events as events
 from remote import ansible_job as worker
 
 if TYPE_CHECKING:
-    from remote.ansible_callback import CallbackModule
+    from ansible.executor.task_result import TaskResult as AnsibleTaskResult
+    from ansible.inventory.host import Host as AnsibleHost
+    from ansible.playbook.task import Task as AnsibleTask
+else:
+
+    class AnsibleTask:
+        pass
+
+    class AnsibleHost:
+        pass
+
+    class AnsibleTaskResult:
+        pass
+
+
 from runtime_ports import FilePort, StandDescription
 
 ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_SOURCE = object()
 
 
-def task(name: object = "Install service", no_log: object = False) -> SimpleNamespace:
-    return SimpleNamespace(no_log=no_log, get_ds=lambda: {"name": name})
+class CallbackTask(AnsibleTask):
+    def __init__(
+        self, name: object = "Install service", no_log: object = False, source: object = DEFAULT_SOURCE
+    ) -> None:
+        self.name = name
+        self.no_log = no_log if isinstance(no_log, (bool, type(None))) else None
+        self.source = {"name": name} if source is DEFAULT_SOURCE else source
+
+    def get_ds(self) -> object:
+        return self.source
 
 
-def host(name: object = "app") -> SimpleNamespace:
-    return SimpleNamespace(get_name=lambda: name)
+class CallbackHost(AnsibleHost):
+    def __init__(self, name: str = "app") -> None:
+        self.name = name
+
+    def get_name(self) -> str:
+        return self.name
+
+
+class CallbackResult(AnsibleTaskResult):
+    def __init__(self, task: CallbackTask, host: CallbackHost, result: object) -> None:
+        self._task = task
+        self._host = host
+        self._result = result
+
+
+class BrokenCallbackResult(AnsibleTaskResult):
+    pass
+
+
+@runtime_checkable
+class CallbackPort(Protocol):
+    writer: object | None
+
+    def unavailable(self, phase: str = "unknown", error: Exception | None = None) -> None: ...
+    def v2_runner_on_start(self, host: CallbackHost, task: CallbackTask) -> None: ...
+    def v2_runner_on_ok(self, result: AnsibleTaskResult) -> None: ...
+    def v2_runner_on_failed(self, result: AnsibleTaskResult, ignore_errors: bool = False) -> None: ...
+    def v2_runner_on_unreachable(self, result: AnsibleTaskResult) -> None: ...
+    def v2_runner_on_skipped(self, result: AnsibleTaskResult) -> None: ...
+
+
+def task(name: object = "Install service", no_log: object = False, source: object = DEFAULT_SOURCE) -> CallbackTask:
+    return CallbackTask(name, no_log, source)
+
+
+def host(name: str = "app") -> CallbackHost:
+    return CallbackHost(name)
+
+
+def result(task_value: CallbackTask, host_value: CallbackHost, payload: object) -> CallbackResult:
+    return CallbackResult(task_value, host_value, payload)
+
+
+def broken_result() -> BrokenCallbackResult:
+    return BrokenCallbackResult()
 
 
 class AnsibleProgressTests(unittest.TestCase):
@@ -64,7 +130,7 @@ class AnsibleProgressTests(unittest.TestCase):
 
         self.save = save
 
-    def callback(self) -> "CallbackModule":
+    def callback(self) -> CallbackPort:
         modules = {name: ModuleType(name) for name in ("ansible", "ansible.plugins", "ansible.plugins.callback")}
         modules["ansible.plugins.callback"].__dict__["CallbackBase"] = object
         stack = ExitStack()
@@ -76,7 +142,11 @@ class AnsibleProgressTests(unittest.TestCase):
         assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        return cast("CallbackModule", module.CallbackModule())
+        callback_factory = module.CallbackModule
+        assert callable(callback_factory)
+        callback = callback_factory()
+        assert isinstance(callback, CallbackPort)
+        return callback
 
     def response(self, position: object) -> str:
         return json.dumps(
@@ -93,14 +163,11 @@ class AnsibleProgressTests(unittest.TestCase):
         callback = self.callback()
         callback.v2_runner_on_start(host(), task())
         for name, changed in (("app", False), ("es1", True)):
-            result = SimpleNamespace(
-                _task=task(), _host=host(name), _result={"changed": changed, "stdout": "SECRET-STDOUT"}
-            )
-            callback.v2_runner_on_ok(result)
-        result = SimpleNamespace(_task=task(), _host=host(), _result={"stderr": "SECRET-STDERR"})
-        callback.v2_runner_on_failed(result)
-        callback.v2_runner_on_unreachable(result)
-        callback.v2_runner_on_skipped(result)
+            callback.v2_runner_on_ok(result(task(), host(name), {"changed": changed, "stdout": "SECRET-STDOUT"}))
+        failed = result(task(), host(), {"stderr": "SECRET-STDERR"})
+        callback.v2_runner_on_failed(failed)
+        callback.v2_runner_on_unreachable(failed)
+        callback.v2_runner_on_skipped(failed)
         page = events.read_page(self.path, {"offset": 0, "seq": 0})
         self.assertEqual(
             [v["status"] for v in page["events"]], ["start", "ok", "changed", "failed", "failed", "skipped"]
@@ -118,12 +185,11 @@ class AnsibleProgressTests(unittest.TestCase):
         for flag in (True, None, "{{ private_flag }}"):
             hidden = task("SECRET-NAME", flag)
             callback.v2_runner_on_start(host(), hidden)
-            result = SimpleNamespace(
-                _task=hidden, _host=host(), _result={"changed": True, "stdout": "SECRET", "password": "SECRET"}
+            callback.v2_runner_on_ok(
+                result(hidden, host(), {"changed": True, "stdout": "SECRET", "password": "SECRET"})
             )
-            callback.v2_runner_on_ok(result)
         for payload in ({"_ansible_no_log": True}, {"results": [{"_ansible_no_log": True}]}):
-            callback.v2_runner_on_failed(SimpleNamespace(_task=task("SECRET-NAME"), _host=host(), _result=payload))
+            callback.v2_runner_on_failed(result(task("SECRET-NAME"), host(), payload))
         text = self.path.read_text()
         self.assertNotIn("SECRET", text)
         page = events.read_page(self.path, {"offset": 0, "seq": 0})

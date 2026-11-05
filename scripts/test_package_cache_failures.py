@@ -23,7 +23,7 @@ class PackageCacheFailures(unittest.TestCase):
         (self.root / "config").mkdir()
         (self.root / "config/services.json").write_text('{"elastic_version":"8.19.0","artifact_delivery":"cached"}')
 
-    def response(self, body, status=206, content_range="bytes 0-3/4"):
+    def response(self, body: bytes, status: int = 206, content_range: str = "bytes 0-3/4") -> MagicMock:
         response = MagicMock()
         response.__enter__.return_value = response
         response.status = status
@@ -112,7 +112,7 @@ class PackageCacheFailures(unittest.TestCase):
         self.assertEqual(opener.open.call_count, 1)
         (self.root / "filebeat-8.19.0-amd64.deb").write_bytes(b"stale")
 
-        def response(url, **kwargs):
+        def response(url: str, **kwargs: object) -> io.BytesIO:
             body = b"verified"
             return io.BytesIO(hashlib.sha512(body).hexdigest().encode() if url.endswith(".sha512") else body)
 

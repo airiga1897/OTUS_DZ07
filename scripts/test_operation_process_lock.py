@@ -19,7 +19,7 @@ class ProcessLockContracts(unittest.TestCase):
             code = 'from pathlib import Path\nfrom stage_store import operation\nimport sys\nwith operation(Path(sys.argv[1])): print("acquired")'
             env = {**os.environ, "PYTHONPATH": str(ROOT / "scripts")}
 
-            def child():
+            def child() -> subprocess.CompletedProcess[bytes]:
                 return subprocess.run(
                     [sys.executable, "-c", code, str(local)], env=env, capture_output=True, timeout=20
                 )

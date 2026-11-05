@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from dataclasses import asdict
 from pathlib import Path
+from typing import Protocol
 from unittest.mock import Mock, patch
 
 import elastic_options as options
@@ -19,22 +20,25 @@ from cloud_contract import InfrastructureResult
 ROOT = Path(__file__).resolve().parents[1]
 
 
+class ExtensionApi(Protocol):
+    def desired_topology(self) -> topology.Topology: ...
+    def lab_output(self) -> dict[str, dict[str, str]]: ...
+
+
 class Es4LifecycleTests(unittest.TestCase):
-    def exercise(self, configuration_failure=False, broken_snapshot=False) -> None:
+    def exercise(self, configuration_failure: bool = False, broken_snapshot: bool = False) -> None:
         with tempfile.TemporaryDirectory(dir=ROOT / ".tools") as directory:
             helper = fixtures.RetainedLifecycleTest()
             api, provider = helper.fixture(Path(directory))
             api.verify = Mock(return_value={"logs": True})
             shutil.copytree(ROOT / "config", api.ROOT / "config", dirs_exist_ok=True)
             shutil.copyfile(ROOT / ".env.example", api.ROOT / ".env.example")
-            provider.journal.update(
-                configured=True,
-                topology=copy.deepcopy(provider.desired),
-                namespace=api.PREFIX,
-                deployment_id="a" * 32,
-                scope={"project_id": "synthetic-project"},
-                stack_sha256=stack_config.digest(api.STACK),
-            )
+            provider.journal["configured"] = True
+            provider.journal["topology"] = copy.deepcopy(provider.desired)
+            provider.journal["namespace"] = api.PREFIX
+            provider.journal["deployment_id"] = "a" * 32
+            provider.journal["scope"] = {"project_id": "synthetic-project"}
+            provider.journal["stack_sha256"] = stack_config.digest(api.STACK)
             for name in provider.desired["nodes"]:
                 provider.journal["stages"][name] = {
                     "status": "active",
@@ -55,16 +59,22 @@ class Es4LifecycleTests(unittest.TestCase):
             if broken_snapshot:
                 supplied_snapshot.nodes.pop("es3")
 
-            def snapshot(api, lab):
-                value = {"ids": dict(lab["server_ids"]), "data": dict(data)}
+            def snapshot(api: ExtensionApi, lab: dict[str, object]) -> dict[str, object]:
+                server_ids = lab["server_ids"]
+                assert isinstance(server_ids, dict)
+                value: dict[str, object] = {"ids": dict(server_ids), "data": dict(data)}
                 snapshots.append(value)
                 return value
 
-            def preserved(api, before) -> None:
-                topology.assert_preserved(before["ids"], api.lab_output()["server_ids"])
-                self.assertEqual(data, before["data"])
+            def preserved(api: ExtensionApi, before: dict[str, object]) -> None:
+                ids = before["ids"]
+                saved = before["data"]
+                assert isinstance(ids, dict)
+                assert isinstance(saved, dict)
+                topology.assert_preserved(ids, api.lab_output()["server_ids"])
+                self.assertEqual(data, saved)
 
-            def backend(api, cleanup=False):
+            def backend(api: ExtensionApi, cleanup: bool = False) -> object:
                 if not cleanup:
                     provider.desired = api.desired_topology()
                     provider.policy = run_settings.placement(ROOT)

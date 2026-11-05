@@ -3,7 +3,6 @@
 import json
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import ansible_operation as controller
@@ -21,9 +20,9 @@ class CallbackDiagnostics(unittest.TestCase):
 
     def test_missing_task_source_and_nullable_results_do_not_disable_callback(self) -> None:
         callback = self.h.callback()
-        task = SimpleNamespace(no_log=False, get_ds=lambda: None)
+        task = fixtures.task(source=None)
         callback.v2_runner_on_start(fixtures.host(), task)
-        callback.v2_runner_on_ok(SimpleNamespace(_task=task, _host=fixtures.host(), _result={"results": None}))
+        callback.v2_runner_on_ok(fixtures.result(task, fixtures.host(), {"results": None}))
         self.assertIsNotNone(callback.writer)
         page = events.read_page(self.h.path, {"offset": 0, "seq": 0})
         self.assertEqual([e["status"] for e in page["events"]], ["start", "ok"])
@@ -31,9 +30,10 @@ class CallbackDiagnostics(unittest.TestCase):
 
     def test_no_log_never_reads_task_source(self) -> None:
         callback = self.h.callback()
-        task = SimpleNamespace(no_log=True, get_ds=Mock(side_effect=AssertionError("SECRET")))
-        callback.v2_runner_on_start(fixtures.host(), task)
-        task.get_ds.assert_not_called()
+        task = fixtures.task(no_log=True)
+        with patch.object(task, "get_ds", Mock(side_effect=AssertionError("SECRET"))) as get_ds:
+            callback.v2_runner_on_start(fixtures.host(), task)
+        get_ds.assert_not_called()
         self.assertIsNotNone(callback.writer)
         self.assertNotIn("SECRET", self.h.path.read_text())
 
@@ -47,9 +47,10 @@ class CallbackDiagnostics(unittest.TestCase):
 
     def test_metadata_matrix_keeps_callback_alive_and_never_serializes_inputs(self) -> None:
         callback = self.h.callback()
-        for source in (None, [], "SECRET", {}, {"name": None}, {"name": "Literal task"}):
-            task = SimpleNamespace(no_log=False, get_ds=lambda source=source: source)
-            for payload in (
+        sources: tuple[object, ...] = (None, [], "SECRET", {}, {"name": None}, {"name": "Literal task"})
+        for source in sources:
+            task = fixtures.task(source=source)
+            payloads: tuple[object, ...] = (
                 None,
                 [],
                 "SECRET",
@@ -59,8 +60,9 @@ class CallbackDiagnostics(unittest.TestCase):
                 {"results": "SECRET"},
                 {"results": [{"_ansible_no_log": True}]},
                 {"results": [None, {}, "SECRET"]},
-            ):
-                callback.v2_runner_on_ok(SimpleNamespace(_task=task, _host=fixtures.host(), _result=payload))
+            )
+            for payload in payloads:
+                callback.v2_runner_on_ok(fixtures.result(task, fixtures.host(), payload))
         self.assertIsNotNone(callback.writer)
         self.assertFalse(self.h.path.with_suffix(".unavailable").exists())
         self.assertNotIn("SECRET", self.h.path.read_text())
@@ -97,19 +99,20 @@ class CallbackDiagnostics(unittest.TestCase):
         self.assertEqual(events.read_failure(marker), "callback_write_permission")
         self.assertNotIn("SECRET", marker.read_text())
         first_failure = marker.read_bytes()
-        callback.v2_runner_on_ok(None)
+        callback.v2_runner_on_ok(fixtures.broken_result())
         self.assertEqual(marker.read_bytes(), first_failure)
         callback.v2_runner_on_start(fixtures.host(), fixtures.task())
         self.assertIsNone(callback.writer)
 
     def test_metadata_failure_and_malformed_result_never_escape_into_ansible(self) -> None:
         callback = self.h.callback()
-        callback.v2_runner_on_ok(None)
+        callback.v2_runner_on_ok(fixtures.broken_result())
         self.assertEqual(events.read_failure(self.h.path.with_suffix(".unavailable")), "callback_metadata_attribute")
         self.h.path.unlink()
         callback = self.h.callback()
-        task = SimpleNamespace(no_log=False, get_ds=Mock(side_effect=TypeError("SECRET")))
-        callback.v2_runner_on_start(fixtures.host(), task)
+        task = fixtures.task()
+        with patch.object(task, "get_ds", Mock(side_effect=TypeError("SECRET"))):
+            callback.v2_runner_on_start(fixtures.host(), task)
         self.assertEqual(events.read_failure(self.h.path.with_suffix(".unavailable")), "callback_metadata_type")
 
     def test_initialization_failure_and_diagnostic_write_fallback(self) -> None:
@@ -157,7 +160,9 @@ class CallbackDiagnostics(unittest.TestCase):
         helper.setUp()
         self.addCleanup(helper.doCleanups)
         helper.reserve()
-        request = controller.read(helper.api)["request"]
+        context = controller.read(helper.api)
+        assert context is not None
+        request = context["request"]
         folder = helper.manager.folder(request["id"])
         events.write_failure(folder / "events.unavailable", "metadata", TypeError("SECRET"), 3)
         result_before = (folder / "result.json").read_bytes()

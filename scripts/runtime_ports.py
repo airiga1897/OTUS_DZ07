@@ -11,6 +11,7 @@ from cloud_settings import CloudIdentity
 from credentials import AuthenticationSchema
 from lifecycle_types import CycleReport
 from paramiko import SSHClient
+from placement_config import PlacementPolicy
 from selectel_adapter import SelectelAdapter
 from stack_types import StackSettings
 from topology import Topology
@@ -139,6 +140,7 @@ class ConfigurationPort(ApplicationPort, ServerDeliveryPort, Protocol):
     def trust(self, lab: StandDescription) -> None: ...
     def discover_route(self, lab: StandDescription) -> None: ...
     def check_placement(self, lab: StandDescription) -> object: ...
+    def placement(self) -> PlacementPolicy: ...
 
 
 class RetainedLifecyclePort(ConfigurationPort, StagedControllerPort, CycleAccessPort, Protocol):

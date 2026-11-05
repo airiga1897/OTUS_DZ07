@@ -1,45 +1,70 @@
 """Ownership and absence proofs exercise the real auditor against synthetic API collections."""
 
 import copy
+import http.client
 import unittest
 import urllib.error
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import selectel_staged_audit as audit
+from selectel_staged import Backend
+from stage_journal import StageRecord
+from stage_store import StageStore
+from terraform_state_types import StateEntry, TerraformState
+
+
+class AuditBackend(Backend):
+    @property
+    def owner(self) -> str:
+        return "owner"
+
+
+class AuditStore(StageStore):
+    def __init__(self, entry: StateEntry) -> None:
+        self._entry = entry
+
+    def entries(self, name: str) -> list[StateEntry]:
+        return [self._entry]
+
+    def state(self, name: str) -> TerraformState:
+        return {"lineage": "same"}
+
+    def identities(self, name: str) -> dict[str, str]:
+        return {"one": "owned"}
 
 
 class ProviderAuditTests(unittest.TestCase):
-    def backend(self, kind="openstack_compute_instance_v2"):
-        attrs = {
+    def mocked(self, value: object) -> Mock:
+        if not isinstance(value, Mock):
+            self.fail("Expected test double")
+        return value
+
+    def backend(self, kind: str = "openstack_compute_instance_v2") -> tuple[Backend, StateEntry, dict[str, object]]:
+        attrs: dict[str, object] = {
             "id": "owned",
             "name": "otus-dz07-es1",
             "region": "ru-3",
             "network_id": "parent",
             "os_subnet_id": "os-subnet",
         }
-        entry = {"type": kind, "attrs": attrs}
-        record = {
+        entry: StateEntry = {"type": kind, "attrs": attrs}
+        record: StageRecord = {
             "candidate": {"region": "ru-3", "availability_zone": "ru-3b"},
             "status": "active",
             "lineage": "same",
             "identities": {"one": "owned"},
             "audit_entries": [entry],
         }
-        backend = SimpleNamespace(
-            owner="owner",
-            credentials={"project_id": "project"},
-            journal={"stages": {"es1": record}},
-            desired={"nodes": {"es1": {"role": "es"}}},
-            store=SimpleNamespace(
-                entries=lambda name: [entry],
-                state=lambda name: {"lineage": "same"},
-                identities=lambda name: {"one": "owned"},
-            ),
-            global_router=Mock(),
-            region=Mock(),
-        )
-        item = {
+        backend = AuditBackend.__new__(AuditBackend)
+        backend.api = SimpleNamespace(PREFIX="owner")
+        backend.credentials = {"project_id": "project"}
+        backend.journal = {"deployment_id": "a" * 32, "stages": {"es1": record}}
+        backend.desired = {"nodes": {"es1": {"host": 31, "role": "es"}}}
+        backend.store = AuditStore(entry)
+        backend.global_router = Mock()
+        patch.object(backend, "region", Mock()).start()
+        item: dict[str, object] = {
             "id": "owned",
             "name": attrs["name"],
             "tenant_id": "project",
@@ -91,13 +116,13 @@ class ProviderAuditTests(unittest.TestCase):
 
     def test_partial_collection_uses_direct_get_and_403_is_not_absence(self) -> None:
         backend, entry, item = self.backend()
-        cloud = backend.region.return_value
+        cloud = self.mocked(backend.region).return_value
         cloud.get.side_effect = [{"servers": []}, {"server": item}]
         self.assertEqual(audit.inventory(backend, "es1", [entry])[entry["type"]]["owned"], item)
         for code in (404, 403):
             cloud.get.side_effect = [
                 {"servers": []},
-                urllib.error.HTTPError("https://example.invalid", code, "synthetic", {}, None),
+                urllib.error.HTTPError("https://example.invalid", code, "synthetic", http.client.HTTPMessage(), None),
             ]
             if code == 404:
                 self.assertFalse(audit.inventory(backend, "es1", [entry])[entry["type"]])
@@ -142,18 +167,28 @@ class ProviderAuditTests(unittest.TestCase):
     def test_lineage_identity_project_region_name_and_runtime_state_are_checked(self) -> None:
         backend, entry, item = self.backend()
         with patch.object(audit, "inventory", return_value={entry["type"]: {"owned": item}}):
-            for target, key, value in [
-                (backend.journal["stages"]["es1"], "lineage", "other"),
-                (backend.journal["stages"]["es1"], "identities", {"one": "other"}),
-                (entry["attrs"], "region", "foreign"),
-                (item, "tenant_id", "foreign"),
-                (item, "name", "foreign"),
-            ]:
-                original = copy.deepcopy(target[key])
-                target[key] = value
+            stage = backend.journal["stages"]["es1"]
+            saved_lineage = stage["lineage"]
+            stage["lineage"] = "other"
+            with self.assertRaises(ValueError):
+                audit.assert_stage_owned(backend, "es1", active=True)
+            stage["lineage"] = saved_lineage
+            saved_identities = copy.deepcopy(stage["identities"])
+            stage["identities"] = {"one": "other"}
+            with self.assertRaises(ValueError):
+                audit.assert_stage_owned(backend, "es1", active=True)
+            stage["identities"] = saved_identities
+            saved_region = entry["attrs"]["region"]
+            entry["attrs"]["region"] = "foreign"
+            with self.assertRaises(ValueError):
+                audit.assert_stage_owned(backend, "es1", active=True)
+            entry["attrs"]["region"] = saved_region
+            for key in ("tenant_id", "name"):
+                saved = item[key]
+                item[key] = "foreign"
                 with self.assertRaises(ValueError):
                     audit.assert_stage_owned(backend, "es1", active=True)
-                target[key] = original
+                item[key] = saved
             for key, value in [("status", "ERROR"), ("OS-EXT-AZ:availability_zone", "ru-3a")]:
                 old = item[key]
                 item[key] = value
@@ -165,8 +200,8 @@ class ProviderAuditTests(unittest.TestCase):
         kind = "selectel_global_router_vpc_subnet_v1"
         backend, entry, item = self.backend(kind)
         item["project_id"] = None
-        parent = {"id": "parent", "tags": ["owner"], "project_id": "project"}
-        backend.global_router.listing.return_value = [parent]
+        parent: dict[str, object] = {"id": "parent", "tags": ["owner"], "project_id": "project"}
+        self.mocked(backend.global_router).listing.return_value = [parent]
         with patch.object(audit, "inventory", return_value={kind: {"owned": item}}):
             audit.assert_stage_owned(backend, "es1", active=True)
             parent["project_id"] = "foreign"

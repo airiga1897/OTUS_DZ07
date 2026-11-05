@@ -8,6 +8,7 @@ from typing import TypedDict
 
 import topology
 from cloud_contract import InfrastructureResult, StandDescription
+from elastic_options import EsController
 from inventory_types import Inventory
 from paramiko import SSHClient
 from runtime_ports import OperationPort, ServerDeliveryPort
@@ -212,7 +213,7 @@ def verify(api: OperationPort) -> dict[str, object]:
     return result
 
 
-def failover(api):
+def failover(api: EsController) -> dict[str, object]:
     from elastic_options import failover as check
 
     return check(api)

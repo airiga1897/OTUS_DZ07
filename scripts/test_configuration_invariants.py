@@ -20,9 +20,18 @@ import run_settings
 import stack_config
 import topology
 from cloud_contract import InfrastructureResult
+from placement_config import PlacementPolicy
 from remote import initial_data, portal_probe
+from stack_types import StackSettings
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+class RuntimeConfigModule(types.ModuleType):
+    BASE: Path
+    APP: Path
+    SHARED: Path
+    STACK: StackSettings
 
 
 class ConfigurationInvariants(unittest.TestCase):
@@ -76,7 +85,7 @@ class ConfigurationInvariants(unittest.TestCase):
         p.write_text("{}")
         with self.assertRaisesRegex(ValueError, "Missing"):
             run_settings.placement(root)
-        policy = {"sequential_placement": {"pool_subnets": {}, "subnet_pool": "10.77.0.0/24"}}
+        policy: PlacementPolicy = {"sequential_placement": {"pool_subnets": {}, "subnet_pool": "10.77.0.0/24"}}
         self.assertEqual(run_settings.pool_subnet(policy, "ru-9"), "10.77.0.0/24")
         with self.assertRaisesRegex(ValueError, "exhausted"):
             run_settings.pool_subnet(policy, "ru-3", {"ru-9": "10.77.0.0/24"})
@@ -106,9 +115,9 @@ class ConfigurationInvariants(unittest.TestCase):
         (root / "config/cloud.json").write_text('{"provider":"other","terraform_directory":"terraform-selectel"}')
         with self.assertRaises(ValueError):
             cloud_settings.load(root)
-        desired = json.loads((ROOT / "config/topology.json").read_text())
+        desired = topology.load(ROOT)
         for change in ("app", "voters", "missing-es", "duplicate", "host-type"):
-            value = copy.deepcopy(desired)
+            value = json.loads(json.dumps(desired))
             if change == "app":
                 value["nodes"]["app"]["host"] = 11
             if change == "voters":
@@ -145,7 +154,7 @@ class ConfigurationInvariants(unittest.TestCase):
             },
         }
         for change in ("identity", "etcd", "no-app"):
-            value = copy.deepcopy(contract)
+            value = json.loads(json.dumps(contract))
             if change == "identity":
                 value["nodes"]["app"]["private_ip"] = "10.78.0.10"
             if change == "etcd":
@@ -175,7 +184,7 @@ class ConfigurationInvariants(unittest.TestCase):
         root = self.root()
         app = root / "portal"
         app.mkdir()
-        config = types.ModuleType("runtime_config")
+        config = RuntimeConfigModule("runtime_config")
         config.BASE = root
         config.APP = app
         config.SHARED = root / "shared"
@@ -185,7 +194,7 @@ class ConfigurationInvariants(unittest.TestCase):
         )
         connection = MagicMock()
 
-        def execute(query, *args):
+        def execute(query: object, *args: object) -> Mock:
             row = (True,) if str(query).startswith("SELECT NOT") else (1,) if "pg_roles" in str(query) else ("otus",)
             return Mock(fetchone=Mock(return_value=row))
 
@@ -221,7 +230,7 @@ class ConfigurationInvariants(unittest.TestCase):
     def test_portal_process_loads_only_its_local_settings_and_calls_the_application(self) -> None:
         root = self.root()
         app = root / "portal"
-        config = types.ModuleType("runtime_config")
+        config = RuntimeConfigModule("runtime_config")
         config.BASE = root
         config.APP = app
         settings = {"passwords": {"app": "synthetic", "django": "synthetic"}}

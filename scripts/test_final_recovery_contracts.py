@@ -1,13 +1,17 @@
 """Remaining provider and lifecycle failures preserve ownership and recovery data."""
 
 import contextlib
+import http.client
 import io
 import json
 import tempfile
 import unittest
 import urllib.error
+import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import MagicMock, Mock, patch
 
 import cache_packages
@@ -27,14 +31,53 @@ import test_provider_postcheck_matrix as network_fixtures
 import test_staged_backend as backend_fixtures
 import test_staged_lifecycle as lifecycle_fixtures
 import verification
-from cloud_contract import TerraformError
+from cloud_contract import InfrastructureNode, InfrastructurePlacement, TerraformError
+from placement_diagnostics import PlacementFaultReport
 from remote import verify as remote_verify
+from runtime_ports import FilePort
+from selectel_api import CatalogEndpoint, CatalogService
+from selectel_global_router import GlobalRouter
+from terraform_state_types import StateEntry
 from test_runtime_support import lab
+from topology import Node
+
+
+def mapping(value: object) -> dict[str, object]:
+    if not isinstance(value, dict) or any(type(key) is not str for key in value):
+        raise AssertionError(value)
+    return cast(dict[str, object], value)
+
+
+def sequence(value: object) -> list[object]:
+    if not isinstance(value, list):
+        raise AssertionError(value)
+    return cast(list[object], value)
+
+
+class DelegatedPort:
+    ROOT: Path
+    LOCAL: Path
+    PREFIX: str
+
+    def __init__(self) -> None:
+        self.ROOT = Path(".")
+        self.LOCAL = Path(".")
+        self.PREFIX = "otus-dz07"
+
+    def save(self, path: Path, value: object) -> None:
+        return None
+
+    def redact(self, text: str) -> str:
+        return text
+
+
+def _port_matches(port: DelegatedPort) -> FilePort:
+    return port
 
 
 class FinalRecoveryContracts(unittest.TestCase):
     def setUp(self) -> None:
-        secrets = patch("privacy._values", set())
+        secrets = patch("privacy._values", set[str]())
         secrets.start()
         self.addCleanup(secrets.stop)
 
@@ -42,7 +85,7 @@ class FinalRecoveryContracts(unittest.TestCase):
         helper = empty_fixtures.EmptyScopeAuditContracts()
         helper.setUp()
         self.addCleanup(helper.doCleanups)
-        error = urllib.error.HTTPError("https://example.invalid", 403, "Forbidden", {}, None)
+        error = urllib.error.HTTPError("https://example.invalid", 403, "Forbidden", http.client.HTTPMessage(), None)
         with (
             patch("selectel_adapter.reject_cloud_resources"),
             patch.object(audit, "objects", side_effect=error),
@@ -57,23 +100,31 @@ class FinalRecoveryContracts(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             backend, _ = backend_fixtures.StagedBackendTests().backend(Path(directory))
             backend.journal["stages"]["app"] = {"status": "pending", "candidate": {"region": "ru-9"}}
-            backend.store.folder = Mock(return_value=Path(directory) / "empty-stage")
-            backend.store.identities = Mock(return_value={})
-            backend.prune_unused_network = Mock()
-            backend.save = Mock()
-            events = []
+            events: list[str] = []
+
+            def record_absence(*args: object) -> None:
+                events.append("absent")
+
+            def record_pool(pool: str) -> None:
+                events.append(pool)
+
             with (
+                patch.object(backend.store, "folder", return_value=Path(directory) / "empty-stage"),
+                patch.object(backend.store, "identities", return_value={}),
+                patch.object(backend, "save"),
+                patch.object(backend, "prune_unused_network", side_effect=record_pool),
                 patch.object(audit, "assert_stage_owned"),
-                patch.object(audit, "assert_stage_absent", side_effect=lambda *args: events.append("absent")),
+                patch.object(audit, "assert_stage_absent", side_effect=record_absence),
             ):
-                backend.prune_unused_network.side_effect = lambda pool: events.append(pool)
                 backend.cleanup_attempt("app")
             self.assertEqual(events, ["absent", "ru-9"])
             self.assertEqual(backend.journal["stages"]["app"]["status"], "deleted")
 
     def test_servergroup_membership_ignores_non_es_and_other_pool_nodes(self) -> None:
         backend, entry, item = audit_fixtures.ProviderAuditTests().backend("openstack_compute_servergroup_v2")
-        backend.desired["nodes"].update(app={"role": "app"}, es2={"role": "es"})
+        app_node: Node = {"host": 10, "role": "app"}
+        es_node: Node = {"host": 32, "role": "es"}
+        backend.desired["nodes"].update(app=app_node, es2=es_node)
         backend.journal["stages"].update(app={"candidate": {"region": "ru-3"}}, es2={"candidate": {"region": "ru-9"}})
         with patch.object(audit, "inventory", return_value={entry["type"]: {"owned": item}}):
             audit.assert_stage_owned(backend, "es1")
@@ -148,16 +199,18 @@ class FinalRecoveryContracts(unittest.TestCase):
     def test_package_progress_counts_verified_ranges_without_large_local_files(self) -> None:
         size = 128 * 2**20
         block = b"x" * 2**20
-        offsets = []
+        offsets: list[int] = []
 
-        def open_response(request, **kwargs):
+        def open_response(request: urllib.request.Request, **kwargs: object) -> MagicMock:
             response = MagicMock()
             response.__enter__.return_value = response
             if request.get_method() == "HEAD":
                 response.headers = {"Content-Length": str(size)}
             else:
                 value = request.get_header("Range")
-                start, end = map(int, value.removeprefix("bytes=").split("-"))
+                if not isinstance(value, str):
+                    raise AssertionError(value)
+                start, end = (int(part) for part in value.removeprefix("bytes=").split("-"))
                 offsets.append(start)
                 response.status = 206
                 response.headers = {"Content-Range": f"bytes {start}-{end}/{size}"}
@@ -200,7 +253,7 @@ class FinalRecoveryContracts(unittest.TestCase):
             self.assertEqual(file.read_bytes(), before)
 
     def test_infrastructure_contract_rejects_unrecorded_cross_pool_subnet(self) -> None:
-        node = {
+        node: InfrastructureNode = {
             "roles": ["app"],
             "id": "app-id",
             "volume_id": "disk",
@@ -211,11 +264,17 @@ class FinalRecoveryContracts(unittest.TestCase):
             "zone": "ru-3b",
             "subnet_cidr": "10.78.0.0/24",
         }
+        placement: InfrastructurePlacement = {
+            "region": "ru-9",
+            "zone": "ru-9a",
+            "pool_subnets": {},
+            "node_placements": {},
+        }
         result = cloud_contract.InfrastructureResult(
             "selectel",
             {"project_id": "own"},
             "otus-dz07",
-            {"region": "ru-9", "zone": "ru-9a", "pool_subnets": {}, "node_placements": {}},
+            placement,
             {"app": node},
             "10.77.0.0/24",
         )
@@ -242,16 +301,25 @@ class FinalRecoveryContracts(unittest.TestCase):
         cloud = Mock(config={"project_id": "own"})
         cloud.get.return_value = {"server": {"name": "foreign", "tenant_id": "own", "fault": {"message": "PRIVATE"}}}
         api = SimpleNamespace(cloud=lambda: cloud, PREFIX="otus-dz07")
-        report = {"nodes": {}, "region": "ru-9"}
+        report: PlacementFaultReport = {
+            "nodes": {},
+            "region": "ru-9",
+            "availability_zone": None,
+            "error_type": "synthetic",
+            "read_only": True,
+        }
         placement_diagnostics.collect_nodes(
             api, [{"index_key": "app", "attributes": {"name": "otus-dz07-app", "id": "own"}}], report
         )
-        self.assertIn("API ownership mismatch", report["nodes"]["app"]["diagnostic_error"])
+        detail = report["nodes"]["app"]["diagnostic_error"]
+        if not isinstance(detail, str):
+            raise AssertionError(detail)
+        self.assertIn("API ownership mismatch", detail)
         self.assertNotIn("PRIVATE", json.dumps(report))
 
     def test_existing_node_scheduler_fault_is_classified_before_reapplying(self) -> None:
         backend = staged.Backend.__new__(staged.Backend)
-        backend.desired = {"nodes": {"es1": {"role": "es"}}}
+        backend.desired = {"nodes": {"es1": {"host": 31, "role": "es"}}}
         backend.store = Mock()
         with (
             patch("selectel_staged_audit.faults", return_value={"fault": "No valid host"}),
@@ -267,17 +335,15 @@ class FinalRecoveryContracts(unittest.TestCase):
         verify.assert_called_once_with(backend)
 
     def test_global_router_inventory_is_read_through_its_provider(self) -> None:
-        backend = SimpleNamespace(
-            journal={"stages": {"global": {"candidate": {"region": "ru-9"}}}}, region=Mock(), global_router=Mock()
-        )
-        backend.global_router.listing.return_value = [{"id": "own-router"}]
-        from selectel_staged_audit import inventory
-
-        result = inventory(
-            backend, "global", [{"type": "selectel_global_router_router_v1", "attrs": {"id": "own-router"}}]
-        )
+        backend = staged.Backend.__new__(staged.Backend)
+        backend.journal = {"stages": {"global": {"candidate": {"region": "ru-9"}}}}
+        backend.global_router = GlobalRouter.__new__(GlobalRouter)
+        attrs: dict[str, object] = {"id": "own-router"}
+        entry: StateEntry = {"type": "selectel_global_router_router_v1", "attrs": attrs}
+        with patch.object(backend.global_router, "listing", return_value=[{"id": "own-router"}]) as listing:
+            result = audit.inventory(backend, "global", [entry])
         self.assertIn("own-router", result["selectel_global_router_router_v1"])
-        backend.global_router.listing.assert_called_once_with("routers")
+        listing.assert_called_once_with("routers")
 
     def test_new_node_preservation_report_is_written_only_after_successful_checks(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -302,23 +368,37 @@ class FinalRecoveryContracts(unittest.TestCase):
 
     def test_controller_configuration_wrapper_preserves_existing_flag(self) -> None:
         with patch("configuration.configure", return_value="configured") as configure:
-            self.assertEqual(lab.configure(existing=True), "configured")
+            action: Callable[[bool], object] = lab.configure
+            self.assertEqual(action(True), "configured")
         configure.assert_called_once_with(lab, True)
 
     def test_provider_discovery_reports_only_public_compute_regions(self) -> None:
         cloud = adapter.SelectelAdapter.__new__(adapter.SelectelAdapter)
-        cloud.catalog = [
-            {
-                "type": "compute",
-                "endpoints": [{"interface": "public", "region": "ru-9"}, {"interface": "internal", "region": "ru-3"}],
-            },
-            {"type": "image", "endpoints": [{"interface": "public", "region": "ru-2"}]},
+        public_compute: CatalogEndpoint = {
+            "interface": "public",
+            "region": "ru-9",
+            "url": "https://compute.example.invalid",
+        }
+        internal_compute: CatalogEndpoint = {
+            "interface": "internal",
+            "region": "ru-3",
+            "url": "https://compute-internal.example.invalid",
+        }
+        public_image: CatalogEndpoint = {
+            "interface": "public",
+            "region": "ru-2",
+            "url": "https://image.example.invalid",
+        }
+        catalog: list[CatalogService] = [
+            {"type": "compute", "endpoints": [public_compute, internal_compute]},
+            {"type": "image", "endpoints": [public_image]},
         ]
+        cloud.catalog = catalog
         self.assertEqual(cloud.resource_regions(), ["ru-9"])
 
     def test_internal_api_permission_error_is_not_treated_as_unsupported(self) -> None:
         cloud = Mock(endpoints={"compute": "https://example.invalid"})
-        error = urllib.error.HTTPError("https://example.invalid", 403, "Forbidden", {}, None)
+        error = urllib.error.HTTPError("https://example.invalid", 403, "Forbidden", http.client.HTTPMessage(), None)
         with (
             patch.object(adapter, "collection", side_effect=error),
             self.assertRaises(urllib.error.HTTPError) as caught,
@@ -334,8 +414,9 @@ class FinalRecoveryContracts(unittest.TestCase):
     def test_network_only_node_set_does_not_require_elastic_public_rule(self) -> None:
         result, data = network_fixtures.ProviderPostcheckMatrix().network_fixture()
         result.nodes["es1"]["roles"] = ["db"]
-        rules = data["/v2.0/security-groups"]["security_groups"][0]["security_group_rules"]
-        rules[:] = [rule for rule in rules if rule.get("port_range_min") != 5601]
+        groups = sequence(mapping(data["/v2.0/security-groups"])["security_groups"])
+        rules = sequence(mapping(groups[0])["security_group_rules"])
+        rules[:] = [rule for rule in rules if not (isinstance(rule, dict) and rule.get("port_range_min") == 5601)]
         cloud = Mock()
         cloud.get.side_effect = lambda service, path: data[path]
         self.assertTrue(adapter.check_network(cloud, result, ["8.8.8.8/32"])["success"])
@@ -344,7 +425,8 @@ class FinalRecoveryContracts(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             helper = lifecycle_fixtures.RetainedLifecycleTest()
             api, backend = helper.fixture(Path(directory))
-            backend.journal.update(configured=True, stack_sha256="different")
+            backend.journal["configured"] = True
+            backend.journal["stack_sha256"] = "different"
             with (
                 helper.patches(backend),
                 patch("configuration.resume", return_value=False),
@@ -367,13 +449,16 @@ class FinalRecoveryContracts(unittest.TestCase):
                         )
                     },
                 ),
-                patch.object(staged.pools, "candidates", return_value=iter([])),
+                patch.object(pool_selection, "candidates", return_value=iter([])),
                 patch.object(staged, "reject_cloud_resources"),
                 patch("selectel_staged_audit.audit_namespace"),
                 self.assertRaisesRegex(ValueError, "No complete compatible candidates"),
             ):
                 backend.preflight()
-            backend.api.save.assert_not_called()
+            save = backend.api.save
+            if not isinstance(save, Mock):
+                raise AssertionError(type(save))
+            save.assert_not_called()
 
     def test_deletion_audit_rejects_floating_ip_left_after_named_resources_disappeared(self) -> None:
         backend = staged.Backend.__new__(staged.Backend)
@@ -382,8 +467,8 @@ class FinalRecoveryContracts(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         backend.api = SimpleNamespace(ROOT=Path(directory.name), PREFIX="otus-dz07")
         backend.global_router = Mock(unsafe=True)
-        backend.region = Mock()
         with (
+            patch.object(backend, "region", return_value=Mock()),
             patch("selectel_staged_audit.assert_stage_absent"),
             patch("selectel_adapter.audit_cleanup", return_value=([], 0)),
             patch("selectel_staged_audit.objects", return_value=[{"description": backend.owner}]),
@@ -426,7 +511,7 @@ class FinalRecoveryContracts(unittest.TestCase):
             test_cycle.stages(api)
         api.verify.assert_not_called()
 
-    def test_cloud_namespace_preflight_runs_only_for_sequential_placement(self) -> None:
+    def test_fresh_cycle_defers_shared_namespace_check_until_cross_pool_placement(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             api = cycle_fixtures.CycleSafetyTests().fixture(Path(directory))
             api.cloud.return_value.resource_regions.return_value = []
@@ -435,12 +520,12 @@ class FinalRecoveryContracts(unittest.TestCase):
                 patch("staged_runtime.reject_shared_namespace") as reject,
             ):
                 test_cycle.reject_existing(api)
-            reject.assert_called_once_with(api)
+            reject.assert_not_called()
 
     def test_staged_namespace_guard_delegates_to_provider_adapter(self) -> None:
-        api = object()
+        api = DelegatedPort()
         with patch("cloud_settings.adapter") as factory:
-            staged_runtime.reject_shared_namespace(api)
+            staged_runtime.reject_shared_namespace(_port_matches(api))
         factory.return_value.reject_shared_namespace.assert_called_once_with(api)
 
     def test_standalone_diagnostic_queries_include_app_database(self) -> None:

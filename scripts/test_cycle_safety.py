@@ -1,5 +1,6 @@
 """Test-cycle ownership and cleanup tests use only isolated roots and mock APIs."""
 
+import http.client
 import json
 import tempfile
 import unittest
@@ -11,6 +12,7 @@ from unittest.mock import Mock, patch
 import test_cycle
 import topology
 from local_runtime import cleanup_runtime
+from runtime_ports import CycleProgressPort
 from selectel_adapter import SelectelAdapter
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,10 +23,12 @@ class CycleSafetyTests(unittest.TestCase):
         for supported in (True, False):
             cloud = Mock(endpoints={"network": "https://example.invalid"})
 
-            def get(service, path, *, supported=supported):
+            def get(service: str, path: str, *, supported: bool = supported) -> dict[str, object]:
                 base = path.split("?", 1)[0]
                 if base == "/v2.0/security-groups":
-                    raise urllib.error.HTTPError("https://example.invalid", 404, "Not Found", {}, None)
+                    raise urllib.error.HTTPError(
+                        "https://example.invalid", 404, "Not Found", http.client.HTTPMessage(), None
+                    )
                 if base == "/v2.0/extensions":
                     return {"extensions": [{"alias": "security-group"}] if supported else []}
                 key = base.rstrip("/").rsplit("/", 1)[-1].replace("-", "_")
@@ -49,7 +53,7 @@ class CycleSafetyTests(unittest.TestCase):
         ]
         self.assertEqual(set(cloud.read_only_pool("ru-4").endpoints), {"compute", "network"})
 
-    def fixture(self, root):
+    def fixture(self, root: Path) -> SimpleNamespace:
         local = root / ".local"
         local.mkdir()
         (root / "terraform-selectel").mkdir()
@@ -106,7 +110,7 @@ class CycleSafetyTests(unittest.TestCase):
             (api.LOCAL / "operator.json").write_text("{}")
             (api.ROOT / "docs").mkdir()
 
-            def fail(_) -> None:
+            def fail(_: object) -> None:
                 (api.LOCAL / "key").write_text("synthetic")
                 raise RuntimeError("join failed")
 
@@ -179,7 +183,7 @@ class CycleSafetyTests(unittest.TestCase):
                 cli_config=api.ROOT / "terraform-selectel.rc",
             )
 
-            def fail(_) -> None:
+            def fail(_: object) -> None:
                 store.tf("connection-ru-3", "apply", "stage.tfplan")
 
             def clean() -> None:
@@ -207,7 +211,7 @@ class CycleSafetyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT / ".tools") as d:
             api = self.fixture(Path(d))
 
-            def fail(api) -> None:
+            def fail(api: CycleProgressPort) -> None:
                 test_cycle.progress(api, "initial_deploy")
                 test_cycle.progress(api, "add_replica")
                 raise RuntimeError("synthetic-sensitive-error")
@@ -226,7 +230,8 @@ class CycleSafetyTests(unittest.TestCase):
     def test_default_stages_repeat_without_adding_any_nodes(self) -> None:
         with tempfile.TemporaryDirectory(dir=ROOT / ".tools") as d:
             api = self.fixture(Path(d))
-            identities, calls = {}, []
+            identities: dict[str, str] = {}
+            calls: list[set[str]] = []
 
             def deploy() -> None:
                 desired = api._TOPOLOGY_OVERRIDE or topology.load(ROOT)

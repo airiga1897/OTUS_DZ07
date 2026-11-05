@@ -6,25 +6,51 @@ import json
 import subprocess
 import unittest
 from pathlib import Path
+from typing import TypedDict
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("check_ipv4", Path(__file__).parent / "remote/check_ipv4.py")
+if spec is None or spec.loader is None:
+    raise ImportError("Unable to load check_ipv4 module")
 check = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(check)
 
 
+class AddressInfo(TypedDict):
+    family: str
+    local: str
+    prefixlen: int
+
+
+class InterfaceRow(TypedDict):
+    ifname: str
+    flags: list[str]
+    addr_info: list[AddressInfo]
+
+
+class RouteRow(TypedDict):
+    dst: str
+    gateway: str
+    dev: str
+
+
 class IPv4BootstrapTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.addresses = [
+        self.addresses: list[InterfaceRow] = [
             {
                 "ifname": "ens3",
                 "flags": ["UP"],
                 "addr_info": [{"family": "inet", "local": "10.77.0.10", "prefixlen": 24}],
             }
         ]
-        self.routes = [{"dst": "default", "gateway": "10.77.0.1", "dev": "ens3"}]
+        self.routes: list[RouteRow] = [{"dst": "default", "gateway": "10.77.0.1", "dev": "ens3"}]
 
-    def validate(self, addresses=None, routes=None, gateway="10.77.0.1") -> None:
+    def validate(
+        self,
+        addresses: list[InterfaceRow] | None = None,
+        routes: list[RouteRow] | None = None,
+        gateway: str = "10.77.0.1",
+    ) -> None:
         check.validate(
             "10.77.0.10/24",
             gateway,
@@ -59,12 +85,13 @@ class IPv4BootstrapTests(unittest.TestCase):
                 self.validate(addresses=addresses)
 
     def test_missing_wrong_or_competing_default_route_rejected(self) -> None:
-        for routes in [
+        route_cases: list[list[RouteRow]] = [
             [],
             [{"dst": "default", "gateway": "10.77.0.2", "dev": "ens3"}],
             [{"dst": "default", "gateway": "10.77.0.1", "dev": "ens4"}],
             self.routes + [{"dst": "default", "gateway": "10.77.0.2", "dev": "ens4"}],
-        ]:
+        ]
+        for routes in route_cases:
             with self.subTest(routes=routes), self.assertRaises(ValueError):
                 self.validate(routes=routes)
         with self.assertRaisesRegex(ValueError, "outside"):

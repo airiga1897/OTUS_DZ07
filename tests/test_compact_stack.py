@@ -11,6 +11,8 @@ from jinja2 import Environment, StrictUndefined
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import topology
+from cloud_contract import StandDescription
+from inventory_types import InventoryGroup
 from render import ansible_inventory
 from selectel_adapter import infrastructure_result
 
@@ -39,14 +41,19 @@ class CompactStackTests(unittest.TestCase):
         )
         self.assertLess(stopped, started)
 
-    def inventory(self):
+    def inventory(self) -> InventoryGroup:
         desired = topology.load(ROOT)
         nodes = desired["nodes"]
-        lab = {
+        server_ids = {n: "server_ids" + n for n in nodes}
+        volume_ids = {n: "volume_ids" + n for n in nodes}
+        port_ids = {n: "port_ids" + n for n in nodes}
+        lab: StandDescription = {
             "private_ips": {n: "10.77.0." + str(v["host"]) for n, v in nodes.items()},
             "app_public_ip": "192.0.2.1",
             "subnet_cidr": "10.77.0.0/24",
-            **{k: {n: k + n for n in nodes} for k in ("server_ids", "volume_ids", "port_ids")},
+            "server_ids": server_ids,
+            "volume_ids": volume_ids,
+            "port_ids": port_ids,
         }
         result = infrastructure_result(lab, {"project_id": "synthetic", "region": "ru-9"}, "otus-dz07", "ru-9a")
         passwords = dict.fromkeys(
@@ -83,13 +90,18 @@ class CompactStackTests(unittest.TestCase):
         with (
             patch.object(verify, "lab", {"private_ips": {"app": "10.77.0.10"}}),
             patch.object(verify, "sql_connect", return_value=conn),
-            patch.object(verify.urllib.request, "urlopen") as http,
+            patch("urllib.request.urlopen") as http,
         ):
-            self.assertIsNone(verify.check_database())
+            verify.check_database()
         http.assert_not_called()
 
     def test_source_expectations_require_application_and_kibana_logs(self) -> None:
-        expected = self.inventory()["children"]["frontend"]["hosts"]["app"]["dz07"]["log_expectations"]
+        frontend = self.inventory()["children"]["frontend"]["hosts"]["app"]["dz07"]
+        if not isinstance(frontend, dict):
+            raise AssertionError("Expected frontend dz07 settings")
+        expected = frontend["log_expectations"]
+        if not isinstance(expected, dict):
+            raise AssertionError("Expected log expectations")
         self.assertEqual(set(expected), {"app", "es1", "es2", "es3"})
         self.assertEqual(set(expected["app"]), {"system", "nginx", "haproxy", "postgresql", "django", "kibana"})
 

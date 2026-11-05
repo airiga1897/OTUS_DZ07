@@ -18,7 +18,8 @@ import pool_selection
 import run_settings
 import terraform_plugins
 import test_terraform_plugins as provider_fixtures
-from cloud_contract import TerraformError
+from cloud_contract import InfrastructureResult, TerraformError
+from inventory_types import Inventory
 
 
 class ReleaseReadinessGaps(unittest.TestCase):
@@ -73,8 +74,26 @@ class ReleaseReadinessGaps(unittest.TestCase):
             self.assertEqual(run_settings.placement(root), value)
 
     def test_inventory_without_required_elasticsearch_masters_is_rejected(self) -> None:
-        result = SimpleNamespace(application=lambda: {"node_roles": {"app": "app"}, "private_ips": {"app": "10.0.0.1"}})
-        inventory = {"all": {"children": {}, "vars": {}}}
+        result = InfrastructureResult.from_dict(
+            {
+                "provider": "selectel",
+                "scope": {"project_id": "synthetic"},
+                "namespace": "otus-dz07",
+                "placement": {"region": "ru-9", "zone": "ru-9a"},
+                "nodes": {
+                    "app": {
+                        "id": "app-id",
+                        "roles": ["app"],
+                        "private_ip": "10.0.0.1",
+                        "public_ip": "192.0.2.10",
+                        "volume_id": "volume-id",
+                        "port_id": "port-id",
+                    }
+                },
+                "subnet_cidr": "10.0.0.0/24",
+            }
+        )
+        inventory: Inventory = {"all": {"children": {}, "vars": {}}}
         with self.assertRaisesRegex(ValueError, "Elasticsearch masters"):
             observability.inventory(result, {}, inventory)
 

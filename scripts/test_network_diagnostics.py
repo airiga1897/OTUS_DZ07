@@ -8,14 +8,17 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from cloud_contract import StandDescription
 from network_diagnostics import BootstrapNetworkError, console_evidence, require_bootstrap_network
 from remote.network_diagnostics import COMMANDS, collect
+from test_runtime_support import lab
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class NetworkDiagnosticsTests(unittest.TestCase):
     def test_fallback_requires_current_positive_evidence_of_bootstrap_failure(self) -> None:
+        stand: StandDescription = {}
         for node, failed in [
             ({"guest_evidence_found": True, "expected_private_ipv4_present": False}, True),
             ({"guest_evidence_found": True, "expected_private_ipv4_present": True}, False),
@@ -25,10 +28,10 @@ class NetworkDiagnosticsTests(unittest.TestCase):
             with patch("network_diagnostics.console_evidence", return_value={"nodes": {"app": node}}) as collect:
                 if failed:
                     with self.assertRaises(BootstrapNetworkError):
-                        require_bootstrap_network("api", "current_lab")
+                        require_bootstrap_network(lab, stand)
                 else:
-                    require_bootstrap_network("api", "current_lab")
-                collect.assert_called_once_with("api", "current_lab")
+                    require_bootstrap_network(lab, stand)
+                collect.assert_called_once_with(lab, stand)
 
     def test_commands_are_bounded_read_only_and_never_read_private_configuration(self) -> None:
         runner = Mock(return_value=subprocess.CompletedProcess([], 0, "synthetic"))

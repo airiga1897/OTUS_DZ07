@@ -60,6 +60,58 @@ def identity_scope(response: object) -> dict[str, object]:
     return cast(dict[str, object], token)
 
 
+def json_object(value: object, message: str = "Unknown API response object") -> dict[str, object]:
+    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
+        raise ValueError(message)
+    return cast(dict[str, object], value)
+
+
+def json_rows(value: object, message: str = "Unknown API collection") -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        raise ValueError(message)
+    return [json_object(row, message) for row in value]
+
+
+def json_text(value: object, message: str = "Unknown API text field") -> str:
+    if not isinstance(value, str):
+        raise ValueError(message)
+    return value
+
+
+def json_int(value: object, message: str = "Unknown API integer field") -> int:
+    if type(value) is not int:
+        raise ValueError(message)
+    return value
+
+
+def json_texts(value: object, message: str = "Unknown API text collection") -> list[str]:
+    if not isinstance(value, list):
+        raise ValueError(message)
+    return [json_text(item, message) for item in value]
+
+
+def json_object_or_empty(value: object, message: str = "Unknown API response object") -> dict[str, object]:
+    if value is None:
+        return {}
+    return json_object(value, message)
+
+
+def identifier_set(value: object, message: str = "Unknown API text field") -> set[str]:
+    if not value:
+        return set()
+    return {json_text(value, message)}
+
+
+def text_mapping(value: object, message: str = "Unknown API response object") -> dict[str, str]:
+    return {key: json_text(item, message) for key, item in json_object(value, message).items()}
+
+
+def json_contains(value: object, key: str, message: str = "Unknown API response object") -> bool:
+    if value is None:
+        return False
+    return key in json_object(value, message)
+
+
 def checked_catalog(value: object) -> list[CatalogService]:
     if not isinstance(value, list):
         raise ValueError("Invalid identity service catalog")
@@ -184,6 +236,4 @@ class NovaClient:
         if not path.startswith("/servers/") or ".." in path or "?" in path:
             raise ValueError("Unexpected Nova path")
         data, _ = request_json(self.endpoint + path, token=self.token, payload=payload)
-        if not isinstance(data, dict) or any(not isinstance(key, str) for key in data):
-            raise ValueError("Invalid Nova response object")
-        return cast(dict[str, object], data)
+        return json_object(data, "Invalid Nova response object")

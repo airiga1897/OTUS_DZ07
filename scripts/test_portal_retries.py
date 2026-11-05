@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PortalRetryTests(unittest.TestCase):
-    def run_verifier(self, mode, transient=False):
+    def run_verifier(self, mode: str, transient: bool = False) -> dict[str, object]:
         module = importlib.import_module("remote.verify")
         run_id = "a" * 32
         old = {"id": 1, "slug": "baseline", "body": "baseline"}
@@ -30,7 +30,7 @@ class PortalRetryTests(unittest.TestCase):
             connection.__enter__.return_value.execute.return_value.fetchone.return_value = (False,)
             calls = []
 
-            def connect(*args):
+            def connect(*args: object) -> MagicMock:
                 calls.append(args)
                 if transient and len(calls) == 1:
                     raise psycopg.errors.ConnectionTimeout("synthetic transient outage")
@@ -57,7 +57,10 @@ class PortalRetryTests(unittest.TestCase):
                 insert.assert_called_once_with(mode)
                 self.assertIn(old, [call.args[1] for call in read_back.call_args_list])
                 self.assertEqual(sleep.call_count, int(transient))
-            return json.loads(output.getvalue())
+            result = json.loads(output.getvalue())
+            if not isinstance(result, dict):
+                self.fail("Expected verifier JSON object")
+            return result
 
     def test_transient_sql_connection_is_retried_without_losing_the_canary(self) -> None:
         result = self.run_verifier("expanded", transient=True)
@@ -66,5 +69,8 @@ class PortalRetryTests(unittest.TestCase):
 
     def test_repeat_check_preserves_the_committed_baseline(self) -> None:
         result = self.run_verifier("expanded")
-        self.assertEqual(len(result["preserved_records"]), 1)
+        preserved = result["preserved_records"]
+        if not isinstance(preserved, list):
+            self.fail("Expected preserved record list")
+        self.assertEqual(len(preserved), 1)
         self.assertTrue(result["committed_record_preserved"])

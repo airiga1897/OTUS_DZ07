@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import infrastructure
 import topology
 import verification
+from plan_diagnostics import PlannedResource
 from test_runtime_support import lab
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -106,17 +107,29 @@ class ExpansionTests(unittest.TestCase):
             ("openstack_blockstorage_volume_v3", "boot"),
         ]
         for kind, name in cases:
-            change = {"type": kind, "name": name, "index": "es4", "address": kind + "." + name}
+            change: PlannedResource = {
+                "type": kind,
+                "name": name,
+                "index": "es4",
+                "address": kind + "." + name,
+                "change": {"actions": ["create"]},
+            }
             infrastructure.validate_node_creation(change, {"es4"})
             with self.assertRaises(ValueError):
                 infrastructure.validate_node_creation({**change, "index": "es1"}, {"es4"})
         with self.assertRaises(ValueError):
             infrastructure.validate_node_creation(
-                {"type": "openstack_networking_router_v2", "name": "lab", "address": "router"}, {"es4"}
+                {
+                    "type": "openstack_networking_router_v2",
+                    "name": "lab",
+                    "address": "router",
+                    "change": {"actions": ["create"]},
+                },
+                {"es4"},
             )
 
     def test_changed_identity_is_rejected_even_when_plan_says_noop(self) -> None:
-        change = {
+        change: PlannedResource = {
             "type": "openstack_compute_instance_v2",
             "name": "node",
             "index": "es1",

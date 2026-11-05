@@ -12,10 +12,13 @@ from unittest.mock import Mock, patch
 import staged_runtime
 import test_staged_lifecycle as lifecycle_fixture
 from local_runtime import cleanup_runtime
+from plan_diagnostics import PlannedResource, PlanView
 from selectel_global_router import GlobalRouter
 from selectel_staged import Backend, validate_policy
 from selectel_staged_audit import assert_stage_owned
+from stage_journal import StageRecord
 from stage_store import StageStore, atomic_json, check_plan, require_context
+from terraform_state_types import StateEntry
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,12 +26,12 @@ ROOT = Path(__file__).resolve().parents[1]
 class StageSafetyTests(unittest.TestCase):
     def test_server_group_refresh_requires_exact_live_owned_es_members(self) -> None:
         backend = Backend.__new__(Backend)
-        backend.desired = {"nodes": {"es1": {"role": "es"}, "app": {"role": "app"}}}
+        backend.desired = {"nodes": {"es1": {"host": 31, "role": "es"}, "app": {"host": 10, "role": "app"}}}
         backend.journal = {"stages": {"es1": {"candidate": {"region": "ru-3"}}}}
-        backend.store = SimpleNamespace(
-            entries=Mock(return_value=[{"type": "openstack_compute_instance_v2", "attrs": {"id": "owned"}}])
-        )
-        drift = {
+        store = StageStore.__new__(StageStore)
+        backend.store = store
+        owned: list[StateEntry] = [{"type": "openstack_compute_instance_v2", "attrs": {"id": "owned"}}]
+        drift: PlannedResource = {
             "address": "module.stage.group",
             "type": "openstack_compute_servergroup_v2",
             "change": {
@@ -37,16 +40,27 @@ class StageSafetyTests(unittest.TestCase):
                 "after": {"id": "group", "members": ["owned"]},
             },
         }
+        after = drift["change"].get("after")
+        before = drift["change"].get("before")
+        if not isinstance(after, dict) or not isinstance(before, dict):
+            raise AssertionError("expected drift objects")
 
-        def allowed(value):
+        def allowed(value: PlannedResource) -> bool:
             return backend.allow_refresh("network-ru-3", value)
 
-        check_plan({"resource_drift": [drift]}, {drift["address"]: "group"}, allow_drift=allowed)
-        for changes in ({"members": ["foreign"]}, {"members": []}, {"policies": ["soft-anti-affinity"]}):
-            with patch.dict(drift["change"]["after"], changes), self.assertRaises(ValueError):
-                check_plan({"resource_drift": [drift]}, {drift["address"]: "group"}, allow_drift=allowed)
-        with patch.dict(drift["change"]["before"], {"members": ["foreign"]}), self.assertRaises(ValueError):
-            check_plan({"resource_drift": [drift]}, {drift["address"]: "group"}, allow_drift=allowed)
+        plan: PlanView = {"resource_drift": [drift]}
+        with patch.object(store, "entries", return_value=owned):
+            check_plan(plan, {drift["address"]: "group"}, allow_drift=allowed)
+            updates: tuple[dict[str, object], ...] = (
+                {"members": ["foreign"]},
+                {"members": []},
+                {"policies": ["soft-anti-affinity"]},
+            )
+            for changes in updates:
+                with patch.dict(after, changes), self.assertRaises(ValueError):
+                    check_plan(plan, {drift["address"]: "group"}, allow_drift=allowed)
+            with patch.dict(before, {"members": ["foreign"]}), self.assertRaises(ValueError):
+                check_plan(plan, {drift["address"]: "group"}, allow_drift=allowed)
 
     def test_provider_refresh_only_accepts_empty_tags_or_its_saved_attachment(self) -> None:
         backend = Backend.__new__(Backend)
@@ -55,7 +69,7 @@ class StageSafetyTests(unittest.TestCase):
             "deployment_id": "run",
             "stages": {"connection-ru-9": {"output": {"network_id": "attached"}}},
         }
-        drift = {
+        drift: PlannedResource = {
             "address": "module.stage.network",
             "type": "openstack_networking_network_v2",
             "change": {
@@ -64,36 +78,59 @@ class StageSafetyTests(unittest.TestCase):
                 "after": {"id": "same", "all_tags": [backend.owner, "l3vpn-network", "l3vpn-network-attached"]},
             },
         }
+        after = drift["change"].get("after")
+        if not isinstance(after, dict):
+            raise AssertionError("expected drift object")
 
-        def allowed(value):
+        def allowed(value: PlannedResource) -> bool:
             return backend.allow_refresh("network-ru-9", value)
 
-        check_plan({"resource_drift": [drift]}, {drift["address"]: "same"}, allow_drift=allowed)
-        for extra in ({"id": "foreign"}, {"all_tags": [backend.owner, "foreign"]}, {"name": "changed"}):
-            with patch.dict(drift["change"]["after"], extra), self.assertRaises(ValueError):
-                check_plan({"resource_drift": [drift]}, {drift["address"]: "same"}, allow_drift=allowed)
+        plan: PlanView = {"resource_drift": [drift]}
+        check_plan(plan, {drift["address"]: "same"}, allow_drift=allowed)
+        extras: tuple[dict[str, object], ...] = (
+            {"id": "foreign"},
+            {"all_tags": [backend.owner, "foreign"]},
+            {"name": "changed"},
+        )
+        for extra in extras:
+            with patch.dict(after, extra), self.assertRaises(ValueError):
+                check_plan(plan, {drift["address"]: "same"}, allow_drift=allowed)
         drift["type"] = "openstack_networking_subnet_v2"
-        drift["change"].update(before={"id": "same", "tags": None}, after={"id": "same", "tags": []})
-        check_plan({"resource_drift": [drift]}, {drift["address"]: "same"}, allow_drift=allowed)
+        drift["change"]["before"] = {"id": "same", "tags": None}
+        drift["change"]["after"] = {"id": "same", "tags": []}
+        check_plan(plan, {drift["address"]: "same"}, allow_drift=allowed)
         with self.assertRaises(ValueError):
-            check_plan({"resource_drift": [drift]}, {drift["address"]: "same"})
+            check_plan(plan, {drift["address"]: "same"})
 
     def test_global_subnet_nullable_project_requires_its_owned_parent_network(self) -> None:
         kind = "selectel_global_router_vpc_subnet_v1"
-        attrs = {"id": "subnet", "network_id": "network", "os_subnet_id": "private-subnet"}
-        entry = {"type": kind, "attrs": attrs}
-        subnet = {**attrs, "project_id": None, "tags": ["owner"], "status": "ACTIVE"}
-        parent = {"id": "network", "project_id": "project", "tags": ["owner"]}
-        backend = SimpleNamespace(
-            owner="owner",
-            credentials={"project_id": "project"},
-            journal={"stages": {"connection": {"status": "pending"}}},
-            store=SimpleNamespace(entries=Mock(return_value=[entry])),
-            global_router=SimpleNamespace(listing=Mock(return_value=[parent])),
-        )
-        with patch("selectel_staged_audit.inventory", return_value={kind: {"subnet": subnet}}):
+        attrs: dict[str, object] = {"id": "subnet", "network_id": "network", "os_subnet_id": "private-subnet"}
+        entry: StateEntry = {"type": kind, "attrs": attrs}
+        subnet: dict[str, object] = {**attrs, "project_id": None, "tags": ["synthetic-run"], "status": "ACTIVE"}
+        parent: dict[str, object] = {"id": "network", "project_id": "project", "tags": ["synthetic-run"]}
+        backend = Backend.__new__(Backend)
+        backend.api = SimpleNamespace(PREFIX="synthetic")
+        backend.credentials = {"project_id": "project"}
+        backend.journal = {
+            "deployment_id": "run",
+            "stages": {"connection": {"status": "pending"}},
+        }
+        store = StageStore.__new__(StageStore)
+        backend.store = store
+        router = GlobalRouter.__new__(GlobalRouter)
+        backend.global_router = router
+        with (
+            patch.object(store, "entries", return_value=[entry]),
+            patch.object(router, "listing", return_value=[parent]),
+            patch("selectel_staged_audit.inventory", return_value={kind: {"subnet": subnet}}),
+        ):
             assert_stage_owned(backend, "connection", active=True)
-            for changes in ({"project_id": "foreign"}, {"network_id": "foreign"}, {"os_subnet_id": "foreign"}):
+            mismatches: tuple[dict[str, object], ...] = (
+                {"project_id": "foreign"},
+                {"network_id": "foreign"},
+                {"os_subnet_id": "foreign"},
+            )
+            for changes in mismatches:
                 with patch.dict(subnet, changes), self.assertRaises(ValueError):
                     assert_stage_owned(backend, "connection")
             with patch.dict(parent, {"project_id": "foreign"}), self.assertRaises(ValueError):
@@ -155,7 +192,7 @@ class StageSafetyTests(unittest.TestCase):
             self.assertTrue((stage / "terraform.tfstate").exists())
 
     def test_partial_delete_drift_can_only_remove_previously_saved_id(self) -> None:
-        drift = {
+        drift: PlanView = {
             "resource_drift": [
                 {"address": "module.stage.vm", "change": {"actions": ["delete"], "before": {"id": "one"}}}
             ]
@@ -166,12 +203,16 @@ class StageSafetyTests(unittest.TestCase):
                 check_plan(drift, {"module.stage.vm": identifier}, destroy=destroy)
 
     def test_api_absence_only_resumes_a_recorded_deletion(self) -> None:
-        entry = {"type": "openstack_compute_instance_v2", "attrs": {"id": "one"}}
-        record = {"status": "active", "audit_entries": [entry]}
-        backend = SimpleNamespace(
-            journal={"stages": {"es2": record}}, store=SimpleNamespace(entries=Mock(return_value=[entry]))
-        )
-        with patch("selectel_staged_audit.inventory", return_value={"openstack_compute_instance_v2": {}}):
+        entry: StateEntry = {"type": "openstack_compute_instance_v2", "attrs": {"id": "one"}}
+        record: StageRecord = {"status": "active", "audit_entries": [entry]}
+        backend = Backend.__new__(Backend)
+        backend.journal = {"stages": {"es2": record}}
+        store = StageStore.__new__(StageStore)
+        backend.store = store
+        with (
+            patch.object(store, "entries", return_value=[entry]),
+            patch("selectel_staged_audit.inventory", return_value={"openstack_compute_instance_v2": {}}),
+        ):
             with self.assertRaises(ValueError):
                 assert_stage_owned(backend, "es2", active=False)
             record["status"] = "deleting"
@@ -253,13 +294,16 @@ class StageSafetyTests(unittest.TestCase):
                 staged_runtime.deploy(api)
             cleanup = provider.cleanup_attempt
 
-            def fail_one(name) -> None:
+            def fail_one(name: str) -> None:
                 if name == "es3":
                     raise RuntimeError("one stage failed")
                 cleanup(name)
 
-            provider.cleanup_attempt = fail_one
-            with helper.patches(provider), self.assertRaises(RuntimeError):
+            with (
+                helper.patches(provider),
+                patch.object(provider, "cleanup_attempt", fail_one),
+                self.assertRaises(RuntimeError),
+            ):
                 staged_runtime.cleanup(api)
             self.assertEqual(set(provider.objects), {"es3"})
             self.assertTrue(provider.path.exists())

@@ -26,8 +26,28 @@ def candidate_region(candidate: Mapping[str, object]) -> str:
     return region
 
 
+def node_pools(backend: "Backend") -> set[str]:
+    """Include active and partially allocated VMs, not unused pool reservations."""
+    return {
+        candidate_region(record["candidate"])
+        for name, record in backend.journal["stages"].items()
+        if name in backend.desired["nodes"]
+        and record["status"] != "deleted"
+        and (record["status"] == "active" or backend.saved_id(name, "openstack_compute_instance_v2", "id"))
+    }
+
+
+def retained_router(backend: "Backend") -> bool:
+    return backend.journal["stages"].get("global", {}).get("status") not in (None, "deleted")
+
+
 def ensure_pool(backend: "Backend", candidate: Mapping[str, object]) -> StageOutput:
     pool = candidate_region(candidate)
+    regions = node_pools(backend) | {pool}
+    if len(regions) > 1 or retained_router(backend):
+        backend.check_complete_capacity()
+        router = backend.saved_id("global", "selectel_global_router_router_v1", "router_id")
+        backend.global_router.preflight(sorted(regions), backend.api.PREFIX, router)
     network = "network-" + pool
     new_network = not backend.completed(network)
     if new_network:
@@ -39,7 +59,9 @@ def ensure_pool(backend: "Backend", candidate: Mapping[str, object]) -> StageOut
     for options in backend.choices.values():
         for item in options:
             if item["region"] == pool:
-                domain = {k: item[k] for k in ("region", "network_availability_zone", "router_availability_zone")}
+                domain: dict[str, object] = {
+                    key: item[key] for key in ("region", "network_availability_zone", "router_availability_zone")
+                }
                 if domain not in network_choices:
                     network_choices.append(domain)
     try:
@@ -59,10 +81,14 @@ def connect_pool(backend: "Backend", pool: str) -> None:
         for name, record in backend.journal["stages"].items()
         if name.startswith("connection-") and record["status"] != "deleted"
     }
+    regions = node_pools(backend) | connected | {pool}
+    if len(regions) == 1 and not retained_router(backend):
+        return
     router = backend.saved_id("global", "selectel_global_router_router_v1", "router_id")
-    backend.global_router.preflight(sorted(connected | {pool}), backend.api.PREFIX, router)
+    backend.global_router.preflight(sorted(regions), backend.api.PREFIX, router)
     place(backend, "global", [{"region": backend.credentials["region"]}])
-    place(backend, "connection-" + pool, [{"region": pool}])
+    for region in sorted(regions):
+        place(backend, "connection-" + region, [{"region": region}])
 
 
 def inputs(backend: "Backend", name: str) -> tuple[str, dict[str, object]]:

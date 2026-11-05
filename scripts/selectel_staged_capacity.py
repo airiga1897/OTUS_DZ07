@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from placement_config import checked
 from pool_selection import CandidateUnavailable
 from quota_types import QuotaRecord, checked_quota
+from selectel_api import json_object, json_object_or_empty
 
 if TYPE_CHECKING:
     from selectel_staged import Backend
@@ -82,37 +83,52 @@ def with_credit(item: object, credit: int) -> QuotaRecord:
     return value
 
 
-def require_capacity(backend: "Backend") -> None:
+def require_capacity(backend: "Backend") -> set[str]:
     pending = [n for n in backend.policy["sequential_placement"]["node_order"] if not backend.completed(n)]
     if not pending:
-        return
+        return set()
     project = backend.credentials["project_id"]
     budgets: QuotaBudget = {}
+    network_available: dict[str, bool] = {}
     for pool in backend.policy["pools"]:
         cloud = backend.region(pool)
-        compute = cloud.get("compute", "/os-quota-sets/" + project + "/detail")["quota_set"].get("az_quotas", {})
-        volumes = cloud.get("volumev3", "/os-quota-sets/" + project + "?usage=True")["quota_set"]
-        network = cloud.get("network", "/v2.0/quotas/" + project + "/details.json")["quota"]
+        quota_set = json_object(
+            cloud.get("compute", "/os-quota-sets/" + project + "/detail")["quota_set"],
+            "Unknown compute quota payload",
+        )
+        compute = json_object_or_empty(quota_set.get("az_quotas"), "Unknown compute quota map")
+        volumes = json_object(
+            cloud.get("volumev3", "/os-quota-sets/" + project + "?usage=True")["quota_set"],
+            "Unknown volume quota payload",
+        )
+        network = json_object(
+            cloud.get("network", "/v2.0/quotas/" + project + "/details.json")["quota"],
+            "Unknown network quota payload",
+        )
         quota_credits = pending_credits(backend, pool)
         for zone, values in compute.items():
+            zone_quotas = json_object(values, "Unknown compute segment quota payload")
             for key in ("instances", "cores", "ram"):
-                budgets[(pool, zone, key)] = free(with_credit(values.get(key), quota_credits.get((zone, key), 0)))
+                budgets[(pool, zone, key)] = free(with_credit(zone_quotas.get(key), quota_credits.get((zone, key), 0)))
         for key, value in volumes.items():
             if isinstance(value, dict) and "limit" in value:
                 budgets[(pool, key)] = free(with_credit(value, quota_credits.get(key, 0)))
         try:
             require_network_capacity(backend, pool)
-            budgets[(pool, "network_available")] = True
+            network_available[pool] = True
         except CandidateUnavailable:
-            budgets[(pool, "network_available")] = False
+            network_available[pool] = False
         budgets[(pool, "ports")] = free(with_credit(network.get("port"), quota_credits.get("port", 0)))
         budgets[(pool, "floatingip")] = free(with_credit(network.get("floatingip"), quota_credits.get("floatingip", 0)))
         budgets[(pool, "network_ports")] = network_port_demand(backend, pool)
     pending = [n for n in backend.policy["sequential_placement"]["node_order"] if not backend.completed(n)]
     disk = backend.policy["boot_disk_gb"]
 
+    assignment: set[str] = set()
+
     def search(index: int, available: QuotaBudget, networks: set[str]) -> bool:
         if index == len(pending):
+            assignment.update(networks)
             return True
         name = pending[index]
         role = backend.desired["nodes"][name]["role"]
@@ -134,7 +150,7 @@ def require_capacity(backend: "Backend") -> None:
             }
             if pool not in networks:
                 demand[(pool, "ports")] += available[(pool, "network_ports")]
-            if not available[(pool, "network_available")]:
+            if not network_available.get(pool, False):
                 continue
             if any(key not in available or available[key] < amount for key, amount in demand.items()):
                 continue
@@ -145,6 +161,7 @@ def require_capacity(backend: "Backend") -> None:
 
     if not search(0, budgets, set()):
         raise CandidateUnavailable("No quota-feasible assignment for all remaining nodes")
+    return assignment
 
 
 def require_network_capacity(backend: "Backend", pool: str) -> None:
@@ -152,7 +169,10 @@ def require_network_capacity(backend: "Backend", pool: str) -> None:
         return
     cloud = backend.region(pool)
     project = backend.credentials["project_id"]
-    network = cloud.get("network", "/v2.0/quotas/" + project + "/details.json")["quota"]
+    network = json_object(
+        cloud.get("network", "/v2.0/quotas/" + project + "/details.json")["quota"],
+        "Unknown network quota payload",
+    )
     needs = {
         "network": 1,
         "subnet": 1,
@@ -178,11 +198,20 @@ def require_network_capacity(backend: "Backend", pool: str) -> None:
     for key, amount in needs.items():
         if free(network.get(key)) < amount:
             raise CandidateUnavailable("Network quota insufficient in " + pool + ": " + key)
-    compute = cloud.get("compute", "/os-quota-sets/" + project + "/detail")["quota_set"]
+    compute = json_object(
+        cloud.get("compute", "/os-quota-sets/" + project + "/detail")["quota_set"],
+        "Unknown compute quota payload",
+    )
     group_needed = int(not any(e["type"] == "openstack_compute_servergroup_v2" for e in entries))
     members = compute.get("server_group_members")
     required_members = backend.journal.get("require_distinct_hosts", True)
     if free(compute.get("server_groups")) < group_needed or (
-        required_members and (members is None or (members["limit"] != -1 and members["limit"] < 3))
+        required_members
+        and (
+            members is None
+            or not isinstance(member_quota := members, dict)
+            or type(member_quota.get("limit")) is not int
+            or (member_quota["limit"] != -1 and member_quota["limit"] < 3)
+        )
     ):
         raise CandidateUnavailable("Elasticsearch server-group quota unknown or insufficient in " + pool)

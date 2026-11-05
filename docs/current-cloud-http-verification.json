@@ -1,0 +1,10 @@
+{
+  "checked_utc": "2026-11-05T14:23:33.572274+00:00",
+  "source": "operator HTTP requests to public frontend",
+  "delivery_mode": "cached",
+  "site_http_status": 200,
+  "homework_07_article_http_status": 200,
+  "homework_07_article_available": true,
+  "kibana_http_status": 200,
+  "kibana_level": "available"
+}

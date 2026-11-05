@@ -1,31 +1,91 @@
 """Provider boundaries and fail-closed discovery; synthetic data only."""
 
 import copy
+import http.client
 import json
 import tempfile
 import unittest
 import urllib.error
 from pathlib import Path
+from typing import TypedDict, cast
 from unittest.mock import Mock, patch
 
-from cloud_contract import CapabilityStatus, InfrastructureResult, require_capabilities, validate_binding
-from selectel_adapter import SelectelAdapter, audit_cleanup, check_network, discover_capabilities, preflight
+from cloud_contract import (
+    CapabilityStatus,
+    InfrastructurePlacement,
+    InfrastructureResult,
+    require_capabilities,
+    validate_binding,
+)
+from selectel_adapter import SelectelAdapter, audit_cleanup, binding, check_network, discover_capabilities, preflight
+
+
+class NodeDocument(TypedDict, total=False):
+    roles: list[str]
+    id: str
+    private_ip: str
+    public_ip: str
+    volume_id: str
+    port_id: str
+
+
+class ResultDocument(TypedDict):
+    provider: str
+    scope: dict[str, str]
+    namespace: str
+    placement: dict[str, str]
+    subnet_cidr: str
+    nodes: dict[str, NodeDocument]
+
+
+def mapping(value: object) -> dict[str, object]:
+    if not isinstance(value, dict) or any(type(key) is not str for key in value):
+        raise AssertionError(value)
+    return cast(dict[str, object], value)
+
+
+def sequence(value: object) -> list[object]:
+    if not isinstance(value, list):
+        raise AssertionError(value)
+    return cast(list[object], value)
+
+
+def placement_from(value: object) -> InfrastructurePlacement:
+    raw = mapping(value)
+    region, zone = raw.get("region"), raw.get("zone")
+    if not isinstance(region, str) or not isinstance(zone, str):
+        raise AssertionError(value)
+    placement: InfrastructurePlacement = {"region": region, "zone": zone}
+    for key in ("network_zone", "router_zone"):
+        if key not in raw:
+            continue
+        item = raw[key]
+        if item is not None and not isinstance(item, str):
+            raise AssertionError(value)
+        if key == "network_zone":
+            placement["network_zone"] = item if isinstance(item, str) else None
+        else:
+            placement["router_zone"] = item if isinstance(item, str) else None
+    return placement
 
 
 class PortabilityTests(unittest.TestCase):
-    def cloud(self, network=None, compute=None):
+    def documents(self, network: list[str] | None, compute: list[str] | None, path: str) -> dict[str, object]:
+        if path == "/extensions":
+            return {"extensions": [{"alias": alias} for alias in (compute or [])]}
+        if path == "/v2.0/extensions":
+            return {"extensions": [{"alias": alias} for alias in (network or [])]}
+        if path == "/os-server-groups":
+            return {"server_groups": []}
+        if path == "/v2.0/security-groups":
+            return {"security_groups": []}
+        raise AssertionError(path)
+
+    def cloud(self, network: list[str] | None = None, compute: list[str] | None = None) -> Mock:
         cloud = Mock()
 
-        def get(service, path, payload=None):
-            if path == "/extensions":
-                return {"extensions": [{"alias": a} for a in (compute or [])]}
-            if path == "/v2.0/extensions":
-                return {"extensions": [{"alias": a} for a in (network or [])]}
-            if path == "/os-server-groups":
-                return {"server_groups": []}
-            if path == "/v2.0/security-groups":
-                return {"security_groups": []}
-            raise AssertionError(path)
+        def get(service: str, path: str, payload: object = None) -> dict[str, object]:
+            return self.documents(network, compute, path)
 
         cloud.get.side_effect = get
         return cloud
@@ -62,27 +122,31 @@ class PortabilityTests(unittest.TestCase):
         provider.staged_backend.assert_called_once_with(api, cleanup=True)
 
     def test_404_discovery_is_unknown_but_declared_operation_error_propagates(self) -> None:
-        error = urllib.error.HTTPError("https://example.invalid", 404, "Not found", {}, None)
+        error = urllib.error.HTTPError("https://example.invalid", 404, "Not found", http.client.HTTPMessage(), None)
         cloud = self.cloud()
         cloud.get.side_effect = error
         found = discover_capabilities(cloud)
         self.assertEqual(found["network_isolation"].status, CapabilityStatus.UNKNOWN)
         with self.assertRaises(ValueError):
             require_capabilities(found, ["network_isolation"])
-        cloud = self.cloud(["security-group", "port-security"], ["os-server-groups"])
-        original = cloud.get.side_effect
+        network_aliases = ["security-group", "port-security"]
+        compute_aliases = ["os-server-groups"]
+        cloud = self.cloud(network_aliases, compute_aliases)
 
-        def get(service, path, payload=None):
+        def get(service: str, path: str, payload: object = None) -> dict[str, object]:
             if path == "/os-server-groups":
                 raise error
-            return original(service, path, payload)
+            return self.documents(network_aliases, compute_aliases, path)
 
         cloud.get.side_effect = get
         with self.assertRaises(urllib.error.HTTPError):
             discover_capabilities(cloud)
 
     def test_permission_and_network_failures_are_not_success(self) -> None:
-        for error in [urllib.error.HTTPError("https://example.invalid", 403, "Forbidden", {}, None), TimeoutError()]:
+        for error in [
+            urllib.error.HTTPError("https://example.invalid", 403, "Forbidden", http.client.HTTPMessage(), None),
+            TimeoutError(),
+        ]:
             cloud = self.cloud()
             cloud.get.side_effect = error
             with self.assertRaises(type(error)):
@@ -112,17 +176,20 @@ class PortabilityTests(unittest.TestCase):
     def test_power_checks_name_and_scope_before_mutation(self) -> None:
         cloud = SelectelAdapter.__new__(SelectelAdapter)
         cloud.config = {"project_id": "own"}
-        cloud.get = Mock(return_value={"server": {"name": "otus-dz05-db1", "tenant_id": "own"}})
-        with self.assertRaises(ValueError):
-            cloud.set_power("db1", "vm", running=False, prefix="otus-dz07")
-        self.assertEqual(cloud.get.call_count, 1)
-        cloud.get.reset_mock()
-        cloud.get.return_value = {"server": {"name": "otus-dz07-db1", "tenant_id": "foreign"}}
-        with self.assertRaises(ValueError):
-            cloud.set_power("db1", "vm", running=False, prefix="otus-dz07")
-        self.assertEqual(cloud.get.call_count, 1)
+        with patch.object(
+            cloud, "get", Mock(return_value={"server": {"name": "otus-dz05-db1", "tenant_id": "own"}})
+        ) as get:
+            with self.assertRaises(ValueError):
+                cloud.set_power("db1", "vm", running=False, prefix="otus-dz07")
+            self.assertEqual(get.call_count, 1)
+        with patch.object(
+            cloud, "get", Mock(return_value={"server": {"name": "otus-dz07-db1", "tenant_id": "foreign"}})
+        ) as get:
+            with self.assertRaises(ValueError):
+                cloud.set_power("db1", "vm", running=False, prefix="otus-dz07")
+            self.assertEqual(get.call_count, 1)
 
-    def result(self):
+    def result(self) -> ResultDocument:
         return {
             "provider": "selectel",
             "scope": {"project_id": "synthetic"},
@@ -153,19 +220,37 @@ class PortabilityTests(unittest.TestCase):
         self.assertEqual(result.application()["node_roles"]["db1"], "es")
         for field, value in [("id", "app-id"), ("private_ip", "10.77.0.10"), ("roles", [])]:
             bad = copy.deepcopy(self.result())
-            bad["nodes"]["db1"][field] = value
+            node = bad["nodes"]["db1"]
+            if field == "id" and isinstance(value, str):
+                node["id"] = value
+            elif field == "private_ip" and isinstance(value, str):
+                node["private_ip"] = value
+            elif field == "roles" and isinstance(value, list):
+                roles = [item for item in value if isinstance(item, str)]
+                if len(roles) != len(value):
+                    raise AssertionError(value)
+                node["roles"] = roles
+            else:
+                raise AssertionError((field, value))
             with self.assertRaises(ValueError):
                 InfrastructureResult.from_dict(bad)
 
     def test_provider_scope_namespace_and_placement_cannot_switch(self) -> None:
-        own = {k: self.result()[k] for k in ("provider", "scope", "namespace", "placement")}
+        saved = self.result()
+        own: dict[str, object] = {
+            "provider": saved["provider"],
+            "scope": saved["scope"],
+            "namespace": saved["namespace"],
+            "placement": saved["placement"],
+        }
         validate_binding(own, own)
-        for field, value in [
+        updates: tuple[tuple[str, object], ...] = (
             ("provider", "yc"),
             ("scope", {"project_id": "foreign"}),
             ("namespace", "otus-dz05"),
             ("placement", {"region": "ru-9", "zone": "ru-9a"}),
-        ]:
+        )
+        for field, value in updates:
             other = {**own, field: value}
             with self.assertRaises(ValueError):
                 validate_binding(own, other)
@@ -173,7 +258,9 @@ class PortabilityTests(unittest.TestCase):
     def test_network_postcheck_detects_weakened_filtering_and_wrong_zone(self) -> None:
         result = InfrastructureResult.from_dict(self.result())
 
-        def rule(protocol, low, high, cidr, group):
+        def rule(
+            protocol: str | None, low: int | None, high: int | None, cidr: str | None, group: str | None
+        ) -> dict[str, object]:
             return {
                 "direction": "ingress",
                 "ethertype": "IPv4",
@@ -184,7 +271,7 @@ class PortabilityTests(unittest.TestCase):
                 "remote_group_id": group,
             }
 
-        data = {
+        data: dict[str, object] = {
             "/v2.0/security-groups": {
                 "security_groups": [
                     {
@@ -228,24 +315,28 @@ class PortabilityTests(unittest.TestCase):
         cloud = Mock()
         cloud.get.side_effect = lambda service, path: data[path]
         self.assertTrue(check_network(cloud, result, ["192.0.2.2/32"])["success"])
-        data["/v2.0/ports/p2"]["port"]["port_security_enabled"] = False
+        port = mapping(mapping(data["/v2.0/ports/p2"])["port"])
+        port["port_security_enabled"] = False
         with self.assertRaises(RuntimeError):
             check_network(cloud, result, ["192.0.2.2/32"])
-        data["/v2.0/ports/p2"]["port"]["port_security_enabled"] = True
-        data["/v2.0/routers"]["routers"][0]["availability_zones"] = ["ru-7b"]
+        port["port_security_enabled"] = True
+        router = mapping(sequence(mapping(data["/v2.0/routers"])["routers"])[0])
+        router["availability_zones"] = ["ru-7b"]
         with self.assertRaises(RuntimeError):
             check_network(cloud, result, ["192.0.2.2/32"])
         from dataclasses import replace
 
-        from selectel_adapter import binding
-
         result = replace(
-            result, placement=binding({"project_id": "synthetic", "region": "ru-3"}, "otus-dz07", "ru-3b")["placement"]
+            result,
+            placement=placement_from(
+                binding({"project_id": "synthetic", "region": "ru-3"}, "otus-dz07", "ru-3b")["placement"]
+            ),
         )
-        for resource in (data["/v2.0/routers"]["routers"][0], data["/v2.0/networks/net"]["network"]):
+        network = mapping(mapping(data["/v2.0/networks/net"])["network"])
+        for resource in (router, network):
             resource.update(availability_zone_hints=["ru-3a"], availability_zones=["ru-3a"])
         self.assertTrue(check_network(cloud, result, ["192.0.2.2/32"])["success"])
-        data["/v2.0/routers"]["routers"][0]["availability_zones"] = ["ru-3b"]
+        router["availability_zones"] = ["ru-3b"]
         with self.assertRaises(RuntimeError):
             check_network(cloud, result, ["192.0.2.2/32"])
 
@@ -275,7 +366,7 @@ class PortabilityTests(unittest.TestCase):
             (root / ".local").mkdir()
             (root / "terraform-selectel").mkdir()
             result = self.result()
-            state = {
+            state: dict[str, object] = {
                 "resources": [
                     {
                         "mode": "managed",
@@ -296,8 +387,12 @@ class PortabilityTests(unittest.TestCase):
                 "outputs": {"infrastructure": {"value": result}},
             }
             (root / "terraform-selectel/terraform.tfstate").write_text(json.dumps(state))
-            context = {k: result[k] for k in ("provider", "scope", "namespace", "placement")}
-            context["provider"] = "yc"
+            context: dict[str, object] = {
+                "provider": "yc",
+                "scope": result["scope"],
+                "namespace": result["namespace"],
+                "placement": result["placement"],
+            }
             (root / ".local/context.json").write_text(json.dumps(context))
             key = root / ".local/key"
             key.write_text("synthetic")
@@ -346,8 +441,13 @@ class PortabilityTests(unittest.TestCase):
                 "phase": "prepared",
                 "namespace": "otus-dz07",
             }
-            context = {k: self.result()[k] for k in ("provider", "scope", "namespace", "placement")}
-            context["provider"] = "other"
+            saved_result = self.result()
+            context: dict[str, object] = {
+                "provider": "other",
+                "scope": saved_result["scope"],
+                "namespace": saved_result["namespace"],
+                "placement": saved_result["placement"],
+            }
             (root / ".local/placement.json").write_text(json.dumps(saved))
             path = root / ".local/context.json"
             path.write_text(json.dumps(context))

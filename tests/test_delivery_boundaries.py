@@ -75,7 +75,7 @@ class DeliveryBoundaryContracts(unittest.TestCase):
         (self.root / "ansible").mkdir()
         (self.root / "ansible/requirements-control.txt").write_text("ansible-core==2.18.18 --hash=sha256:synthetic\n")
 
-        def download(*args, **kwargs) -> None:
+        def download(*args: object, **kwargs: object) -> None:
             destination = self.root / ".local/ansible-wheels"
             (destination / "synthetic.whl").write_bytes(b"verified-wheel")
 
@@ -92,20 +92,25 @@ class DeliveryBoundaryContracts(unittest.TestCase):
         (self.root / "config/selectel-auth.json").write_text('{"fields":{"project_id":{"env":"OS_PROJECT_ID"}}}')
         config = {"endpoint": "https://example.invalid", "region": "ru-7", "bucket": "synthetic", "prefix": "otus-dz07"}
         for fault in (None, "download", "delete"):
-            objects = {}
+            objects: dict[str, bytes] = {}
             storage = Mock()
             storage.put_object.side_effect = lambda *, objects=objects, **kw: objects.update({kw["Key"]: kw["Body"]})
 
-            def remove(*, fault=fault, objects=objects, **kw) -> None:
+            def remove(*, fault: str | None = fault, objects: dict[str, bytes] = objects, **kw: object) -> None:
                 if fault == "delete":
                     raise RuntimeError("delete unavailable")
-                objects.pop(kw["Key"], None)
+                key = kw.get("Key")
+                if not isinstance(key, str):
+                    raise AssertionError("Expected S3 object key")
+                objects.pop(key, None)
 
             storage.delete_object.side_effect = remove
             storage.head_object.side_effect = MissingError()
             storage.generate_presigned_url.return_value = "https://example.invalid/probe?signature=synthetic"
 
-            def fetch(item, target, *, fault=fault, objects=objects) -> None:
+            def fetch(
+                item: object, target: Path, *, fault: str | None = fault, objects: dict[str, bytes] = objects
+            ) -> None:
                 if fault == "download":
                     raise TimeoutError("download unavailable")
                 target.write_bytes(next(iter(objects.values())))

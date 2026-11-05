@@ -1,6 +1,7 @@
 """Explicit runtime operations: lifecycle."""
 
 import json
+from typing import TYPE_CHECKING
 
 import pool_selection as pools
 import stack_config
@@ -9,10 +10,13 @@ from cloud_settings import terraform_root
 from network_diagnostics import BootstrapNetworkError
 from progress_logging import get_logger
 
+if TYPE_CHECKING:
+    from runtime import Runtime
+
 LOGGER = get_logger(__name__)
 
 
-def deploy(api, *, initial_creation: bool = False) -> None:
+def deploy(api: "Runtime", *, initial_creation: bool = False) -> None:
     from stage_store import deployment_exists as exists
 
     if exists(api.ROOT):
@@ -93,7 +97,7 @@ def deploy(api, *, initial_creation: bool = False) -> None:
         raise
 
 
-def deploy_selected(api) -> None:
+def deploy_selected(api: "Runtime") -> None:
     from stage_store import require_context
 
     require_context(api.ROOT)
@@ -119,13 +123,13 @@ def deploy_selected(api) -> None:
     )
 
 
-def regression(api):
+def regression(api: "Runtime") -> None:
     from test_cycle import run
 
     return run(api)
 
 
-def destroy(api, purge_artifacts: bool = False) -> None:
+def destroy(api: "Runtime", purge_artifacts: bool = False) -> None:
     api.cleanup()
     if purge_artifacts:
         from artifact_lifecycle import purge

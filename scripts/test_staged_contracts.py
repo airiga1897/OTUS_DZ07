@@ -1,6 +1,7 @@
 """Offline multi-pool plan, local state and API-discovery contracts."""
 
 import copy
+import http.client
 import json
 import tempfile
 import unittest
@@ -10,7 +11,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from cloud_contract import InfrastructureResult
+from cloud_contract import InfrastructureNode, InfrastructurePlacement, InfrastructureResult
+from plan_diagnostics import PlanView
 from selectel_global_router import GlobalRouter
 from selectel_staged import validate_policy
 from stage_store import StageStore, check_plan
@@ -20,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class StagePlanTests(unittest.TestCase):
-    def change(self, actions, before_id="one"):
+    def change(self, actions: list[str], before_id: str = "one") -> PlanView:
         return {
             "resource_changes": [
                 {
@@ -51,20 +53,20 @@ class StagePlanTests(unittest.TestCase):
 
 
 class LocalDistributedResultTests(unittest.TestCase):
-    def fixture(self, root):
+    def fixture(self, root: Path) -> tuple[SimpleNamespace, InfrastructureResult]:
         local = root / ".local"
         local.mkdir()
         (root / "config").mkdir()
         (root / "config/services.json").write_text('{"kibana_port":5601}')
-        nodes = {}
-        stages = {}
+        nodes: dict[str, InfrastructureNode] = {}
+        stages: dict[str, dict[str, object]] = {}
         for name, offset in [("app", 10), ("es1", 31), ("es2", 32), ("es3", 33)]:
             pool, zone, cidr, prefix = (
                 ("ru-9", "ru-9a", "10.77.0.0/24", "10.77.0.")
                 if name == "app"
                 else ("ru-3", "ru-3b", "10.78.0.0/24", "10.78.0.")
             )
-            node = {
+            node: InfrastructureNode = {
                 "id": name + "-vm",
                 "volume_id": name + "-disk",
                 "port_id": name + "-port",
@@ -85,6 +87,9 @@ class LocalDistributedResultTests(unittest.TestCase):
                 ("blockstorage_volume_v3", "volume_id"),
                 ("networking_port_v2", "port_id"),
             ]:
+                identifier = (
+                    node["id"] if field == "id" else node["volume_id"] if field == "volume_id" else node["port_id"]
+                )
                 entries.append(
                     {
                         "mode": "managed",
@@ -92,12 +97,12 @@ class LocalDistributedResultTests(unittest.TestCase):
                         "type": "openstack_" + kind,
                         "name": "one",
                         "instances": [
-                            {"attributes": {"id": node[field], "region": pool, "tenant_id": "synthetic-project"}}
+                            {"attributes": {"id": identifier, "region": pool, "tenant_id": "synthetic-project"}}
                         ],
                     }
                 )
             (directory / "terraform.tfstate").write_text(json.dumps({"lineage": name, "resources": entries}))
-        placement = {
+        placement: InfrastructurePlacement = {
             "region": "ru-9",
             "zone": "ru-9a",
             "pool_subnets": {"ru-9": "10.77.0.0/24", "ru-3": "10.78.0.0/24"},
@@ -172,7 +177,7 @@ class LocalDistributedResultTests(unittest.TestCase):
 
 
 class GlobalRouterReadTests(unittest.TestCase):
-    def client(self):
+    def client(self) -> GlobalRouter:
         client = GlobalRouter.__new__(GlobalRouter)
         client.credentials = {"domain_name": "synthetic-account"}
         client.token = "synthetic"
@@ -193,7 +198,7 @@ class GlobalRouterReadTests(unittest.TestCase):
         client = self.client()
         with patch.object(client, "get", return_value={"unknown": []}), self.assertRaises(ValueError):
             client.listing("routers")
-        error = urllib.error.HTTPError("https://example.invalid", 403, "Forbidden", {}, None)
+        error = urllib.error.HTTPError("https://example.invalid", 403, "Forbidden", http.client.HTTPMessage(), None)
         with patch.object(client, "get", side_effect=error), self.assertRaises(urllib.error.HTTPError):
             client.listing("routers")
 

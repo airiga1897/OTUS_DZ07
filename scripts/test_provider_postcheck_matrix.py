@@ -7,12 +7,12 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import selectel_adapter as adapter
-from cloud_contract import InfrastructureResult
+from cloud_contract import InfrastructureNode, InfrastructureResult, StandDescription
 
 
 class ProviderPostcheckMatrix(unittest.TestCase):
-    def network_fixture(self):
-        nodes = {
+    def network_fixture(self) -> tuple[InfrastructureResult, dict[str, dict[str, object]]]:
+        nodes: dict[str, InfrastructureNode] = {
             "app": {
                 "roles": ["app"],
                 "id": "app",
@@ -32,7 +32,9 @@ class ProviderPostcheckMatrix(unittest.TestCase):
             "10.77.0.0/24",
         )
 
-        def rule(protocol, port, cidr=None, group=None):
+        def rule(
+            protocol: str | None, port: int | None, cidr: str | None = None, group: str | None = None
+        ) -> dict[str, object]:
             return {
                 "direction": "ingress",
                 "ethertype": "IPv4",
@@ -43,7 +45,7 @@ class ProviderPostcheckMatrix(unittest.TestCase):
                 "remote_group_id": group,
             }
 
-        data = {
+        data: dict[str, dict[str, object]] = {
             "/v2.0/security-groups": {
                 "security_groups": [
                     {
@@ -89,9 +91,13 @@ class ProviderPostcheckMatrix(unittest.TestCase):
 
     def test_network_checks_each_isolation_and_identity_constraint(self) -> None:
         result, original = self.network_fixture()
-        cloud = Mock()
-        cloud.get.side_effect = lambda service, path: data[path]
         data = copy.deepcopy(original)
+        cloud = Mock()
+
+        def response(service: str, path: str) -> dict[str, object]:
+            return data[path]
+
+        cloud.get.side_effect = response
         self.assertTrue(adapter.check_network(cloud, result, ["8.8.8.8/32"])["success"])
         for mutation in (
             "no-sg",
@@ -108,8 +114,14 @@ class ProviderPostcheckMatrix(unittest.TestCase):
             "public-es",
         ):
             data = copy.deepcopy(original)
-            groups = data["/v2.0/security-groups"]["security_groups"]
-            port = data["/v2.0/ports/ep"]["port"]
+            groups_value = data["/v2.0/security-groups"]["security_groups"]
+            if not isinstance(groups_value, list):
+                raise AssertionError("expected security groups")
+            groups = groups_value
+            port_value = data["/v2.0/ports/ep"]["port"]
+            if not isinstance(port_value, dict):
+                raise AssertionError("expected port")
+            port = port_value
             if mutation == "no-sg":
                 groups.clear()
             elif mutation == "duplicate-sg":
@@ -125,11 +137,20 @@ class ProviderPostcheckMatrix(unittest.TestCase):
             elif mutation == "network":
                 port["network_id"] = "different"
             elif mutation == "shared":
-                data["/v2.0/networks/net"]["network"]["shared"] = True
+                network = data["/v2.0/networks/net"]["network"]
+                if not isinstance(network, dict):
+                    raise AssertionError("expected network")
+                network["shared"] = True
             elif mutation == "external":
-                data["/v2.0/networks/net"]["network"]["router:external"] = True
+                network = data["/v2.0/networks/net"]["network"]
+                if not isinstance(network, dict):
+                    raise AssertionError("expected network")
+                network["router:external"] = True
             elif mutation == "unfiltered":
-                data["/v2.0/networks/net"]["network"]["port_security_enabled"] = False
+                network = data["/v2.0/networks/net"]["network"]
+                if not isinstance(network, dict):
+                    raise AssertionError("expected network")
+                network["port_security_enabled"] = False
             elif mutation == "no-router":
                 data["/v2.0/routers"]["routers"] = []
             elif mutation == "public-es":
@@ -139,7 +160,7 @@ class ProviderPostcheckMatrix(unittest.TestCase):
 
     def test_elastic_placement_guards_reject_weak_groups_and_same_hosts(self) -> None:
         names = ("app", "es1", "es2", "es3")
-        value = {
+        value: StandDescription = {
             "server_ids": {name: name + "-id" for name in names},
             "private_ips": {name: "10.77.0." + str(10 + i) for i, name in enumerate(names)},
             "node_roles": {name: ("es" if name.startswith("es") else "app") for name in names},
@@ -165,7 +186,7 @@ class ProviderPostcheckMatrix(unittest.TestCase):
         data = copy.deepcopy(original)
         current_groups = copy.deepcopy(groups)
 
-        def get(service, path):
+        def get(service: str, path: str) -> dict[str, object]:
             if path == "/os-server-groups":
                 return {"server_groups": current_groups}
             return {"server": data[path.rsplit("/", 1)[1].removesuffix("-id")]}

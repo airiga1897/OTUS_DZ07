@@ -7,6 +7,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from contextlib import AbstractContextManager
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
@@ -16,12 +17,34 @@ import paramiko
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import configuration
 import stack_config
-from cloud_contract import InfrastructureResult
+from cloud_contract import InfrastructureNode, InfrastructurePlacement, InfrastructureResult, StandDescription
+from inventory_types import Inventory
+from runtime_ports import OperationPort
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def node(name: str, host: int) -> InfrastructureNode:
+    record: InfrastructureNode = {
+        "id": name + "-id",
+        "volume_id": name + "-disk",
+        "port_id": name + "-port",
+        "roles": ["app" if name == "app" else "es"],
+        "private_ip": "10.77.0." + str(host),
+        "public_ip": "192.0.2.10" if name == "app" else None,
+        "region": "ru-9",
+        "zone": "ru-9a",
+    }
+    return record
+
+
 class ConfigurationPipelineContracts(unittest.TestCase):
+    files: dict[tuple[str, str], str]
+    commands: list[str]
+    ansible_failed: bool
+    bad_manifest: bool
+    clients: dict[str, MagicMock]
+
     def setUp(self) -> None:
         folder = tempfile.TemporaryDirectory(dir=ROOT / ".tools")
         self.addCleanup(folder.cleanup)
@@ -49,24 +72,13 @@ class ConfigurationPipelineContracts(unittest.TestCase):
         (self.local / "otus_dz07").write_text("synthetic-private-key")
         (self.local / "known_hosts").write_text("synthetic-known-hosts")
         (self.local / "staged-deployment.json").write_text("{}")
-        nodes = {
-            n: {
-                "id": n + "-id",
-                "volume_id": n + "-disk",
-                "port_id": n + "-port",
-                "roles": ["app" if n == "app" else "es"],
-                "private_ip": "10.77.0." + str(i),
-                "public_ip": "192.0.2.10" if n == "app" else None,
-                "region": "ru-9",
-                "zone": "ru-9a",
-            }
-            for n, i in [("app", 10), ("es1", 31), ("es2", 32), ("es3", 33)]
-        }
+        nodes = {name: node(name, host) for name, host in (("app", 10), ("es1", 31), ("es2", 32), ("es3", 33))}
+        placement: InfrastructurePlacement = {"region": "ru-9", "zone": "ru-9a"}
         self.result = InfrastructureResult(
             "selectel",
             {"project_id": "synthetic-project"},
             "otus-dz07",
-            {"region": "ru-9", "zone": "ru-9a"},
+            placement,
             nodes,
             "10.77.0.0/24",
         )
@@ -75,21 +87,24 @@ class ConfigurationPipelineContracts(unittest.TestCase):
             client.node_name = name
         self.files = {}
         self.commands = []
-        self.fail = False
+        self.ansible_failed = False
         self.bad_manifest = False
 
-        def remote(client, command, label="remote", stdin=None):
+        def remote(client: object, command: str, label: str = "remote", stdin: str | bytes | None = None) -> str:
             self.commands.append(label)
-            if label == "ansible-configure" and self.fail:
+            if label == "ansible-configure" and self.ansible_failed:
                 raise RuntimeError("synthetic Ansible failure")
             if label == "verified-package-manifest":
                 return "{}" if self.bad_manifest else (ROOT / "config/elastic-artifacts.json").read_text()
             return ""
 
-        def put(client, path, value, mode=None) -> None:
-            self.files[(client.node_name, path)] = value
+        def put(client: MagicMock, path: str, value: str, mode: int | None = None) -> None:
+            node_name = client.node_name
+            if not isinstance(node_name, str):
+                raise AssertionError(node_name)
+            self.files[(node_name, path)] = value
 
-        def save(path, value) -> None:
+        def save(path: Path, value: object) -> None:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(value))
 
@@ -105,21 +120,28 @@ class ConfigurationPipelineContracts(unittest.TestCase):
             discover_route=Mock(),
             cloud=Mock(),
             save=save,
-            connect=lambda value, name="app", front=None: contextlib.nullcontext(self.clients[name]),
+            connect=self.open_connection,
             remote=remote,
             put=put,
             upload_tree=Mock(),
         )
 
-    def run_pipeline(self, existing=False) -> None:
-        def operation(api, app, inventory) -> None:
+    def open_connection(
+        self, value: StandDescription, name: str = "app", front: paramiko.SSHClient | None = None
+    ) -> AbstractContextManager[MagicMock]:
+        return contextlib.nullcontext(self.clients[name])
+
+    def run_pipeline(self, existing: bool = False) -> None:
+        def operation(api: OperationPort, app: paramiko.SSHClient | None, inventory: Inventory) -> None:
             import observability
 
             self.commands.append("ansible-systemd")
             # The durable backend's terminal cleanup is tested with the real
             # protocol elsewhere; this suite isolates per-node staging.
+            if app is None:
+                raise AssertionError(app)
             observability.package_cache(api, app, api.lab_output(), start=False, remote=api.remote)
-            if self.fail:
+            if self.ansible_failed:
                 raise RuntimeError("synthetic Ansible failure")
 
         with (
@@ -134,19 +156,19 @@ class ConfigurationPipelineContracts(unittest.TestCase):
         for existing in (False, True):
             self.run_pipeline(existing)
         base = self.api.STACK["paths"]["remote_root"]
-        for node in self.clients:
-            settings = json.loads(self.files[(node, base + "/elk-settings.json")])
+        for node_name in self.clients:
+            settings = json.loads(self.files[(node_name, base + "/elk-settings.json")])
             self.assertIn("shipper", settings["secrets"])
-            if node.startswith("es"):
+            if node_name.startswith("es"):
                 self.assertEqual(set(settings["secrets"]), {"elastic", "shipper"})
-                self.assertNotIn((node, base + "/settings.json"), self.files)
+                self.assertNotIn((node_name, base + "/settings.json"), self.files)
         self.assertIn(("app", base + "/settings.json"), self.files)
         self.assertEqual(self.commands.count("ansible-systemd"), 2)
         self.assertEqual(self.commands.count("package-cache-stop"), 2)
         self.assertEqual(self.clients["app"].open_sftp.return_value.__enter__.return_value.remove.call_count, 0)
 
     def test_configuration_failure_stops_cache_and_removes_remote_inventory(self) -> None:
-        self.fail = True
+        self.ansible_failed = True
         with self.assertRaises(RuntimeError):
             self.run_pipeline()
         self.assertEqual(self.commands[-1], "package-cache-stop")
@@ -183,13 +205,18 @@ class ConfigurationPipelineContracts(unittest.TestCase):
             adapter.return_value.check_network.assert_called_once()
 
     def test_initial_route_failure_uses_explicit_signed_route_discovery(self) -> None:
-        contexts = [TimeoutError(), contextlib.nullcontext(self.clients["app"])]
-        original = self.api.connect
+        contexts: list[BaseException | AbstractContextManager[MagicMock]] = [
+            TimeoutError(),
+            contextlib.nullcontext(self.clients["app"]),
+        ]
+        original = self.open_connection
 
-        def connect(value, name="app", front=None):
+        def connect(
+            value: StandDescription, name: str = "app", front: paramiko.SSHClient | None = None
+        ) -> AbstractContextManager[object]:
             if name == "app" and contexts:
                 result = contexts.pop(0)
-                if isinstance(result, Exception):
+                if isinstance(result, BaseException):
                     raise result
                 return result
             return original(value, name, front)

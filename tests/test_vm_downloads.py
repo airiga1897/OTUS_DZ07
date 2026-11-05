@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -14,7 +15,9 @@ import cache_packages
 ROOT = Path(__file__).resolve().parents[1]
 
 spec = importlib.util.spec_from_file_location("vm_downloads", ROOT / "scripts/remote/download_packages.py")
-downloads = importlib.util.module_from_spec(spec)
+if spec is None or spec.loader is None:
+    raise RuntimeError("Cannot load vm_downloads test target")
+downloads: ModuleType = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(downloads)
 
 
@@ -22,9 +25,9 @@ class VMDownloadsTest(unittest.TestCase):
     def test_vm_verifies_every_download_and_reuses_matching_files(self) -> None:
         with tempfile.TemporaryDirectory(dir=ROOT / ".tools") as directory:
             root = Path(directory)
-            calls = []
+            calls: list[str] = []
 
-            def open_url(url, **kwargs):
+            def open_url(url: str, **kwargs: object) -> io.BytesIO:
                 calls.append(url)
                 data = b"synthetic-public-package"
                 return io.BytesIO(hashlib.sha512(data).hexdigest().encode() if url.endswith(".sha512") else data)

@@ -1,5 +1,6 @@
 """Explicit audit scope is separate from deployment scope and saved resources."""
 
+import http.client
 import json
 import unittest
 import urllib.error
@@ -38,7 +39,9 @@ class AuditExclusions(unittest.TestCase):
         h.cloud.resource_regions.return_value = ["ru-4"]
         self.assertEqual(staged.audit_empty_scope(h.api)["service_exclusions"], {})
         h.regional.get.assert_any_call("volumev3", "/volumes/detail?limit=200")
-        h.regional.get.side_effect = urllib.error.HTTPError("https://synthetic.invalid", 403, "denied", {}, None)
+        h.regional.get.side_effect = urllib.error.HTTPError(
+            "https://synthetic.invalid", 403, "denied", http.client.HTTPMessage(), None
+        )
         with self.assertRaises(urllib.error.HTTPError):
             staged.audit_empty_scope(h.api)
 
@@ -88,7 +91,7 @@ class AuditExclusions(unittest.TestCase):
             staged.audit_empty_scope(h.api, expanded=True)
 
     def test_invalid_policy_never_silently_expands_exclusions(self) -> None:
-        for value in (
+        values: tuple[object, ...] = (
             [],
             {"network": ["ru-4"]},
             {"volumev3": None},
@@ -96,7 +99,8 @@ class AuditExclusions(unittest.TestCase):
             {"volumev3": [None]},
             {"volumev3": [""]},
             {"volumev3": [1]},
-        ):
+        )
+        for value in values:
             with self.subTest(value=value):
                 self.path.write_text(json.dumps({"audit": {"service_exclusions": value}}))
                 with self.assertRaises(ValueError):

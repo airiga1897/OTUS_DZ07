@@ -3,16 +3,18 @@
 import json
 import tempfile
 import unittest
+from http.client import HTTPMessage
 from pathlib import Path
 from unittest.mock import Mock
 
 import pool_selection as pools
+from placement_config import PlacementPolicy
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class PlacementMappingTests(unittest.TestCase):
-    def policy(self):
+    def policy(self) -> PlacementPolicy:
         return {
             "network_placement": {
                 "ru-3b": {
@@ -84,7 +86,10 @@ class PlacementMappingTests(unittest.TestCase):
             path.write_text(json.dumps(variables))
             config = {"project_id": "synthetic", "region": "ru-3"}
             expected = binding(config, "otus-dz07", "ru-3b")
-            self.assertEqual(expected["placement"]["network_zone"], "ru-3a")
+            placement = expected["placement"]
+            if not isinstance(placement, dict):
+                raise AssertionError("expected placement binding")
+            self.assertEqual(placement["network_zone"], "ru-3a")
             self.assertEqual(partial_state_binding(root, config, "otus-dz07"), expected)
             variables["network_availability_zone"] = "ru-3b"
             path.write_text(json.dumps(variables))
@@ -97,22 +102,18 @@ class PlacementMappingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT / ".tools") as directory:
             root = Path(directory)
             (root / "terraform-selectel").mkdir()
-            state = {
+            attributes: dict[str, object] = {
+                "id": "synthetic-id",
+                "name": "otus-dz07-es1",
+                "tenant_id": "",
+                "region": None,
+            }
+            state: dict[str, object] = {
                 "resources": [
                     {
                         "mode": "managed",
                         "type": "openstack_compute_instance_v2",
-                        "instances": [
-                            {
-                                "index_key": "es1",
-                                "attributes": {
-                                    "id": "synthetic-id",
-                                    "name": "otus-dz07-es1",
-                                    "tenant_id": "",
-                                    "region": None,
-                                },
-                            }
-                        ],
+                        "instances": [{"index_key": "es1", "attributes": attributes}],
                     }
                 ]
             }
@@ -148,12 +149,14 @@ class PlacementMappingTests(unittest.TestCase):
             cloud.get.assert_called_once_with("compute", "/servers/synthetic-id")
             import urllib.error
 
-            cloud.get.side_effect = urllib.error.HTTPError("https://synthetic.invalid", 403, "Forbidden", {}, None)
+            cloud.get.side_effect = urllib.error.HTTPError(
+                "https://synthetic.invalid", 403, "Forbidden", HTTPMessage(), None
+            )
             unavailable = json.loads(placement_diagnostics.capture(api, RuntimeError("failed")).read_text())
             self.assertEqual(unavailable["nodes"]["es1"]["http_status"], 403)
             self.assertNotIn("fault", unavailable["nodes"]["es1"])
             cloud.get.reset_mock(side_effect=True)
-            state["resources"][0]["instances"][0]["attributes"]["tenant_id"] = "foreign-project"
+            attributes["tenant_id"] = "foreign-project"
             (root / "terraform-selectel/terraform.tfstate").write_text(json.dumps(state))
             refused = json.loads(placement_diagnostics.capture(api, RuntimeError("failed")).read_text())
             self.assertIn("ownership mismatch", refused["nodes"]["es1"]["diagnostic_error"])

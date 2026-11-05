@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from local_runtime import checked_tree
 from progress_logging import get_logger, phase
+from selectel_api import json_rows
 from selectel_reports import PoolAudit
 
 if TYPE_CHECKING:
@@ -95,11 +96,20 @@ def audit_pool(
             except urllib.error.HTTPError as error:
                 if error.code != 404:
                     raise
-                aliases = {e["alias"] for e in regional.get("network", "/v2.0/extensions")["extensions"]}
+                aliases = {
+                    e["alias"]
+                    for e in json_rows(
+                        regional.get("network", "/v2.0/extensions")["extensions"],
+                        "Unknown network extension payload",
+                    )
+                }
                 if "router" in aliases:
                     raise
                 floating = []
-            if any(f.get("description", "").startswith(api.PREFIX + "-") for f in floating):
+            if any(
+                isinstance(description := f.get("description"), str) and description.startswith(api.PREFIX + "-")
+                for f in floating
+            ):
                 raise RuntimeError("Untracked deployment floating IP remains in " + pool)
         missing = {"compute", "volumev3", "network"} - set(regional.endpoints)
         excluded = missing & set(excluded_services)

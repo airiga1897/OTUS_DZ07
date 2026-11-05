@@ -20,7 +20,7 @@ class RemoteIntegrityFailures(unittest.TestCase):
             )
             for extra in (True, False):
 
-                def api(path, *args, extra=extra):
+                def api(path: str, *args: object, extra: bool = extra) -> object:
                     if path == "/_nodes":
                         return {
                             "nodes": {"node-id": {"name": "es1"}, **({"unexpected": {"name": "es2"}} if extra else {})}
@@ -43,7 +43,7 @@ class RemoteIntegrityFailures(unittest.TestCase):
     def test_optional_failure_probe_rejects_lost_before_or_after_document(self) -> None:
         for before_found in (False, True):
 
-            def api(path, *args, before_found=before_found):
+            def api(path: str, *args: object, before_found: bool = before_found) -> object:
                 if path.endswith("/before"):
                     return {"found": before_found, "_source": {"message": "OTUS_DZ07 committed before master shutdown"}}
                 return {"found": False}

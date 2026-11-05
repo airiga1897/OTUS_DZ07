@@ -22,12 +22,13 @@ from cloud_contract import (
 )
 from credentials import credential_values, load_credentials, to_environment
 from local_runtime import checked_tree
-from placement_config import checked
+from placement_config import PlacementPolicy, checked
 from plan_diagnostics import PlannedResource
 from progress_logging import get_logger
 from run_settings import placement as placement_settings
 from run_settings import snapshot as settings_snapshot
 from selectel_adapter import SelectelAdapter, discover_capabilities, reject_cloud_resources
+from selectel_api import json_text
 from selectel_global_router import GlobalRouter
 from selectel_reports import DeletionAudit, EmptyNamespaceAudit, NetworkVerification, PoolAudit
 from stage_journal import StageJournal, StageOutput
@@ -111,14 +112,16 @@ def reject_shared_namespace(api: "FilePort", credentials: Mapping[str, str] | No
     from credentials import load_credentials
     from selectel_global_router import GlobalRouter
 
+    def owned(item: Mapping[str, object]) -> bool:
+        name = item.get("name")
+        if isinstance(name, str) and (name == api.PREFIX or name.startswith(api.PREFIX + "-")):
+            return True
+        tags = item.get("tags")
+        return isinstance(tags, list) and any(isinstance(tag, str) and tag.startswith(api.PREFIX + "-") for tag in tags)
+
     client = GlobalRouter(credentials or load_credentials())
     for kind in ("routers", "networks", "subnets"):
-        if any(
-            item.get("name") == api.PREFIX
-            or item.get("name", "").startswith(api.PREFIX + "-")
-            or any(tag.startswith(api.PREFIX + "-") for tag in item.get("tags", []))
-            for item in client.listing(kind)
-        ):
+        if any(owned(item) for item in client.listing(kind)):
             raise RuntimeError("Global Router namespace already exists; recover its context before continuing")
 
 
@@ -193,6 +196,7 @@ def recovery_search(api: "FilePort", original: BaseException) -> None:
 class Backend:
     def __init__(self, api: "StagedControllerPort", cleanup: bool = False) -> None:
         self.api, self.root = api, Path(api.ROOT).resolve()
+        self._auto_discovery = False
         self.path = self.root / ".local" / JOURNAL
         checked_tree(self.path, self.root)
         self.credentials = load_credentials()
@@ -252,7 +256,7 @@ class Backend:
             cli_config=cli_path(self.root),
             drift_validator=self.allow_refresh,
         )
-        self.choices: dict[str, list[dict[str, object]]] = {}
+        self.choices: dict[str, list[PlacementPolicy]] = {}
         self._temporary_networks: set[str] = set()
 
     def prepare_tools(self) -> None:
@@ -394,15 +398,15 @@ class Backend:
 
         return resolve_pools(self)
 
-    def check_node_quota(self, candidate: Mapping[str, object], role: str) -> None:
+    def check_node_quota(self, candidate: PlacementPolicy, role: str) -> None:
         from selectel_placement import check_node_quota
 
         return check_node_quota(self, candidate, role)
 
-    def check_complete_capacity(self) -> None:
+    def check_complete_capacity(self) -> set[str]:
         from selectel_staged_capacity import require_capacity
 
-        require_capacity(self)
+        return require_capacity(self)
 
     def saved_id(self, name: str, kind: str, output_key: Literal["id", "network_id", "router_id"]) -> str | None:
         record = self.journal["stages"].get(name, {})
@@ -437,7 +441,7 @@ class Backend:
     def deployment_order(self) -> list[str]:
         return self.policy["sequential_placement"]["node_order"]
 
-    def candidates_for(self, name: str) -> Iterable[dict[str, object]]:
+    def candidates_for(self, name: str) -> Iterable[PlacementPolicy]:
         scan: PlacementScan | None = getattr(self, "_placement_scan", None)
         return scan.candidates(name) if scan is not None else self.choices[self.desired["nodes"][name]["role"]]
 
@@ -500,10 +504,11 @@ class Backend:
             name, lab["server_ids"][name], self.api.PREFIX, cached
         )
 
-    def console_output(self, lab, name):
-        return self.region(lab["node_regions"][name]).get(
+    def console_output(self, lab: StandDescription, name: str) -> str:
+        output = self.region(lab["node_regions"][name]).get(
             "compute", "/servers/" + lab["server_ids"][name] + "/action", {"os-getConsoleOutput": {"length": 1000}}
         )["output"]
+        return json_text(output, "Console output is unconfirmed")
 
     def verify_placement(self) -> NetworkVerification:
         from selectel_staged_audit import verify_networks

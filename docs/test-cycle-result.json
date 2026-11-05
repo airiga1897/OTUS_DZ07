@@ -1,6 +1,6 @@
 {
-  "run_id": "acc23ab9985e4505bdd67957076e0e30",
-  "started_utc": "2026-11-01T11:16:23.921788+00:00",
+  "run_id": "26552dfbf0a84e4b8980f5d879778aca",
+  "started_utc": "2026-11-05T13:44:06.975147+00:00",
   "success": true,
   "stages_completed": true,
   "state_and_api_cleanup_verified": true,
@@ -27,5 +27,5 @@
   "elasticsearch_documents_preserved": true,
   "application_and_logs_verified": true,
   "original_data_and_media_preserved": true,
-  "finished_utc": "2026-11-01T11:48:02.095453+00:00"
+  "finished_utc": "2026-11-05T14:30:48.158919+00:00"
 }

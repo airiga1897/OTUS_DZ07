@@ -1,4 +1,5 @@
 import hashlib
+import http.client
 import io
 import sys
 import tempfile
@@ -9,6 +10,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from remote import fetch_artifacts as fetch
+from remote.fetch_artifacts import DownloadItem
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -20,13 +22,13 @@ class DownloadTest(unittest.TestCase):
         self.target = Path(directory.name) / "package.deb"
         self.target.write_bytes(b"previous")
         self.body = b"verified package"
-        self.item = {
+        self.item: DownloadItem = {
             "url": "https://private.invalid/package?signature=synthetic",
             "size": len(self.body),
             "sha512": hashlib.sha512(self.body).hexdigest(),
         }
 
-    def response(self, content):
+    def response(self, content: bytes) -> MagicMock:
         response = MagicMock()
         response.__enter__.return_value = response
         response.status = 200
@@ -78,7 +80,9 @@ class DownloadTest(unittest.TestCase):
 
     def test_expired_access_is_not_retried(self) -> None:
         opener = Mock()
-        opener.open.side_effect = urllib.error.HTTPError(self.item["url"], 403, "Forbidden", {}, None)
+        opener.open.side_effect = urllib.error.HTTPError(
+            self.item["url"], 403, "Forbidden", http.client.HTTPMessage(), None
+        )
         with self.assertRaises(urllib.error.HTTPError):
             fetch.download(self.item, self.target, opener)
         self.assertEqual(opener.open.call_count, 1)

@@ -1,6 +1,6 @@
 """Composition root: construction is explicit and performs no cloud operations."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import partial
@@ -98,22 +98,27 @@ class Runtime:
     def prepare(self) -> None:
         return runtime_infrastructure.prepare(self)
 
-    def checked_plan(self, destroy=False, allowed_new_nodes=None, access_cidr=None):
+    def checked_plan(
+        self,
+        destroy: bool = False,
+        allowed_new_nodes: set[str] | None = None,
+        access_cidr: str | None = None,
+    ) -> Path:
         return runtime_infrastructure.checked_plan(self, destroy, allowed_new_nodes, access_cidr)
 
     def infrastructure_output(self) -> InfrastructureResult:
         return runtime_infrastructure.infrastructure_output(self)
 
-    def managed_ids(self):
+    def managed_ids(self) -> dict[object, str]:
         return runtime_infrastructure.managed_ids(self)
 
     def cleanup(self, clean_local: bool = True) -> None:
         return runtime_infrastructure.cleanup(self, clean_local)
 
-    def select_candidate(self, choice: dict[str, object]) -> None:
+    def select_candidate(self, choice: PlacementPolicy) -> None:
         return runtime_infrastructure.select_candidate(self, choice)
 
-    def deployment_candidates(self):
+    def deployment_candidates(self) -> Iterable[PlacementPolicy]:
         return runtime_infrastructure.deployment_candidates(self)
 
     def prepare_selected(self) -> None:
@@ -152,7 +157,7 @@ class Runtime:
     def verify(self, failover: bool = False) -> VerificationReport:
         return runtime_application.verify(self, failover)
 
-    def diagnostics(self):
+    def diagnostics(self) -> None:
         return runtime_application.diagnostics(self)
 
     def deploy(self, *, initial_creation: bool = False) -> None:
@@ -161,7 +166,7 @@ class Runtime:
     def deploy_selected(self) -> None:
         return runtime_lifecycle.deploy_selected(self)
 
-    def regression(self):
+    def regression(self) -> None:
         return runtime_lifecycle.regression(self)
 
     def destroy(self, purge_artifacts: bool = False) -> None:

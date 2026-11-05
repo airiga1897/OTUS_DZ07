@@ -9,6 +9,8 @@ import ansible_backend
 import stack_config
 import topology
 import yaml
+from cloud_contract import InfrastructureResult
+from inventory_types import Inventory
 from jinja2 import Environment, StrictUndefined
 from render import ansible_inventory
 from selectel_adapter import infrastructure_result
@@ -16,24 +18,28 @@ from selectel_adapter import infrastructure_result
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def tasks(value):
+def tasks(value: list[dict[str, object]]) -> list[dict[str, object]]:
+    result: list[dict[str, object]] = []
     for task in value:
-        yield task
-        yield from tasks(task.get("block", []))
+        result.append(task)
+        block = task.get("block", [])
+        if isinstance(block, list):
+            result.extend(tasks(block))
+    return result
 
 
 class AnsibleBackendTests(unittest.TestCase):
-    def inventory(self, extended=False):
+    def inventory(self, extended: bool = False) -> tuple[InfrastructureResult, dict[str, str], Inventory]:
         desired = topology.load(ROOT)
         if extended:
             desired["nodes"]["es4"] = {"host": 34, "role": "es"}
-        lab = {
+        raw_lab: dict[str, object] = {
             "private_ips": {n: "10.77.0." + str(v["host"]) for n, v in desired["nodes"].items()},
             "app_public_ip": "192.0.2.1",
             "subnet_cidr": "10.77.0.0/24",
             **{k: {n: k + n for n in desired["nodes"]} for k in ("server_ids", "volume_ids", "port_ids")},
         }
-        lab = infrastructure_result(lab, {"project_id": "synthetic", "region": "ru-7"}, "otus-dz07", "ru-7a")
+        lab = infrastructure_result(raw_lab, {"project_id": "synthetic", "region": "ru-7"}, "otus-dz07", "ru-7a")
         passwords = dict.fromkeys(
             ("postgres", "replicator", "api", "django", "app", "elastic", "shipper", "kibana", "kibana_encryption"),
             "synthetic",

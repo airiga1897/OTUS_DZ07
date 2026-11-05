@@ -11,13 +11,16 @@ import pool_selection as pools
 import selectel_staged_capacity as quota
 import test_staged_backend as backend_fixtures
 from cloud_contract import TerraformError
+from placement_config import PlacementPolicy, checked
+from selectel_api import CatalogService
+from terraform_state_types import StateEntry
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class CatalogFallbackEdges(unittest.TestCase):
-    def catalog(self):
-        config = {
+    def catalog(self) -> tuple[PlacementPolicy, tuple[CatalogService, ...], dict[str, object], object]:
+        config: PlacementPolicy = {
             "pools": ["ru-9"],
             "image_name": "Ubuntu",
             "image_checksums": ["a" * 32],
@@ -26,10 +29,13 @@ class CatalogFallbackEdges(unittest.TestCase):
             "flavor_name_patterns": ["SL1.{vcpus}-{ram_mb}"],
             "profiles": {"app": {"vcpus": 4, "ram_mb": 8192}},
         }
-        catalog = [
-            {"type": s, "endpoints": [{"region": "ru-9", "interface": "public", "url": "https://example.invalid/" + s}]}
+        catalog: tuple[CatalogService, ...] = tuple(
+            {
+                "type": s,
+                "endpoints": [{"region": "ru-9", "interface": "public", "url": "https://example.invalid/" + s}],
+            }
             for s in pools.SERVICES
-        ]
+        )
         zones = [{"zoneName": "ru-9a", "zoneState": {"available": True}}]
         data = {
             "image/v2/images?status=active": {
@@ -59,7 +65,7 @@ class CatalogFallbackEdges(unittest.TestCase):
             },
         }
 
-        def request(url, **kwargs):
+        def request(url: str, **kwargs: object) -> tuple[object, dict[str, str]]:
             return data[url.removeprefix("https://example.invalid/")], {}
 
         return config, catalog, data, request
@@ -70,11 +76,21 @@ class CatalogFallbackEdges(unittest.TestCase):
             if mode == "segment":
                 config["segment"] = "ru-9b"
             if mode == "volume-zone":
-                data["volumev3/os-availability-zone"]["availabilityZoneInfo"] = []
+                volume_zones = data["volumev3/os-availability-zone"]
+                assert isinstance(volume_zones, dict)
+                volume_zones["availabilityZoneInfo"] = []
             if mode == "opaque-disk":
-                data["volumev3/types"]["volume_types"][0]["extra_specs"] = {}
+                volume_types = data["volumev3/types"]
+                assert isinstance(volume_types, dict)
+                volumes = volume_types["volume_types"]
+                assert isinstance(volumes, list)
+                volumes[0]["extra_specs"] = {}
             if mode == "flavor-zone":
-                data["compute/flavors/detail"]["flavors"][0]["availability_zones"] = ["ru-3b"]
+                flavors = data["compute/flavors/detail"]
+                assert isinstance(flavors, dict)
+                flavor_rows = flavors["flavors"]
+                assert isinstance(flavor_rows, list)
+                flavor_rows[0]["availability_zones"] = ["ru-3b"]
             with (
                 self.subTest(mode=mode),
                 patch.object(pools, "authenticate", return_value=("synthetic", catalog)),
@@ -85,7 +101,7 @@ class CatalogFallbackEdges(unittest.TestCase):
 
     def test_incomplete_automatic_pool_and_invalid_flavor_patterns_are_rejected(self) -> None:
         config, catalog, data, request = self.catalog()
-        catalog = [s for s in catalog if s["type"] != "image"]
+        catalog = tuple(s for s in catalog if s["type"] != "image")
         self.assertEqual(pools.ordered_pools({"pools": ["auto"], "excluded_pools": []}, catalog), [])
         for patterns in ([], None, "SL1.*", [None]):
             bad = {
@@ -120,7 +136,7 @@ class CatalogFallbackEdges(unittest.TestCase):
                 "port": 10,
                 "security_group_rule": 6,
             }
-            resources = [{"mode": "data"}]
+            resources: list[dict[str, object]] = [{"mode": "data"}]
             kinds = [
                 "networking_network_v2",
                 "networking_subnet_v2",
@@ -195,22 +211,23 @@ class CatalogFallbackEdges(unittest.TestCase):
             b, clouds = backend_fixtures.StagedBackendTests().backend(Path(directory))
             b.journal["stages"]["es1"] = {
                 "status": "pending",
-                "candidate": backend_fixtures.StagedBackendTests().choice("ru-9", "es"),
+                "candidate": checked(backend_fixtures.StagedBackendTests().choice("ru-9", "es")),
             }
-            entries = [
+            entries: list[StateEntry] = [
                 {"type": "openstack_networking_port_v2", "attrs": {}},
                 {"type": "openstack_networking_floatingip_v2", "attrs": {}},
             ]
-            b.store.entries.return_value = entries
-            self.assertEqual(quota.pending_credits(b, "ru-9"), {"port": 1, "floatingip": 1})
-            b.store.entries.return_value = [
+            with patch.object(b.store, "entries", return_value=entries):
+                self.assertEqual(quota.pending_credits(b, "ru-9"), {"port": 1, "floatingip": 1})
+            entries = [
                 {"type": "openstack_networking_network_v2", "attrs": {}},
                 {"type": "openstack_networking_secgroup_v2", "attrs": {}},
             ]
-            self.assertEqual(quota.network_port_demand(b, "ru-9"), 0)
-            quota.require_network_capacity(b, "ru-9")
-            clouds["ru-9"].compute["server_group_members"] = None
-            with self.assertRaises(pools.CandidateUnavailable):
+            with patch.object(b.store, "entries", return_value=entries):
+                self.assertEqual(quota.network_port_demand(b, "ru-9"), 0)
                 quota.require_network_capacity(b, "ru-9")
-            b.journal["require_distinct_hosts"] = False
-            quota.require_network_capacity(b, "ru-9")
+                clouds["ru-9"].compute["server_group_members"] = {"limit": 0, "in_use": 0, "reserved": 0}
+                with self.assertRaises(pools.CandidateUnavailable):
+                    quota.require_network_capacity(b, "ru-9")
+                b.journal["require_distinct_hosts"] = False
+                quota.require_network_capacity(b, "ru-9")

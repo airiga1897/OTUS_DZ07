@@ -4,7 +4,9 @@ import json
 import os
 import subprocess
 import time
-from typing import Literal, overload
+from collections.abc import Iterable
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal, overload
 
 import pool_selection as pools
 import topology
@@ -15,6 +17,11 @@ from placement_config import PlacementPolicy
 from progress_logging import get_logger
 from runtime_ports import ApplicationPort, DesiredTopologyPort, RootPort, TerraformExecutionPort
 from selectel_adapter import SelectelAdapter
+from selectel_api import json_object, json_text, json_texts
+from terraform_state_types import checked_state
+
+if TYPE_CHECKING:
+    from runtime import Runtime
 
 LOGGER = get_logger(__name__)
 
@@ -73,13 +80,13 @@ def desired_topology(api: DesiredTopologyPort) -> topology.Topology:
     return desired(api.ROOT, topology.load(api.ROOT))
 
 
-def preflight(api) -> None:
+def preflight(api: "Runtime") -> None:
     from selectel_adapter import preflight as check
 
     return check(api)
 
 
-def prepare(api) -> None:
+def prepare(api: "Runtime") -> None:
     api.preflight()
     api.cloud()
     choice = pools.selected(api.ROOT)
@@ -132,7 +139,12 @@ def prepare(api) -> None:
     delivery.prepare(api.ROOT)
 
 
-def checked_plan(api, destroy=False, allowed_new_nodes=None, access_cidr=None):
+def checked_plan(
+    api: "Runtime",
+    destroy: bool = False,
+    allowed_new_nodes: set[str] | None = None,
+    access_cidr: str | None = None,
+) -> Path:
     before_ids = api.managed_ids()
     plan = api.LOCAL / ("destroy.tfplan" if destroy else "create.tfplan")
     api.tf("plan", "-input=false", "-no-color", *(["-destroy"] if destroy else []), "-out=" + str(plan))
@@ -182,7 +194,7 @@ def infrastructure_output(api: ApplicationPort) -> InfrastructureResult:
     return result
 
 
-def managed_ids(api):
+def managed_ids(api: "Runtime") -> dict[object, str]:
     from stage_store import require_context
 
     require_context(api.ROOT)
@@ -191,26 +203,32 @@ def managed_ids(api):
     if exists(api.ROOT):
         from staged_runtime import managed_ids as stage_ids
 
-        return stage_ids(api)
+        return dict(stage_ids(api))
     path = terraform_root(api.ROOT) / "terraform.tfstate"
     from local_runtime import checked_tree
 
     checked_tree(path, api.ROOT.resolve())
-    state = json.loads(path.read_text()) if path.exists() else {}
-    result = {}
+    state = checked_state(json.loads(path.read_text())) if path.exists() else {}
+    result: dict[object, str] = {}
     for resource in state.get("resources", []):
         if resource.get("mode") != "managed":
             continue
         for instance in resource.get("instances", []):
             attributes = instance.get("attributes", {})
             name = attributes.get("name")
-            if name and name != api.PREFIX and not name.startswith(api.PREFIX + "-"):
+            if (
+                name
+                and name != api.PREFIX
+                and not json_text(name, "Foreign resource in DZ07 state").startswith(api.PREFIX + "-")
+            ):
                 raise ValueError("Foreign resource in DZ07 state")
-            result[(resource["type"], resource["name"], str(instance.get("index_key", "")))] = attributes["id"]
+            result[(resource["type"], resource["name"], str(instance.get("index_key", "")))] = json_text(
+                attributes["id"], "Managed resource identity is unconfirmed"
+            )
     return result
 
 
-def cleanup(api, clean_local: bool = True) -> None:
+def cleanup(api: "Runtime", clean_local: bool = True) -> None:
     from stage_store import RecoveryContextMissing, require_context
 
     try:
@@ -248,16 +266,20 @@ def cleanup(api, clean_local: bool = True) -> None:
     before_destroy(api)
     pools.phase(api.ROOT, "cleanup_pending")
     state_path = terraform_root(api.ROOT) / "terraform.tfstate"
-    before = json.loads(state_path.read_text()) if state_path.exists() else {}
+    before = checked_state(json.loads(state_path.read_text())) if state_path.exists() else {}
     own_fips = SelectelAdapter.cleanup_ids(before)
     scope_path = api.LOCAL / "cleanup-fips.json"
-    ownership = json.loads((api.LOCAL / "context.json").read_text()) if (api.LOCAL / "context.json").exists() else None
+    ownership = (
+        json_object(json.loads((api.LOCAL / "context.json").read_text()), "Invalid saved context binding")
+        if (api.LOCAL / "context.json").exists()
+        else {}
+    )
     if own_fips:
         api.save(scope_path, {**ownership, "ids": sorted(own_fips)})
     elif scope_path.exists():
-        scope = json.loads(scope_path.read_text())
+        scope = json_object(json.loads(scope_path.read_text()), "Invalid floating IP cleanup scope")
         validate_binding(scope, ownership)
-        own_fips = set(scope["ids"])
+        own_fips = set(json_texts(scope["ids"], "Invalid floating IP cleanup scope"))
     if (
         own_fips
         or any(r.get("mode") == "managed" and r.get("instances") for r in before.get("resources", []))
@@ -300,19 +322,19 @@ def cleanup(api, clean_local: bool = True) -> None:
     print("DZ07 cleanup verified; other labs untouched", flush=True)
 
 
-def select_candidate(api, choice) -> None:
+def select_candidate(api: "Runtime", choice: PlacementPolicy) -> None:
     pass
     config = api.load_credentials()
     pools.select(api.ROOT, choice, config["project_id"], "context.json")
     api._AUTH_CONFIG = None
 
 
-def deployment_candidates(api):
+def deployment_candidates(api: "Runtime") -> Iterable[PlacementPolicy]:
     from run_settings import placement
 
     policy = placement(api.ROOT)
     return pools.candidates(policy, api.load_credentials())
 
 
-def prepare_selected(api) -> None:
+def prepare_selected(api: "Runtime") -> None:
     return pools.run_candidates(api.deployment_candidates(), api.select_candidate, api.prepare, lambda: None)

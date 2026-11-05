@@ -2,14 +2,28 @@
 
 import copy
 import unittest
+from collections.abc import Callable
 from unittest.mock import Mock
 
+from cloud_contract import StandDescription
 from selectel_staged import Backend
+from stage_journal import StageJournal
+
+
+class RecoveryBackend(Backend):
+    journal: StageJournal
+    store: Mock
+    configure_stage: Mock
+    finish: Mock
+    snapshots: list[StageJournal]
+
+    def save(self) -> None:
+        self.snapshots.append(copy.deepcopy(self.journal))
 
 
 class AdministrativeAccessRecoveryTests(unittest.TestCase):
-    def backend(self):
-        backend = Backend.__new__(Backend)
+    def backend(self) -> RecoveryBackend:
+        backend = RecoveryBackend.__new__(RecoveryBackend)
         backend.journal = {
             "admin_cidrs": ["8.8.8.8/32"],
             "stages": {"network-ru-3": {"inputs": {}, "output": {"security_group_id": "own-security-group"}}},
@@ -18,13 +32,12 @@ class AdministrativeAccessRecoveryTests(unittest.TestCase):
         backend.configure_stage = Mock()
         backend.finish = Mock()
         backend.snapshots = []
-        backend.save = lambda: backend.snapshots.append(copy.deepcopy(backend.journal))
         return backend
 
     def test_failed_apply_remains_pending_then_retry_applies_once_without_duplicate_rules(self) -> None:
         backend = self.backend()
         backend.store.apply.side_effect = [RuntimeError("temporary failure"), {}]
-        lab = {"node_regions": {"app": "ru-3"}}
+        lab: StandDescription = {"node_regions": {"app": "ru-3"}}
         with self.assertRaises(RuntimeError):
             backend.extend_admin_access(lab, "1.1.1.1/32")
         self.assertEqual(backend.snapshots[-1]["admin_access_pending"], "1.1.1.1/32")
@@ -46,7 +59,7 @@ class AdministrativeAccessRecoveryTests(unittest.TestCase):
     def test_checked_plan_rejects_existing_resource_changes(self) -> None:
         backend = self.backend()
 
-        def unsafe_plan(name, validate_extra) -> None:
+        def unsafe_plan(name: str, validate_extra: Callable[[dict[str, object]], None]) -> None:
             validate_extra(
                 {
                     "resource_changes": [

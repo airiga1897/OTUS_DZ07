@@ -23,7 +23,7 @@ class ArtifactWorkerAcceptance(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
 
-    def bundle(self, members):
+    def bundle(self, members: dict[str, bytes]) -> bytes:
         output = io.BytesIO()
         with tarfile.open(fileobj=output, mode="w:gz") as archive:
             for name, data in members.items():
@@ -32,14 +32,14 @@ class ArtifactWorkerAcceptance(unittest.TestCase):
                 archive.addfile(info, io.BytesIO(data))
         return output.getvalue()
 
-    def item(self, body, name="source"):
+    def item(self, body: bytes, name: str = "source") -> worker.DownloadItem:
         return {
             "url": "https://private.invalid/" + name + "?signature=NEVER-LOG-ME",
             "size": len(body),
             "sha512": hashlib.sha512(body).hexdigest(),
         }
 
-    def response(self, body, status=200, url="https://private.invalid/data"):
+    def response(self, body: bytes, status: int = 200, url: str = "https://private.invalid/data") -> MagicMock:
         result = MagicMock()
         result.__enter__.return_value = result
         result.status = status
@@ -49,13 +49,16 @@ class ArtifactWorkerAcceptance(unittest.TestCase):
 
     def test_es_coordinator_downloads_and_verifies_source_and_all_packages(self) -> None:
         source = self.bundle({"app/source.py": b"version = 1", ".env.example": b"MODE=development"})
-        manifest = {"source": self.item(source), "packages": {}}
-        payloads = {manifest["source"]["url"]: source}
+        source_item = self.item(source)
+        packages: dict[str, worker.DownloadItem] = {}
+        manifest = {"source": source_item, "packages": packages}
+        payloads = {source_item["url"]: source}
         for product in ("elasticsearch", "filebeat", "kibana"):
             name = product + "-8.19.0-amd64.deb"
             payload = (product + "-synthetic-content").encode()
-            manifest["packages"][name] = self.item(payload, name)
-            payloads[manifest["packages"][name]["url"]] = payload
+            package = self.item(payload, name)
+            packages[name] = package
+            payloads[package["url"]] = payload
         path = self.root / "artifact-delivery.json"
         path.write_text(json.dumps(manifest))
         (self.root / "artifact-node.json").write_text('{"name":"es1","version":"8.19.0"}')
@@ -69,9 +72,9 @@ class ArtifactWorkerAcceptance(unittest.TestCase):
             worker.main()
         self.assertEqual(opener.open.call_count, 4)
         self.assertEqual((self.root / "app/source.py").read_bytes(), b"version = 1")
-        expected = {name: item["sha512"] for name, item in manifest["packages"].items()}
+        expected = {name: item["sha512"] for name, item in packages.items()}
         self.assertEqual(json.loads((self.root / "packages/manifest.json").read_text()), expected)
-        for name, item in manifest["packages"].items():
+        for name, item in packages.items():
             self.assertEqual(hashlib.sha512((self.root / "packages" / name).read_bytes()).hexdigest(), item["sha512"])
         self.assertFalse(path.exists())
         self.assertNotIn("NEVER-LOG-ME", str(output.call_args_list))
@@ -79,10 +82,14 @@ class ArtifactWorkerAcceptance(unittest.TestCase):
 
     def test_wrong_package_set_and_http_error_remove_signed_manifest_without_disclosing_url(self) -> None:
         source = self.bundle({"app/source.py": b"valid"})
-        manifest = {"source": self.item(source), "packages": {}}
+        source_item = self.item(source)
+        manifest = {"source": source_item, "packages": {}}
         path = self.root / "artifact-delivery.json"
         (self.root / "artifact-node.json").write_text('{"name":"es1","version":"8.19.0"}')
-        for failure in (None, urllib.error.HTTPError(manifest["source"]["url"], 403, "NEVER-LOG-ME", {}, None)):
+        for failure in (
+            None,
+            urllib.error.HTTPError(source_item["url"], 403, "NEVER-LOG-ME", http.client.HTTPMessage(), None),
+        ):
             path.write_text(json.dumps(manifest))
             opener = Mock()
             opener.open.side_effect = failure

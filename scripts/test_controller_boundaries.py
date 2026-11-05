@@ -13,6 +13,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 import stack_config
 import topology
+from cloud_contract import StandDescription
+from placement_config import PlacementPolicy
 from test_runtime_support import lab
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,7 +44,7 @@ class ControllerBoundaries(unittest.TestCase):
             "password": "synthetic",
             "domain_name": "synthetic",
         }
-        self.choice = {
+        self.choice: PlacementPolicy = {
             "region": "ru-9",
             "availability_zone": "ru-9a",
             "image_id": "image",
@@ -126,7 +128,7 @@ class ControllerBoundaries(unittest.TestCase):
         key = (self.local / "otus_dz07.pub").read_text().split()[1]
         (self.local / "staged-deployment.json").write_text("{}")
         provider = SimpleNamespace(ssh_host_key=Mock(return_value=key))
-        value = {
+        value: StandDescription = {
             "server_ids": {"app": "uuid", "es1": "es-uuid"},
             "private_ips": {"app": "10.77.0.10", "es1": "10.77.0.31"},
             "app_public_ip": "8.8.8.8",
@@ -194,7 +196,9 @@ class ControllerBoundaries(unittest.TestCase):
             self.assertEqual(lab.managed_ids(), {"owned": "id"})
             lab.deploy()
             lab.cleanup(False)
-            self.assertTrue(lab.check_placement({})["success"])
+            result = lab.check_placement({})
+            assert result is not None
+            self.assertTrue(result["success"])
         deploy.assert_called_once()
         cleanup.assert_called_once_with(lab, False)
         (self.local / "staged-deployment.json").unlink()

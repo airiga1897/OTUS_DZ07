@@ -46,7 +46,7 @@ class ControllerLastGuards(unittest.TestCase):
             patch.object(lab.topology, "services", return_value={"artifact_delivery": "release"}),
             patch("artifact_transport.source", return_value="delivered") as source,
         ):
-            self.assertEqual(lab.upload_tree(client), "delivered")
+            lab.upload_tree(client)
         source.assert_called_once_with(lab, client, "app")
         client.open_sftp.assert_not_called()
 
@@ -89,7 +89,16 @@ class ControllerLastGuards(unittest.TestCase):
             factory.assert_called_once_with(api)
 
     def test_selectel_entrypoints_preserve_provider_specific_dispatch(self) -> None:
-        api = object()
+        api = type(
+            "Api",
+            (),
+            {
+                "ROOT": self.fixture.root,
+                "LOCAL": self.fixture.local,
+                "PREFIX": lab.PREFIX,
+                "TF": self.fixture.root / "tf",
+            },
+        )()
         with patch("selectel_staged.Backend", return_value="backend") as backend:
             self.assertEqual(selectel_adapter.staged_backend(api, cleanup=True), "backend")
         backend.assert_called_once_with(api, cleanup=True)

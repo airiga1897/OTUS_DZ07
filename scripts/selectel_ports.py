@@ -10,9 +10,9 @@ if TYPE_CHECKING:
     from cloud_contract import InfrastructureResult, StandDescription
     from plan_diagnostics import PlannedResource
     from runtime_ports import ConfigurationPort, FilePort, RootPort, StagedControllerPort
-    from selectel_adapter import SelectelAdapter
     from selectel_reports import EmptyNamespaceAudit
     from selectel_staged import Backend
+    from selectel_staged_audit import PageClient
     from stage_store import StageStore
 
 
@@ -30,6 +30,7 @@ class SelectelFunctions(Protocol):
     def validate_managed_state(self, state: dict[str, object], config: dict[str, str], prefix: str) -> None: ...
     def validate_node_creation(self, change: PlannedResource, allowed: set[str]) -> None: ...
     def check_network(
-        self, cloud: SelectelAdapter, result: InfrastructureResult, admin_cidrs: list[str]
-    ) -> dict[str, object]: ...
+        self, cloud: PageClient, result: InfrastructureResult, admin_cidrs: list[str]
+    ) -> dict[str, bool]: ...
     def check_placement(self, api: ConfigurationPort, lab: StandDescription) -> None: ...
+    def reject_cloud_resources(self, api: FilePort, cloud: PageClient) -> None: ...

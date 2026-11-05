@@ -13,6 +13,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from cloud_contract import StandDescription
 from paramiko import SSHClient
 from test_runtime_support import lab
 
@@ -147,7 +148,7 @@ class RemoteStreamsTests(unittest.TestCase):
             remote=lab.remote,
             save=lambda path, value: path.write_text(json.dumps(value)),
         )
-        previous = {"server_ids": {"app": "synthetic-vm"}, "private_ips": {"app": "192.0.2.10"}}
+        previous: StandDescription = {"server_ids": {"app": "synthetic-vm"}, "private_ips": {"app": "192.0.2.10"}}
         with contextlib.redirect_stdout(io.StringIO()):
             result = verification.snapshot(api, previous)
         self.assertEqual(result["before"]["new_record"]["id"], 12)

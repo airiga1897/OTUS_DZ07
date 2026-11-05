@@ -3,15 +3,40 @@
 import json
 import logging
 import uuid
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Protocol
 
 from cloud_settings import terraform_root
 from lifecycle_types import CycleReport, DiagnosticField
-from runtime_ports import CycleAccessPort, CycleProgressPort
-from topology import assert_preserved
+from runtime_ports import CycleAccessPort, CycleProgressPort, FilePort, OperationPort, ServerDeliveryPort
+from selectel_staged_audit import PageClient
+from topology import Topology, assert_preserved
+from verification_types import ExpansionSnapshot, VerificationReport
 
 LOGGER = logging.getLogger(__name__)
+
+
+class ReadOnlyCloudPort(Protocol):
+    def resource_regions(self) -> list[str]: ...
+    def read_only_pool(self, region: str) -> PageClient: ...
+
+
+class CycleStagePort(ServerDeliveryPort, OperationPort, CycleProgressPort, Protocol):
+    def desired_topology(self) -> Topology: ...
+    def deploy_selected(self) -> None: ...
+    def managed_ids(self) -> dict[object, str]: ...
+    def deploy(self) -> None: ...
+    def verify(self, failover: bool = False) -> VerificationReport: ...
+
+
+class CycleRunPort(CycleStagePort, CycleAccessPort, Protocol):
+    ROOT: Path
+    _TOPOLOGY_OVERRIDE: Topology | None
+
+    def cloud(self, bind: bool = False) -> ReadOnlyCloudPort: ...
+    def cleanup(self) -> None: ...
 
 
 def assert_empty(root: str | Path) -> None:
@@ -58,7 +83,7 @@ def require_access(api: CycleAccessPort, cleanup: bool = False) -> None:
             raise RuntimeError("An unfinished test-cycle owns this clone; preserve its recovery files")
 
 
-def reject_existing(api) -> None:
+def reject_existing(api: CycleRunPort) -> None:
     """Read local ownership before authentication and all cloud namespaces before writes."""
     try:
         assert_empty(api.ROOT)
@@ -86,24 +111,18 @@ def reject_existing(api) -> None:
         or (terraform_root(api.ROOT) / "terraform.tfvars.json").exists()
     ):
         raise RuntimeError("test-cycle refuses an existing context or unfinished operation")
-    from cloud_settings import sequential_enabled as enabled
-
-    if enabled(api.ROOT):
-        from staged_runtime import reject_shared_namespace
-
-        reject_shared_namespace(api)
     cloud = api.cloud(bind=False)
     for region in cloud.resource_regions():
         reject_cloud_resources(api, cloud.read_only_pool(region))
 
 
-def reject_cloud_resources(api, cloud) -> None:
+def reject_cloud_resources(api: FilePort, cloud: PageClient) -> None:
     from cloud_settings import adapter
 
     adapter().reject_cloud_resources(api, cloud)
 
 
-def check_original(api, snapshot: dict) -> None:
+def check_original(api: CycleStagePort, snapshot: Mapping[str, object] | ExpansionSnapshot) -> None:
     from verification import expansion
 
     expansion(api, snapshot)
@@ -119,7 +138,7 @@ def progress(api: CycleProgressPort, stage: str) -> None:
         api.save(api.ROOT / "docs/test-cycle-result.json", report)
 
 
-def stages(api) -> CycleReport:
+def stages(api: CycleStagePort) -> CycleReport:
     from verification import snapshot
 
     initial = api.desired_topology()
@@ -155,14 +174,14 @@ def stages(api) -> CycleReport:
     }
 
 
-def run(api) -> None:
+def run(api: CycleRunPort) -> None:
     from stage_store import operation
 
     with operation(api.LOCAL):
         return _run_locked(api)
 
 
-def _run_locked(api) -> None:
+def _run_locked(api: CycleRunPort) -> None:
     cycle_policy = None
     if (api.ROOT / "config/placement.json").exists():
         from run_settings import placement

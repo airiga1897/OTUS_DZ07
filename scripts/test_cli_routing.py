@@ -50,7 +50,7 @@ class CommandRoutingContracts(unittest.TestCase):
             access.assert_not_called()
 
     def test_in_memory_topology_override_is_not_replaced_by_saved_optional_topology(self) -> None:
-        value = {"nodes": {"sentinel": {}}}
+        value: dict[str, object] = {"nodes": {"sentinel": {}}}
         with patch.object(lab, "_TOPOLOGY_OVERRIDE", value), patch("elastic_options.desired") as desired:
             self.assertIs(lab.desired_topology(), value)
         desired.assert_not_called()

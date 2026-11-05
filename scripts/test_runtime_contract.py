@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import TypedDict
 from unittest.mock import Mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -13,8 +14,12 @@ from local_runtime import cleanup_runtime, open_portal, validate_state
 ROOT = Path(__file__).resolve().parents[1]
 
 
+class StateOutput(TypedDict):
+    value: object
+
+
 class RuntimeContract(unittest.TestCase):
-    def fixture(self, root, homework):
+    def fixture(self, root: Path, homework: int) -> tuple[Path, Path, dict[str, object]]:
         local = root / ".local"
         local.mkdir()
         tf = root / "terraform-selectel"
@@ -22,23 +27,24 @@ class RuntimeContract(unittest.TestCase):
         prefix = f"otus-dz0{homework}"
         name = "es3" if homework == 7 else "app"
         attrs = {"id": "vm-1", "name": prefix + "-" + name, "tenant_id": "project", "region": "ru-9"}
-        value = (
-            {name: {"id": "vm-1", "public_ip": "192.0.2.10"}}
-            if homework == 7
-            else {"server_ids": {name: "vm-1"}, "app_public_ip": "192.0.2.10"}
-        )
-        state = {
+        if homework == 7:
+            lab_value: dict[str, object] = {name: {"id": "vm-1", "public_ip": "192.0.2.10"}}
+        else:
+            lab_value = {"server_ids": {name: "vm-1"}, "app_public_ip": "192.0.2.10"}
+        resources: list[dict[str, object]] = [
+            {
+                "mode": "managed",
+                "type": "openstack_compute_instance_v2",
+                "instances": [{"index_key": name, "attributes": attrs}],
+            }
+        ]
+        outputs: dict[str, object] = {"lab": StateOutput(value=lab_value)}
+        state: dict[str, object] = {
             "lineage": "own",
-            "resources": [
-                {
-                    "mode": "managed",
-                    "type": "openstack_compute_instance_v2",
-                    "instances": [{"index_key": name, "attributes": attrs}],
-                }
-            ],
-            "outputs": {"lab": {"value": value}},
+            "resources": resources,
+            "outputs": outputs,
         }
-        context = {
+        context: dict[str, object] = {
             "project_id": "project",
             "region": "ru-9",
             "availability_zone": "ru-9a",
@@ -52,22 +58,22 @@ class RuntimeContract(unittest.TestCase):
             from selectel_adapter import infrastructure_result
 
             full = {
-                **value,
+                **lab_value,
                 "private_ips": {"app": "10.77.0.10"},
                 "subnet_cidr": "10.77.0.0/24",
                 "volume_ids": {"app": "v1"},
                 "port_ids": {"app": "p1"},
             }
             contract = infrastructure_result(full, {"project_id": "project", "region": "ru-9"}, prefix, "ru-9a")
-            state["outputs"]["infrastructure"] = {"value": asdict(contract)}
+            outputs["infrastructure"] = StateOutput(value=asdict(contract))
             context.update(contract.binding())
         (tf / "terraform.tfstate").write_text(json.dumps(state))
         (tf / "terraform.tfvars.json").write_text(json.dumps({"availability_zone": "ru-9a"}))
         context_name = {5: "deployment.json", 6: "context.json", 7: "selectel-context.json"}[homework]
         (local / context_name).write_text(json.dumps(context))
         if homework == 5:
-            value["deployment_id"] = "deployment"
-        (local / "lab.json").write_text(json.dumps(value))
+            lab_value["deployment_id"] = "deployment"
+        (local / "lab.json").write_text(json.dumps(lab_value))
         return local, tf, state
 
     def test_open_needs_no_auth_and_refuses_stale_or_missing_state(self) -> None:
@@ -78,7 +84,22 @@ class RuntimeContract(unittest.TestCase):
                 opener = Mock(return_value=True)
                 self.assertEqual(open_portal(root, homework, opener), "http://192.0.2.10")
                 opener.assert_called_once()
-                state["resources"][0]["instances"][0]["attributes"]["id"] = "replacement"
+                resources = state["resources"]
+                if not isinstance(resources, list):
+                    raise AssertionError("Expected state resources")
+                first = resources[0]
+                if not isinstance(first, dict):
+                    raise AssertionError("Expected resource object")
+                instances = first["instances"]
+                if not isinstance(instances, list):
+                    raise AssertionError("Expected state instances")
+                instance = instances[0]
+                if not isinstance(instance, dict):
+                    raise AssertionError("Expected instance object")
+                attributes = instance["attributes"]
+                if not isinstance(attributes, dict):
+                    raise AssertionError("Expected instance attributes")
+                attributes["id"] = "replacement"
                 (tf / "terraform.tfstate").write_text(json.dumps(state))
                 with self.assertRaisesRegex(ValueError, "контекста"):
                     open_portal(root, homework, Mock())

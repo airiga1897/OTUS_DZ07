@@ -209,13 +209,14 @@ class RetainedLifecycleTest(unittest.TestCase):
                 api, provider = self.fixture(Path(folder))
                 with self.patches(provider):
                     staged_runtime.deploy(api)
-                if fails:
-                    provider.global_audit.side_effect = RuntimeError("audit failed")
                 with (
                     self.patches(provider),
                     patch("selectel_staged_audit.assert_stage_absent") as audit,
                     patch("selectel_adapter.audit_cleanup", return_value=([], 0)),
-                    patch("selectel_staged_audit.audit_namespace"),
+                    patch(
+                        "selectel_staged_audit.audit_namespace",
+                        side_effect=RuntimeError("audit failed") if fails else None,
+                    ),
                     patch("artifact_lifecycle.release") as release,
                     patch("local_runtime.cleanup_runtime") as local,
                 ):

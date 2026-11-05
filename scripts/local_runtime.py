@@ -4,13 +4,19 @@ import ipaddress
 import json
 import shutil
 import webbrowser
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from cloud_settings import terraform_root
+from selectel_api import json_contains, json_object, json_object_or_empty, json_rows, json_text, text_mapping
 
 
-def read(path):
-    return json.loads(path.read_text(encoding="utf-8-sig"))
+def read(path: Path) -> dict[str, object]:
+    return json_object(json.loads(path.read_text(encoding="utf-8-sig")), "Unknown JSON object")
+
+
+def _resources(document: Mapping[str, object]) -> list[dict[str, object]]:
+    return json_rows(document.get("resources", []), "Unknown Terraform state")
 
 
 def linked(path: Path) -> bool:
@@ -36,12 +42,15 @@ def cleanup_runtime(root: str | Path) -> None:
     require_context(root)
     if staged.exists():
         journal = read(staged)
-        if not journal.get("cleanup_verified") or any(s["status"] != "deleted" for s in journal["stages"].values()):
+        stages = json_object(journal["stages"], "Unknown stage journal")
+        if not journal.get("cleanup_verified") or any(
+            json_object(stage, "Unknown stage journal")["status"] != "deleted" for stage in stages.values()
+        ):
             raise ValueError("Sequential resources still need their recovery files")
         for path in (local / "stages").rglob("*.tfstate*"):
             checked_tree(path, root)
             if not path.name.endswith(".backup") and any(
-                r.get("instances") for r in read(path).get("resources", []) if r.get("mode") == "managed"
+                r.get("instances") for r in _resources(read(path)) if r.get("mode") == "managed"
             ):
                 raise ValueError("Sequential managed state remains")
     state = terraform_root(root) / "terraform.tfstate"
@@ -51,12 +60,10 @@ def cleanup_runtime(root: str | Path) -> None:
     for other in root.glob("terraform*/terraform.tfstate*"):
         checked_tree(other, root)
         if other.parent != state.parent and any(
-            r.get("mode") == "managed" and r.get("instances") for r in read(other).get("resources", [])
+            r.get("mode") == "managed" and r.get("instances") for r in _resources(read(other))
         ):
             raise ValueError("Another provider state still needs local recovery files")
-    if state.exists() and any(
-        r.get("mode") == "managed" and r.get("instances") for r in read(state).get("resources", [])
-    ):
+    if state.exists() and any(r.get("mode") == "managed" and r.get("instances") for r in _resources(read(state))):
         raise ValueError("Managed state remains; preserve recovery files")
     paths = (
         [
@@ -101,16 +108,23 @@ def validate_state(root: str | Path, config: dict[str, str], prefix: str) -> Non
     from cloud_contract import validate_binding
 
     state_value = read(state)
-    binding = state_value.get("outputs", {}).get("infrastructure", {}).get("value")
-    if not binding and any(r.get("mode") == "managed" and r.get("instances") for r in state_value.get("resources", [])):
+    outputs = json_object(state_value.get("outputs") or {}, "Unknown Terraform state")
+    infrastructure = json_object(outputs.get("infrastructure") or {}, "Unknown Terraform state")
+    binding = infrastructure.get("value")
+    if not binding and any(r.get("mode") == "managed" and r.get("instances") for r in _resources(state_value)):
         from cloud_settings import adapter
 
         binding = adapter().partial_state_binding(Path(root), config, prefix)
     if binding:
         from cloud_settings import adapter
 
-        expected = adapter().binding(config, prefix, binding["placement"]["zone"])
-        validate_binding(binding, expected)
+        checked_binding = json_object(binding, "Unknown Terraform state")
+        placement = json_object(checked_binding["placement"], "Unknown Terraform state")
+        zone = placement.get("zone")
+        zone_text = None if zone is None else json_text(zone, "Unknown Terraform state")
+        expected = adapter().binding(config, prefix, zone_text)
+        validate_binding(checked_binding, expected)
+        binding = checked_binding
         context_path = Path(root) / ".local/context.json"
         if context_path.exists():
             validate_binding(read(context_path), binding)
@@ -119,7 +133,17 @@ def validate_state(root: str | Path, config: dict[str, str], prefix: str) -> Non
     adapter().validate_managed_state(state_value, config, prefix)
 
 
-def open_portal(root, homework, opener=None):
+def _node_ids(nodes: Mapping[str, object], message: str) -> dict[str, str]:
+    return {name: json_text(json_object(node, message)["id"], message) for name, node in nodes.items()}
+
+
+def _portal_address(document: Mapping[str, object], homework: int) -> str:
+    if homework == 7:
+        return json_text(json_object(document["es3"], "Unknown portal output")["public_ip"], "Unknown portal output")
+    return json_text(document["app_public_ip"], "Unknown portal output")
+
+
+def open_portal(root: str | Path, homework: int, opener: Callable[[str], object] | None = None) -> str:
     """Validate saved identities against local state; no cloud credentials needed."""
     root = Path(root)
     local = root / ".local"
@@ -130,64 +154,87 @@ def open_portal(root, homework, opener=None):
         )
         checked_tree(local / "lab.json", root.resolve())
         state = read(terraform_root(root) / "terraform.tfstate")
-        resources = [r for r in state.get("resources", []) if r.get("mode") == "managed" and r.get("instances")]
+        resources = [
+            resource
+            for resource in json_rows(state.get("resources", []), "Unknown Terraform state")
+            if resource.get("mode") == "managed" and resource.get("instances")
+        ]
         if not resources:
             raise ValueError("No active managed state")
         context = read(local / {5: "deployment.json", 6: "context.json", 7: "selectel-context.json"}[homework])
         if homework == 6:
             from cloud_contract import InfrastructureResult, validate_binding
 
-            result = InfrastructureResult.from_dict(state["outputs"]["infrastructure"]["value"])
+            outputs = json_object(state["outputs"], "Unknown Terraform state")
+            infrastructure = json_object(outputs["infrastructure"], "Unknown Terraform state")
+            result = InfrastructureResult.from_dict(infrastructure["value"])
             validate_binding(context, result.binding())
             context = {
                 **context,
                 "project_id": result.scope["project_id"],
-                "region": result.placement["region"],
-                "availability_zone": result.placement["zone"],
+                "region": json_text(result.placement.get("region"), "Unknown Terraform state"),
+                "availability_zone": json_text(result.placement.get("zone"), "Unknown Terraform state"),
             }
         if homework == 5 and context.get("phase") != "active":
             raise ValueError("Deployment is not active")
         if context.get("state_lineage") and context["state_lineage"] != state.get("lineage"):
             raise ValueError("Stale deployment lineage")
-        output = state["outputs"]["lab"]["value"]
+        outputs = json_object(state["outputs"], "Unknown Terraform state")
+        output = json_object(json_object(outputs["lab"], "Unknown Terraform state")["value"], "Unknown Terraform state")
         saved = read(local / "lab.json") if homework != 6 else output
         if homework == 5 and saved.get("deployment_id") != context.get("deployment_id"):
             raise ValueError("Stale deployment identity")
-        ids = {}
+        fallback = json_object_or_empty(context.get("config"), "Unknown portal context")
+        prefix = json_text(
+            context.get("namespace", fallback.get("name_prefix", f"otus-dz0{homework}")),
+            "Unknown portal context",
+        )
+        ids: dict[str, str] = {}
         for resource in resources:
-            for item in resource["instances"]:
-                attrs = item.get("attributes", {})
-                if attrs.get("tenant_id") and attrs["tenant_id"] != context["project_id"]:
+            for item in json_rows(resource["instances"], "Unknown Terraform state"):
+                attributes = json_object(item.get("attributes", {}), "Unknown Terraform state")
+                if attributes.get("tenant_id") and attributes["tenant_id"] != context["project_id"]:
                     raise ValueError("Foreign project in state")
-                if attrs.get("region") and attrs["region"] != context["region"]:
+                if attributes.get("region") and attributes["region"] != context["region"]:
                     raise ValueError("Foreign region in state")
-                name = attrs.get("name")
-                prefix = context.get("namespace", context.get("config", {}).get("name_prefix", f"otus-dz0{homework}"))
-                if name and name != prefix and not name.startswith(prefix + "-"):
+                name = attributes.get("name")
+                if (
+                    name
+                    and name != prefix
+                    and not json_text(name, "Foreign resource in state").startswith(prefix + "-")
+                ):
                     raise ValueError("Foreign resource in state")
-                if resource["type"] == "openstack_compute_instance_v2":
-                    ids[item["index_key"]] = attrs["id"]
-        expected = {name: node["id"] for name, node in saved.items()} if homework == 7 else saved["server_ids"]
-        output_ids = {name: node["id"] for name, node in output.items()} if homework == 7 else output["server_ids"]
+                if resource.get("type") == "openstack_compute_instance_v2":
+                    ids[json_text(item["index_key"], "Stale VM identities")] = json_text(
+                        attributes["id"], "Stale VM identities"
+                    )
+        if homework == 7:
+            expected = _node_ids(saved, "Unknown portal output")
+            output_ids = _node_ids(output, "Unknown portal output")
+        else:
+            expected = text_mapping(saved["server_ids"], "Unknown portal output")
+            output_ids = text_mapping(output["server_ids"], "Unknown portal output")
         if not ids or ids != expected or ids != output_ids:
             raise ValueError("Stale VM identities")
-        address = saved["es3"]["public_ip"] if homework == 7 else saved["app_public_ip"]
-        current_address = output["es3"]["public_ip"] if homework == 7 else output["app_public_ip"]
+        address = _portal_address(saved, homework)
+        current_address = _portal_address(output, homework)
         if address != current_address:
             raise ValueError("Stale portal address")
         ipaddress.IPv4Address(address)
         url = "http://" + address
-        region = context["region"]
-        zone = context.get("availability_zone")
-        if not zone:
+        region = json_text(context["region"], "Unknown portal context")
+        zone_value = context.get("availability_zone")
+        if not zone_value:
             variables = read(terraform_root(root) / "terraform.tfvars.json")
-            zone = variables["availability_zone"]
+            zone = json_text(variables["availability_zone"], "Unknown portal context")
+        else:
+            zone = json_text(zone_value, "Unknown portal context")
     except (OSError, KeyError, TypeError, ValueError) as error:
         raise ValueError(
             "Нет действующего локального контекста портала: проверьте context, state и завершение deploy; сохраните данные для восстановления."
         ) from error
     print(f"Placement: {region}/{zone}\nPortal: {url}", flush=True)
-    if "kibana" in saved.get("server_ids", {}):
+    if json_contains(saved.get("server_ids"), "kibana", "Unknown portal output"):
         from service_config import kibana_port
 
         print("Kibana: " + url + ":" + str(kibana_port(root)), flush=True)

@@ -71,7 +71,7 @@ def from_lab(lab: AddressedNodes) -> Topology:
     }
 
 
-def assert_preserved(before: Mapping[str, object], after: Mapping[str, object]) -> None:
+def assert_preserved[Key, Value](before: Mapping[Key, Value], after: Mapping[Key, Value]) -> None:
     if any(after.get(key) != value for key, value in before.items()):
         raise RuntimeError("Existing infrastructure identities changed")
 

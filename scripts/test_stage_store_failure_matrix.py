@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch
 
 import stage_store as stages
 from cloud_contract import TerraformError
+from plan_diagnostics import PlannedResource, PlanView
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -59,17 +60,19 @@ class StageStoreFailureMatrix(unittest.TestCase):
             self.store.tf("es1", "apply")
 
     def test_known_identity_delete_and_forbidden_plan_paths(self) -> None:
-        change = {"address": "vm", "change": {"actions": ["delete"], "before": {"id": "owned"}}}
+        change: PlannedResource = {"address": "vm", "change": {"actions": ["delete"], "before": {"id": "owned"}}}
         with self.assertRaisesRegex(ValueError, "outside"):
-            stages.check_plan({"resource_changes": [change]}, {}, destroy=True)
+            stages.check_plan(PlanView(resource_changes=[change]), {}, destroy=True)
         with self.assertRaisesRegex(ValueError, "identity"):
-            stages.check_plan({"resource_changes": [change]}, {"vm": "different"}, destroy=True)
+            stages.check_plan(PlanView(resource_changes=[change]), {"vm": "different"}, destroy=True)
         with self.assertRaisesRegex(ValueError, "unchanged"):
-            stages.check_plan({"resource_changes": [change]}, {"vm": "owned"}, destroy=True, additions_only=True)
-        stages.check_plan({"resource_changes": [{"mode": "data", "change": {"actions": ["read"]}}]}, {})
-        stages.check_plan({"resource_drift": [{"address": "vm", "change": {"actions": ["no-op"]}}]}, {})
-        drift = {"address": "vm", "change": {"actions": ["delete"], "before": {"id": "owned"}}}
-        stages.check_plan({"resource_drift": [drift]}, {"vm": "owned"}, destroy=True)
+            stages.check_plan(PlanView(resource_changes=[change]), {"vm": "owned"}, destroy=True, additions_only=True)
+        stages.check_plan(
+            PlanView(resource_changes=[{"address": "data.vm", "mode": "data", "change": {"actions": ["read"]}}]), {}
+        )
+        stages.check_plan(PlanView(resource_drift=[{"address": "vm", "change": {"actions": ["no-op"]}}]), {})
+        drift: PlannedResource = {"address": "vm", "change": {"actions": ["delete"], "before": {"id": "owned"}}}
+        stages.check_plan(PlanView(resource_drift=[drift]), {"vm": "owned"}, destroy=True)
 
     def test_plan_diagnostics_failure_preserves_original_guard_and_never_applies(self) -> None:
         plan = {
@@ -84,16 +87,17 @@ class StageStoreFailureMatrix(unittest.TestCase):
                 }
             ]
         }
-        self.store.identities = Mock(return_value={"vm": "owned"})
-        self.store.tf = Mock(side_effect=lambda name, op, *args: json.dumps(plan) if op == "show" else "")
+        tf_mock = Mock(side_effect=lambda name, op, *args: json.dumps(plan) if op == "show" else "")
         with (
+            patch.object(self.store, "identities", Mock(return_value={"vm": "owned"})),
+            patch.object(self.store, "tf", tf_mock),
             patch("placement_diagnostics.capture_terraform", side_effect=PermissionError("denied")),
             self.assertRaises(ValueError) as caught,
         ):
             self.store.apply("es1")
-        self.assertEqual(caught.exception.terraform_operation, "plan-guard")
-        self.assertEqual(caught.exception.diagnostics_error_type, "PermissionError")
-        self.assertNotIn("apply", [call.args[1] for call in self.store.tf.call_args_list])
+        self.assertEqual(caught.exception.__dict__["terraform_operation"], "plan-guard")
+        self.assertEqual(caught.exception.__dict__["diagnostics_error_type"], "PermissionError")
+        self.assertNotIn("apply", [call.args[1] for call in tf_mock.call_args_list])
 
     def test_configure_reuses_lock_and_indexed_identities_ignore_data_sources(self) -> None:
         source = self.root / "provider"

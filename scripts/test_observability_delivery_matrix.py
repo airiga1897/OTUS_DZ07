@@ -9,6 +9,8 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
 import observability as elk
+from cloud_contract import StandDescription
+from inventory_types import Inventory
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -25,7 +27,7 @@ class ObservabilityDeliveryMatrix(unittest.TestCase):
         (self.local / "certs").mkdir(parents=True)
         for name in ("ca.crt", "es1.crt", "es1.key"):
             (self.local / "certs" / name).write_text("synthetic certificate")
-        self.lab = {
+        self.lab: StandDescription = {
             "private_ips": {"app": "10.77.0.10", "es1": "10.77.0.31"},
             "server_ids": {"app": "app-id", "es1": "es-id"},
             "node_roles": {"app": "app", "es1": "es"},
@@ -78,7 +80,7 @@ class ObservabilityDeliveryMatrix(unittest.TestCase):
     def test_workload_only_inventory_is_preserved_and_remote_command_parses_json(self) -> None:
         result = Mock()
         result.application.return_value = {"private_ips": {"app": "10.77.0.10"}}
-        value = {"all": {"children": {}}}
+        value: Inventory = {"all": {"children": {}}}
         with self.assertRaisesRegex(ValueError, "Elasticsearch masters"):
             elk.inventory(result, {}, value)
         self.api.remote.return_value = '{"healthy":true}'
@@ -89,7 +91,10 @@ class ObservabilityDeliveryMatrix(unittest.TestCase):
     def test_log_probe_writes_sql_marker_on_app_and_saves_result(self) -> None:
         with patch.object(elk, "command", side_effect=[{"sources_verified": True}, {"available": True}]) as command:
             result = elk.verify(self.api)
-        self.assertTrue(result["kibana"]["available"])
+        kibana = result["kibana"]
+        if not isinstance(kibana, dict):
+            raise AssertionError("expected kibana probe")
+        self.assertTrue(kibana["available"])
         self.assertIn("sql-log-app", [call.args[2] for call in self.api.remote.call_args_list])
         self.api.save.assert_called_once_with(self.root / "docs/logs-verification.json", result)
         self.assertEqual(command.call_args.args[1], "kibana-check")

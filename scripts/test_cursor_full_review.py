@@ -1,6 +1,7 @@
 """Regressions for unconfirmed flavor disks and incomplete OpenStack pages."""
 
 import unittest
+from collections.abc import Mapping
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -21,11 +22,11 @@ COLLECTION_KEYS = {
 }
 
 
-def flavor_config():
+def flavor_config() -> dict[str, object]:
     return {"flavor_name_patterns": ["SL1.4-8192"], "profiles": {"app": {"vcpus": 4, "ram_mb": 8192}}}
 
 
-def flavor(**overrides):
+def flavor(**overrides: object) -> dict[str, object]:
     item = {"id": "confirmed", "name": "SL1.4-8192", "vcpus": 4, "ram": 8192, "os-flavor-access:is_public": True}
     item.update(overrides)
     return item
@@ -46,18 +47,18 @@ class UnconfirmedCatalogTests(unittest.TestCase):
         self.assertEqual([item["id"] for item in chosen], ["confirmed"])
 
 
-def page_cloud(pages):
+def page_cloud(pages: Mapping[tuple[str, str], Mapping[str, object]]) -> Mock:
     cloud = Mock()
     cloud.endpoints = dict.fromkeys(("compute", "volumev3", "network"), ENDPOINT)
 
-    def get(service, path):
+    def get(service: str, path: str) -> dict[str, object]:
         base, _, query = path.partition("?")
         key = COLLECTION_KEYS[base]
         marker = "2" if "marker=2" in query else "1"
         body = pages.get((base, marker))
         if body is None:
             return {key: []}
-        return body
+        return dict(body)
 
     cloud.get.side_effect = get
     return cloud

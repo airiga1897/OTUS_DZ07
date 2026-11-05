@@ -11,17 +11,19 @@ from jinja2 import Environment, StrictUndefined
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import topology
+from cloud_contract import StandDescription
 from elk_tls import certificates
+from inventory_types import InventoryGroup
 from render import ansible_inventory
 from selectel_adapter import infrastructure_result
+from topology import AddressedNodes, Topology
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class ObservabilityTopologyTest(unittest.TestCase):
-    def nodes(self):
-        initial = json.loads((ROOT / "config/topology.json").read_text())
-        return initial
+    def nodes(self) -> Topology:
+        return topology.load(ROOT)
 
     def test_distinct_roles_and_additive_elasticsearch_extension(self) -> None:
         initial = self.nodes()
@@ -31,7 +33,7 @@ class ObservabilityTopologyTest(unittest.TestCase):
         self.assertEqual(topology.validate_extension(initial, extended), {"es4"})
         extended = copy.deepcopy(initial)
         self.assertEqual(topology.validate_extension(extended, extended), set())
-        lab = {"private_ips": {n: "10.77.0." + str(v["host"]) for n, v in initial["nodes"].items()}}
+        lab: AddressedNodes = {"private_ips": {n: "10.77.0." + str(v["host"]) for n, v in initial["nodes"].items()}}
         self.assertEqual(topology.from_lab(lab), initial)
 
     def test_configuration_keeps_workload_and_observability_separate(self) -> None:
@@ -43,15 +45,20 @@ class ObservabilityTopologyTest(unittest.TestCase):
         self.assertEqual(sum(r == "db" for r in roles.values()), 0)
         self.assertEqual(roles["app"], "app")
 
-    def inventory(self, expanded=False):
+    def inventory(self, expanded: bool = False) -> InventoryGroup:
         desired = self.nodes()
         if expanded:
             desired["nodes"]["es4"] = {"host": 34, "role": "es"}
-        lab = {
+        server_ids = {n: "server_ids" + n for n in desired["nodes"]}
+        volume_ids = {n: "volume_ids" + n for n in desired["nodes"]}
+        port_ids = {n: "port_ids" + n for n in desired["nodes"]}
+        lab: StandDescription = {
             "private_ips": {n: "10.77.0." + str(v["host"]) for n, v in desired["nodes"].items()},
             "app_public_ip": "192.0.2.1",
             "subnet_cidr": "10.77.0.0/24",
-            **{k: {n: k + n for n in desired["nodes"]} for k in ("server_ids", "volume_ids", "port_ids")},
+            "server_ids": server_ids,
+            "volume_ids": volume_ids,
+            "port_ids": port_ids,
         }
         result = infrastructure_result(lab, {"project_id": "synthetic", "region": "ru-9"}, "otus-dz07", "ru-9a")
         passwords = dict.fromkeys(
@@ -66,12 +73,17 @@ class ObservabilityTopologyTest(unittest.TestCase):
         self.assertEqual(set(children["elasticsearch"]["hosts"]), {"es1", "es2", "es3"})
         self.assertEqual(set(children["kibana"]["hosts"]), {"app"})
         self.assertNotIn("patroni_config", children["database"]["hosts"]["app"])
-        self.assertEqual(set(children["frontend"]["hosts"]["app"]["dz07"]["log_hosts"]), set(self.nodes()["nodes"]))
+        frontend = children["frontend"]["hosts"]["app"]["dz07"]
+        if not isinstance(frontend, dict):
+            raise AssertionError("Expected frontend dz07 settings")
+        self.assertEqual(set(frontend["log_hosts"]), set(self.nodes()["nodes"]))
 
     def test_log_verification_requires_each_service_on_its_own_node(self) -> None:
         from remote import elk_api
 
         settings = self.inventory()["children"]["frontend"]["hosts"]["app"]["dz07"]
+        if not isinstance(settings, dict):
+            raise AssertionError("Expected dz07 settings")
         with patch.object(elk_api, "C", settings), patch.object(elk_api, "api", return_value={"count": 1}) as call:
             counts = elk_api.source_counts()
         self.assertTrue(all(counts.values()))
@@ -85,8 +97,19 @@ class ObservabilityTopologyTest(unittest.TestCase):
             "app/system",
         ):
             self.assertIn(source, counts)
-        query = call.call_args_list[0].args[1]["query"]["bool"]["filter"]
-        self.assertEqual(len(query), 2)
+        payload = call.call_args_list[0].args[1]
+        if not isinstance(payload, dict):
+            raise AssertionError("Expected query payload")
+        query = payload["query"]
+        if not isinstance(query, dict):
+            raise AssertionError("Expected query object")
+        boolean = query["bool"]
+        if not isinstance(boolean, dict):
+            raise AssertionError("Expected bool clause")
+        filters = boolean["filter"]
+        if not isinstance(filters, list):
+            raise AssertionError("Expected filter list")
+        self.assertEqual(len(filters), 2)
 
     def test_normal_verification_never_changes_vm_power(self) -> None:
         import verification
@@ -104,8 +127,15 @@ class ObservabilityTopologyTest(unittest.TestCase):
         before, after = self.inventory()["children"], self.inventory(True)["children"]
         self.assertEqual(before["database"], after["database"])
         for name, host in before["elasticsearch"]["hosts"].items():
-            self.assertEqual(host["dz07"]["seed_hosts"], after["elasticsearch"]["hosts"][name]["dz07"]["seed_hosts"])
-        self.assertEqual(after["elasticsearch"]["hosts"]["es4"]["dz07"]["roles"], ["data", "ingest"])
+            dz07 = host["dz07"]
+            expanded = after["elasticsearch"]["hosts"][name]["dz07"]
+            if not isinstance(dz07, dict) or not isinstance(expanded, dict):
+                raise AssertionError("Expected dz07 settings")
+            self.assertEqual(dz07["seed_hosts"], expanded["seed_hosts"])
+        es4 = after["elasticsearch"]["hosts"]["es4"]["dz07"]
+        if not isinstance(es4, dict):
+            raise AssertionError("Expected es4 dz07 settings")
+        self.assertEqual(es4["roles"], ["data", "ingest"])
 
     def test_native_elastic_kibana_filebeat_templates_render_valid_yaml(self) -> None:
         inventory = self.inventory()

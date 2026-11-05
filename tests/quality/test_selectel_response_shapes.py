@@ -12,6 +12,72 @@ from credentials import schema
 from placement_config import PlacementPolicy
 
 
+@pytest.mark.parametrize("name", [None, False, 42, [], {"private": "PRIVATE"}])
+def test_cleanup_audit_rejects_unknown_names_instead_of_confirming_absence(name: object) -> None:
+    from unittest.mock import Mock
+
+    from selectel_adapter import audit_cleanup
+
+    with (
+        patch("selectel_adapter.collection", return_value=[{"name": name}]),
+        pytest.raises(ValueError, match="resource name") as error,
+    ):
+        audit_cleanup(Mock(), "otus-dz07", set())
+    assert "PRIVATE" not in str(error.value)
+
+
+def test_json_int_rejects_booleans() -> None:
+    assert api.json_int(22) == 22
+    with pytest.raises(ValueError, match="integer"):
+        api.json_int(True)
+
+
+def test_json_texts_keep_only_text_collections() -> None:
+    assert api.json_texts(["a", "b"]) == ["a", "b"]
+    with pytest.raises(ValueError, match="text collection"):
+        api.json_texts("a")
+    with pytest.raises(ValueError, match="text collection"):
+        api.json_texts([None])
+
+
+def test_json_text_keeps_only_text() -> None:
+    assert api.json_text("public") == "public"
+    with pytest.raises(ValueError, match="text field"):
+        api.json_text(None)
+
+
+def test_provider_and_profile_boundaries_reject_foreign_shapes() -> None:
+    from selectel_adapter import openstack_type, vm_profile
+
+    assert openstack_type("openstack_compute_instance_v2") == "openstack_compute_instance_v2"
+    with pytest.raises(ValueError, match="Foreign provider"):
+        openstack_type(None)
+    with pytest.raises(ValueError, match="Foreign provider"):
+        openstack_type("foreign_instance")
+    assert vm_profile({"vcpus": 2, "ram_mb": 4096}) == {"vcpus": 2, "ram_mb": 4096}
+    with pytest.raises(ValueError, match="VM profile"):
+        vm_profile({"vcpus": True, "ram_mb": 4096})
+
+
+def test_optional_documents_and_identifiers_keep_their_boundaries() -> None:
+    assert api.json_object_or_empty(None) == {}
+    assert api.json_object_or_empty({"region": "ru-9"}) == {"region": "ru-9"}
+    with pytest.raises(ValueError, match="response object"):
+        api.json_object_or_empty([])
+    assert api.identifier_set(None) == set()
+    assert api.identifier_set("fip") == {"fip"}
+    with pytest.raises(ValueError, match="text field"):
+        api.identifier_set(True)
+    assert api.text_mapping({"app": "id"}) == {"app": "id"}
+    with pytest.raises(ValueError, match="response object"):
+        api.text_mapping({"app": None})
+    assert api.json_contains(None, "kibana") is False
+    assert api.json_contains({"kibana": "id"}, "kibana") is True
+    assert api.json_contains({"app": "id"}, "kibana") is False
+    with pytest.raises(ValueError, match="response object"):
+        api.json_contains([], "kibana")
+
+
 @pytest.mark.parametrize("value", [None, [], "PRIVATE", {}, {"token": None}, {"token": []}, {"token": {0: "PRIVATE"}}])
 def test_identity_scope_rejects_non_objects_without_disclosing_body(value: object) -> None:
     with pytest.raises(ValueError, match="Invalid identity response") as error:

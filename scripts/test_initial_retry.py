@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from typing import TypedDict
 from unittest.mock import Mock, patch
 
 import pool_selection as pools
@@ -16,21 +17,59 @@ ROOT = Path(__file__).resolve().parents[1]
 FAULT = "Exceeded maximum number of retries. Exhausted all retry attempts for shelving preemptible instances to build instance synthetic-vm."
 
 
+class PartialAttributes(TypedDict):
+    id: str
+    name: str
+    tenant_id: str
+    region: str
+
+
+class PartialInstance(TypedDict):
+    index_key: str
+    attributes: PartialAttributes
+
+
+class PartialResource(TypedDict):
+    mode: str
+    type: str
+    name: str
+    provider: str
+    instances: list[PartialInstance]
+
+
+class PartialState(TypedDict):
+    resources: list[PartialResource]
+
+
 class InitialRetryTests(unittest.TestCase):
     def test_first_deploy_advances_only_after_state_and_api_cleanup(self) -> None:
         for api_failure in (False, True):
             with self.subTest(api_failure=api_failure), tempfile.TemporaryDirectory(dir=ROOT / ".tools") as directory:
                 root = Path(directory)
                 (root / ".local").mkdir()
-                identities, events = {}, []
+                identities: dict[str, str] = {}
+                events: list[str] = []
 
-                def apply(api, desired, allowed_new_nodes=None, *, events=events, identities=identities) -> None:
+                def apply(
+                    api: object,
+                    desired: object,
+                    allowed_new_nodes: object = None,
+                    *,
+                    events: list[str] = events,
+                    identities: dict[str, str] = identities,
+                ) -> None:
                     events.append("apply")
                     identities["node"] = "owned"
                     if events.count("apply") == 1:
                         raise TerraformError("NoValidHost")
 
-                def cleanup(clean_local, *, api_failure=api_failure, events=events, identities=identities) -> None:
+                def cleanup(
+                    clean_local: bool,
+                    *,
+                    api_failure: bool = api_failure,
+                    events: list[str] = events,
+                    identities: dict[str, str] = identities,
+                ) -> None:
                     self.assertFalse(clean_local)
                     events.append("state-empty")
                     if api_failure:
@@ -67,7 +106,7 @@ class InitialRetryTests(unittest.TestCase):
                         self.assertLess(events.index("api-empty"), events.index("select-2"))
                         self.assertEqual(events.count("apply"), 2)
 
-    def fixture(self, root):
+    def fixture(self, root: Path) -> tuple[dict[str, str], PartialState]:
         local = root / ".local"
         local.mkdir()
         (root / "terraform-selectel").mkdir()
@@ -86,8 +125,13 @@ class InitialRetryTests(unittest.TestCase):
         }
         for name, value in files.items():
             (local / name).write_text(json.dumps(value))
-        attrs = {"id": "synthetic-vm", "name": "otus-dz07-db1", "tenant_id": config["project_id"], "region": "ru-7"}
-        state = {
+        attrs: PartialAttributes = {
+            "id": "synthetic-vm",
+            "name": "otus-dz07-db1",
+            "tenant_id": config["project_id"],
+            "region": "ru-7",
+        }
+        state: PartialState = {
             "resources": [
                 {
                     "mode": "managed",
@@ -119,7 +163,7 @@ class InitialRetryTests(unittest.TestCase):
             (root / ".local/key").write_text("synthetic")
             path = root / "terraform-selectel/terraform.tfstate"
 
-            def terraform(*args, **kwargs):
+            def terraform(*args: object, **kwargs: object) -> str:
                 if args[0] == "apply":
                     path.write_text(json.dumps({"resources": []}))
                 return "{}"

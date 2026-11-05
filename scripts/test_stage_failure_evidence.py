@@ -13,10 +13,26 @@ from unittest.mock import Mock, patch
 import privacy
 from cloud_contract import TerraformError
 from local_runtime import cleanup_runtime
+from selectel_staged import Backend
 from selectel_staged_audit import faults
 from stage_store import StageStore
+from terraform_state_types import StateEntry
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+class DiagnosticStore(StageStore):
+    def __init__(self, entry: StateEntry) -> None:
+        self._entry = entry
+
+    def entries(self, name: str) -> list[StateEntry]:
+        return [self._entry]
+
+
+class DiagnosticBackend(Backend):
+    @property
+    def owner(self) -> str:
+        return "synthetic-owner"
 
 
 class StageFailureEvidenceTests(unittest.TestCase):
@@ -96,15 +112,18 @@ class StageFailureEvidenceTests(unittest.TestCase):
         self.assertEqual(error.diagnostics_error_type, "PermissionError")
         self.assertEqual(error.terraform_stage, "connection-ru-3")
 
-    def backend(self) -> SimpleNamespace:
-        entry = {"type": "selectel_global_router_vpc_network_v1", "attrs": {"id": "synthetic-network"}}
-        return SimpleNamespace(
-            store=SimpleNamespace(entries=lambda name: [entry]), owner="synthetic-owner", global_router=Mock()
-        )
+    def backend(self) -> tuple[DiagnosticBackend, Mock]:
+        attrs: dict[str, object] = {"id": "synthetic-network"}
+        entry: StateEntry = {"type": "selectel_global_router_vpc_network_v1", "attrs": attrs}
+        router = Mock()
+        backend = DiagnosticBackend.__new__(DiagnosticBackend)
+        backend.store = DiagnosticStore(entry)
+        backend.global_router = router
+        return backend, router
 
     def test_global_router_error_details_are_read_only_and_allowlisted(self) -> None:
-        backend = self.backend()
-        backend.global_router.get.return_value = {
+        backend, router = self.backend()
+        router.get.return_value = {
             "id": "synthetic-network",
             "tags": ["synthetic-owner"],
             "status": "ERROR",
@@ -115,24 +134,24 @@ class StageFailureEvidenceTests(unittest.TestCase):
         with patch("selectel_staged_audit.assert_stage_owned") as owned:
             report = faults(backend, "connection-ru-3")
         owned.assert_called_once_with(backend, "connection-ru-3")
-        backend.global_router.get.assert_called_once_with("/networks/synthetic-network")
+        router.get.assert_called_once_with("/networks/synthetic-network")
         item = report["global_router"]["selectel_global_router_vpc_network_v1"]
         self.assertEqual(item["status"], "ERROR")
         self.assertEqual(item["error_message"], "backend provisioning failed")
         self.assertNotIn("account_id", item)
 
     def test_foreign_resources_are_not_queried_for_details(self) -> None:
-        backend = self.backend()
+        backend, router = self.backend()
         with (
             patch("selectel_staged_audit.assert_stage_owned", side_effect=ValueError("foreign resource")),
             self.assertRaises(ValueError),
         ):
             faults(backend, "connection-ru-3")
-        backend.global_router.get.assert_not_called()
+        router.get.assert_not_called()
 
     def test_api_forbidden_is_reported_without_inventing_a_provider_fault(self) -> None:
-        backend = self.backend()
-        backend.global_router.get.side_effect = urllib.error.HTTPError(
+        backend, router = self.backend()
+        router.get.side_effect = urllib.error.HTTPError(
             "https://example.invalid", 403, "Forbidden", HTTPMessage(), None
         )
         with patch("selectel_staged_audit.assert_stage_owned"):

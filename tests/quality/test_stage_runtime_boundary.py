@@ -3,10 +3,10 @@
 import json
 import shutil
 from pathlib import Path
-from types import SimpleNamespace
 
 from runtime import create_runtime
 from selectel_stage_operations import inputs
+from selectel_staged import Backend
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -18,7 +18,8 @@ def test_network_inputs_use_clone_service_settings_with_actual_runtime(tmp_path:
     settings["kibana_port"] = 5602
     (tmp_path / "config/services.json").write_text(json.dumps(settings))
     policy = json.loads((tmp_path / "config/placement.json").read_text())["sequential_placement"]
-    backend = SimpleNamespace(
+    backend = Backend.__new__(Backend)
+    backend.__dict__.update(
         api=runtime,
         root=tmp_path,
         owner="synthetic-owner",
@@ -35,6 +36,7 @@ def test_network_inputs_use_clone_service_settings_with_actual_runtime(tmp_path:
             "address_policy": policy["addresses"],
             "pool_subnets": {"ru-2": "10.96.0.0/24", "ru-9": "10.77.0.0/24"},
             "admin_cidrs": ["8.8.8.8/32"],
+            "deployment_id": "a" * 32,
         },
     )
     kind, variables = inputs(backend, "network-ru-2")

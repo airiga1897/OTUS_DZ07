@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch
 import test_cycle
 import topology
 import verification
+from cloud_contract import StandDescription
 from local_runtime import cleanup_runtime
 from test_remote_streams import Channel
 from test_runtime_support import lab
@@ -20,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CycleIntegrationTests(unittest.TestCase):
-    def exercise(self, fault=None):
+    def exercise(self, fault: str | None = None) -> tuple[dict[str, object], list[str]]:
         with tempfile.TemporaryDirectory(dir=ROOT / ".tools") as folder:
             root = Path(folder)
             local = root / ".local"
@@ -29,16 +30,16 @@ class CycleIntegrationTests(unittest.TestCase):
             shutil.copyfile(ROOT / "config/services.json", root / "config/services.json")
             (root / "terraform-selectel").mkdir()
             desired = topology.load(ROOT)
-            ids = {}
-            events = []
-            value = {
+            ids: dict[str, str] = {}
+            events: list[str] = []
+            value: StandDescription = {
                 "private_ips": {n: "10.77.0." + str(v["host"]) for n, v in desired["nodes"].items()},
                 "node_roles": {n: v["role"] for n, v in desired["nodes"].items()},
                 "server_ids": {n: n + "-original" for n in desired["nodes"]},
             }
             canary = {"id": 17, "slug": "private-probe", "body": "committed"}
 
-            def answer(command):
+            def answer(command: str) -> dict[str, object]:
                 if "verify.py expanded" in command:
                     return {"preserved_records": [canary]}
                 if "verify.py baseline" in command:
@@ -50,7 +51,7 @@ class CycleIntegrationTests(unittest.TestCase):
                 return {"ok": True}
 
             class Worker(Channel):
-                def exec_command(self, command) -> None:
+                def exec_command(self, command: str) -> None:
                     events.append(command)
                     self.out.append(json.dumps(answer(command)).encode())
                     self.err.append(b"HTTP method=POST status=302\n")
@@ -59,7 +60,7 @@ class CycleIntegrationTests(unittest.TestCase):
 
             client = SimpleNamespace(get_transport=lambda: SimpleNamespace(open_session=lambda **kw: Worker([], [])))
 
-            def save(path, data) -> None:
+            def save(path: Path, data: object) -> None:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(json.dumps(data))
 

@@ -25,8 +25,8 @@ class OperationLifecycle(unittest.TestCase):
             provider.save()
             api._TOPOLOGY_OVERRIDE = None
             api.cleanup = lambda: staged_runtime.cleanup(api)
-            provider.cleanup_attempt = Mock()
             with (
+                patch.object(provider, "cleanup_attempt", Mock()) as cleanup_attempt,
                 helper.patches(provider),
                 patch.object(test_cycle, "reject_existing"),
                 patch.object(test_cycle, "stages", side_effect=OperationUnknown("connection unavailable")),
@@ -34,7 +34,7 @@ class OperationLifecycle(unittest.TestCase):
                 self.assertRaises(OperationUnknown),
             ):
                 test_cycle.run(api)
-            provider.cleanup_attempt.assert_not_called()
+            cleanup_attempt.assert_not_called()
             self.assertTrue(provider.path.exists())
             marker = json.loads((api.LOCAL / "test-cycle.json").read_text())
             self.assertEqual(marker["status"], "cleanup_failed")
@@ -80,14 +80,14 @@ class OperationLifecycle(unittest.TestCase):
             helper = fixtures.RetainedLifecycleTest()
             api, provider = helper.fixture(Path(directory))
             provider.save()
-            provider.cleanup_attempt = Mock()
             with (
+                patch.object(provider, "cleanup_attempt", Mock()) as cleanup_attempt,
                 helper.patches(provider),
                 patch("ansible_operation.before_destroy", side_effect=OperationUnknown("offline")),
                 self.assertRaises(OperationUnknown),
             ):
                 staged_runtime.cleanup(api)
-            provider.cleanup_attempt.assert_not_called()
+            cleanup_attempt.assert_not_called()
             self.assertTrue(provider.path.exists())
             report = json.loads((api.ROOT / "docs/cleanup-result.json").read_text())
             self.assertFalse(report["success"])
@@ -101,8 +101,8 @@ class OperationLifecycle(unittest.TestCase):
                 n: {"status": "active", "candidate": {"region": "ru-9"}} for n in ("app", "es1")
             }
             provider.objects = {"app": "owned-app", "es1": "owned-es1"}
-            provider.audit_deletion = Mock(return_value={})
             with (
+                patch.object(provider, "audit_deletion", Mock(return_value={})),
                 helper.patches(provider),
                 patch("artifact_lifecycle.release"),
                 patch(

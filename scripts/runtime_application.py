@@ -31,7 +31,8 @@ def check_placement(api: ConfigurationPort, lab: StandDescription) -> NetworkVer
         return result
     import verification
 
-    return verification.check_placement(api, lab)
+    verification.check_placement(api, lab)
+    return None
 
 
 def configure(api: ConfigurationPort, existing: bool = False) -> None:
@@ -84,7 +85,7 @@ def verify(api: ApplicationPort, failover: bool = False) -> VerificationReport:
     return verification.verify(api, failover)
 
 
-def diagnostics(api: ApplicationPort) -> None:
+def diagnostics(api: ConfigurationPort) -> None:
     """Best-effort evidence; failures preserve resources and recovery files."""
     try:
         lab = api.lab_output()
