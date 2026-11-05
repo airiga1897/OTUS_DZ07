@@ -1,9 +1,9 @@
 {
   "github_release": {
     "repository": "airiga1897/OTUS_DZ07",
-    "tag": "v1.0.0",
-    "commit": "741fc4998be7b6e65ea8611a0d29c6ca2d93f3e1",
-    "manifest_sha512": "0a18019a1cbcf66a3cfdbe966059b3d131c0745882904b37f39996462ed667e601003e806beacdb2c9fb0e66ffe19e7d6d2a397f3cd89d1728dc6f4e3dfa17af",
+    "tag": "v1.1.0",
+    "commit": "3f663b07d2d5ca1cf7e2730ef0e24c8d66830aba",
+    "manifest_sha512": "6eddd6ebc20d5a130156e9f14c855489416d16f4fd1632d92d87e077fd8d41cb8214af7ecf37b2b34d34285f1fb2d5cf3af46386ce6fdf4c7f87c4ae8e0789a4",
     "manifest_size": 1426
   },
   "s3": {
