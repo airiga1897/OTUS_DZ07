@@ -249,6 +249,7 @@ class ElasticAcceptanceContracts(unittest.TestCase):
 
     def test_kibana_views_dashboard_and_availability_contract(self) -> None:
         status = {"level": "available"}
+        saved_dashboard: dict[str, object] = {}
 
         def reply(request: urllib.request.Request, **kwargs: object) -> io.BytesIO:
             self.assertIn("Authorization", request.headers)
@@ -256,11 +257,26 @@ class ElasticAcceptanceContracts(unittest.TestCase):
                 return stream({"status": {"overall": status}})
             if "/api/data_views/" in request.full_url:
                 return stream({"data_view": {"id": "otus-logs"}})
+            if "/api/saved_objects/dashboard/" in request.full_url:
+                if request.data is not None:
+                    assert isinstance(request.data, bytes)
+                    saved_dashboard.update(document(json.loads(request.data)))
+                return stream({"id": "otus-logs", **saved_dashboard})
             return stream({"id": "otus-logs"})
 
         with patch("urllib.request.urlopen", side_effect=reply):
             self.assertEqual(self.printed(elk.kibana)["dashboard_id"], "otus-logs")
+            attributes = document(saved_dashboard["attributes"])
+            metadata = document(attributes["kibanaSavedObjectMeta"])
+            self.assertEqual(
+                json.loads(str(metadata["searchSourceJSON"])),
+                {"query": {"language": "kuery", "query": ""}, "filter": []},
+            )
             self.assertEqual(self.printed(elk.kibana_check)["status"], "available")
+            attributes.pop("kibanaSavedObjectMeta")
+            with self.assertRaisesRegex(ValueError, "ELK"):
+                elk.kibana_check()
+            attributes["kibanaSavedObjectMeta"] = metadata
             status["level"] = "unavailable"
             with self.assertRaisesRegex(RuntimeError, "not available"):
                 elk.kibana_check()

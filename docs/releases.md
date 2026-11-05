@@ -1,14 +1,14 @@
 # Доставка через GitHub Releases
 
 Для сдачи используется явный режим `release` в `config/services.json`.
-Подготовлен новый выпуск `v1.1.0`; S3 не требуется и не служит fallback.
+Подготовлен новый выпуск `v1.1.1`; S3 не требуется и не служит fallback.
 Манифест закрепляет точные исходники и официальные пакеты с SHA512.
 Версия клона и привязка Release должны соответствовать друг другу.
 
 [Облачный цикл текущих исходников](current-cloud-acceptance.json) выполнен
 с cached. [Публичная доставка прежнего выпуска](release-public-verification.json)
 и [его облачный прогон](release-cloud-acceptance.json) не подтверждают новый
-архив. Публичное получение v1.1.0 проверяется после согласованной публикации.
+архив. Публичное получение v1.1.1 проверяется после согласованной публикации.
 
 ## Подготовка выпуска
 
@@ -19,16 +19,16 @@
 
 ```powershell
 # Выполняется сопровождающим из чистого рабочего дерева
-# v1.1.0 — пример нового тега; выберите свободный номер
-.\.tools\venv\Scripts\python.exe scripts/release_artifacts.py build --tag v1.1.0
+# v1.1.1 — пример нового тега; выберите свободный номер
+.\.tools\venv\Scripts\python.exe scripts/release_artifacts.py build --tag v1.1.1
 
 # Проверить все файлы и закрепить выпуск в конфигурации текущего клона
-.\.tools\venv\Scripts\python.exe scripts/release_artifacts.py configure --assets .tools/releases/v1.1.0
+.\.tools\venv\Scripts\python.exe scripts/release_artifacts.py configure --assets .tools/releases/v1.1.1
 ```
 
 Команда проверяет три пакета в `.tools/elastic-packages` по
 `config/elastic-artifacts.json`, получает исходники через `git archive` точного
-коммита и создаёт `.tools/releases/v1.1.0`. Номер версии выбирается явно;
+коммита и создаёт `.tools/releases/v1.1.1`. Номер версии выбирается явно;
 существующий каталог не перезаписывается. Каталог появляется только после
 успешной сборки и повторной проверки состояния репозитория.
 

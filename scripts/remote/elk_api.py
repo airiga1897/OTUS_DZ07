@@ -135,6 +135,18 @@ def _kibana_response(value: object) -> KibanaResponse:
     return cast(KibanaResponse, result)
 
 
+def _dashboard_search_source(value: object) -> None:
+    attributes = _document(_document(value).get("attributes"))
+    metadata = _document(attributes.get("kibanaSavedObjectMeta"))
+    raw = metadata.get("searchSourceJSON")
+    _text(raw)
+    source = _document(json.loads(cast(str, raw)))
+    query = _document(source.get("query"))
+    _text(query.get("language"))
+    _text(query.get("query"))
+    _rows(source.get("filter"))
+
+
 def _guest_settings(value: object) -> GuestSettings:
     result = _document(value)
     for key in ("ips", "secrets"):
@@ -443,6 +455,9 @@ def kibana() -> None:
                     "title": "OTUS DZ07 — журналы серверов",
                     "timeRestore": False,
                     "optionsJSON": json.dumps({"useMargins": True}),
+                    "kibanaSavedObjectMeta": {
+                        "searchSourceJSON": json.dumps({"query": {"language": "kuery", "query": ""}, "filter": []})
+                    },
                     "panelsJSON": json.dumps(
                         [
                             {
@@ -488,7 +503,10 @@ def kibana_check() -> None:
             headers={"Authorization": "Basic " + auth, "kbn-xsrf": "true"},
         )
         with urllib.request.urlopen(request, timeout=15) as response:
-            results[name] = _kibana_response(json.load(response))
+            result = json.load(response)
+            if name == "dashboard":
+                _dashboard_search_source(result)
+            results[name] = _kibana_response(result)
     if results["status"]["status"]["overall"]["level"] != "available":
         raise RuntimeError("Kibana is not available")
     print(

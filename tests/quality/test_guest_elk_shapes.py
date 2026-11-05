@@ -1,5 +1,6 @@
 """Guest Elasticsearch client diagnostics never raise an unset exception."""
 
+import json
 from unittest.mock import patch
 
 import pytest
@@ -47,6 +48,51 @@ def test_invalid_elasticsearch_response(value: object) -> None:
 def test_invalid_kibana_response(value: object) -> None:
     with pytest.raises(ValueError, match="ELK"):
         elk_api._kibana_response(value)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        None,
+        {},
+        {"attributes": None},
+        {"attributes": {}},
+        {"attributes": {"kibanaSavedObjectMeta": None}},
+        {"attributes": {"kibanaSavedObjectMeta": {}}},
+        {"attributes": {"kibanaSavedObjectMeta": {"searchSourceJSON": None}}},
+        {"attributes": {"kibanaSavedObjectMeta": {"searchSourceJSON": {}}}},
+    ],
+)
+def test_dashboard_requires_its_own_search_metadata(value: object) -> None:
+    with pytest.raises(ValueError, match="ELK"):
+        elk_api._dashboard_search_source(value)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "{",
+        "null",
+        "[]",
+        "{}",
+        json.dumps({"query": None, "filter": []}),
+        json.dumps({"query": {"language": None, "query": ""}, "filter": []}),
+        json.dumps({"query": {"language": "kuery", "query": None}, "filter": []}),
+        json.dumps({"query": {"language": "kuery", "query": ""}, "filter": None}),
+        json.dumps({"query": {"language": "kuery", "query": ""}, "filter": [None]}),
+    ],
+)
+def test_dashboard_rejects_damaged_search_metadata(raw: str) -> None:
+    with pytest.raises(ValueError):
+        elk_api._dashboard_search_source({"attributes": {"kibanaSavedObjectMeta": {"searchSourceJSON": raw}}})
+
+
+@pytest.mark.parametrize("filters", [[], [{"meta": {"alias": "Журналы"}}]])
+def test_dashboard_accepts_valid_search_metadata(filters: list[dict[str, object]]) -> None:
+    source = {"query": {"language": "kuery", "query": "сообщение"}, "filter": filters}
+    elk_api._dashboard_search_source(
+        {"attributes": {"kibanaSavedObjectMeta": {"searchSourceJSON": json.dumps(source, ensure_ascii=False)}}}
+    )
 
 
 @pytest.mark.parametrize(

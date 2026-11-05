@@ -4,7 +4,7 @@
   "added_nodes": [],
   "verification": {
     "mode": "expanded",
-    "run_id": "83dc1765aab247808723c98d1385da1d",
+    "run_id": "608697fb2ce14d3483dfce5a2803553f",
     "database_host": "app",
     "sql_and_http": true,
     "application_view_write": true,
@@ -13,21 +13,21 @@
     "new_write_succeeded": true,
     "new_record": {
       "id": 10,
-      "slug": "expanded-bc15ae983e5d4b4b8ef83a71e1dd4b36",
-      "body": "committed-a5db028d26a942cdaa2cb8695039ceb5"
+      "slug": "expanded-197e3ef91e0b4f0c94763f5183b8ca3f",
+      "body": "committed-41649858ddbc413f929c257f53c5fee5"
     },
     "preserved_records": [
       {
-        "id": 8,
-        "slug": "baseline-499b22754bae4534b221073a27a71886",
-        "body": "committed-7b72cc54a380468e93200b4eb59106fa"
+        "id": 9,
+        "slug": "baseline-79d8628ef9374cd8955f48347c7a948b",
+        "body": "committed-ca5f1adba35d41609358e1a560a741e5"
       }
     ],
     "initial_data": {
       "status": "loaded",
       "loaded_now": false,
-      "articles": 8,
-      "fixture_sha256": "f3c16fd7bedc87fff00e85168fce6546816cef729b8af1e26af7d0ad3039f807",
+      "articles": 9,
+      "fixture_sha256": "f0710640b07783fd6c7cf6d9b11a75874fd2cbfecbdf91f1853d5ddde4cdf9ff",
       "source": "bundled_DZ04_materials_fixture"
     },
     "elasticsearch": {
