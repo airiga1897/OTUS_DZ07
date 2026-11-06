@@ -1,7 +1,9 @@
 param([string]$TerraformPath)
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'setup-download.ps1')
 . (Join-Path $PSScriptRoot 'setup-uv.ps1')
+. (Join-Path $PSScriptRoot 'setup-terraform.ps1')
 $taskTools = Get-Content -LiteralPath (Join-Path $taskRoot 'config/setup-tools.json') -Raw | ConvertFrom-Json
 if (-not (Test-Path -LiteralPath (Join-Path $taskRoot '.env'))) {
     Copy-Item -LiteralPath (Join-Path $taskRoot '.env.example') -Destination (Join-Path $taskRoot '.env') -ErrorAction Stop
@@ -48,15 +50,7 @@ if ($LASTEXITCODE) { throw 'Local dependency installation failed.' }
 if ($LASTEXITCODE) { throw 'Virtual environment dependency consistency check failed.' }
 & $taskPython -c 'import _cffi_backend, paramiko, yaml, jinja2, boto3, coverage'
 if ($LASTEXITCODE) { throw 'Virtual environment dependency imports failed; repair .tools/venv with its original Python version. No cloud resources created.' }
-$taskTarget = Join-Path $taskRoot '.tools/terraform.exe'
-if ($TerraformPath) {
-    $taskSource = (Resolve-Path -LiteralPath $TerraformPath -ErrorAction Stop).Path
-    if ([IO.Path]::GetFullPath($taskSource) -ne [IO.Path]::GetFullPath($taskTarget)) {
-        Copy-Item -LiteralPath $taskSource -Destination $taskTarget
-    }
-} elseif (-not (Test-Path -LiteralPath $taskTarget)) {
-    Copy-Item -LiteralPath (Get-Command terraform -ErrorAction Stop).Source -Destination $taskTarget
-}
+$taskTarget = Get-SetupTerraform -Root $taskRoot -Settings $taskTools.terraform -SourcePath $TerraformPath
 & $taskTarget version
 if ($LASTEXITCODE) { throw 'Local Terraform executable check failed.' }
 & $taskPython (Join-Path $taskRoot 'scripts/terraform_plugins.py')

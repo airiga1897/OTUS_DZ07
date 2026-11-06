@@ -44,12 +44,16 @@ function Invoke-TestPython {
 function Invoke-TestTerraform { $global:otusDz07SetupTestContext.Calls.Add('terraform'); $global:LASTEXITCODE = [int]($global:otusDz07SetupTestContext.Failed -eq 'terraform') }
 function Invoke-TestDownload {
     $context = $global:otusDz07SetupTestContext
-    $context.Calls.Add('download')
-    $expected = '--silent --show-error --fail --location --proto =https --proto-redir =https --connect-timeout 20 --max-time 120 --retry 2 --retry-delay 1 --output * https://github.com/astral-sh/uv/releases/download/0.13.7/uv-x86_64-pc-windows-msvc.zip'
+    $isTerraform = $args[$args.Count - 1] -eq 'https://releases.hashicorp.com/terraform/1.17.1/terraform_1.17.1_windows_amd64.zip'
+    $step = if ($isTerraform) { 'terraform-download' } else { 'download' }
+    $context.Calls.Add($step)
+    $url = if ($isTerraform) { 'https://releases.hashicorp.com/terraform/1.17.1/terraform_1.17.1_windows_amd64.zip' } else { 'https://github.com/astral-sh/uv/releases/download/0.13.7/uv-x86_64-pc-windows-msvc.zip' }
+    $expected = '--silent --show-error --fail --location --proto =https --proto-redir =https --connect-timeout 20 --max-time 120 --retry 2 --retry-delay 1 --output * ' + $url
     if (($args -join ' ') -notlike $expected) { throw 'Unexpected or unbounded download' }
     $global:LASTEXITCODE = 0
-    if ($context.Failed -eq 'download') { $global:LASTEXITCODE = 1; return }
-    Copy-Item -LiteralPath (Join-Path $context.Root 'test-uv.zip') -Destination $args[$args.Count - 2]
+    if ($context.Failed -eq $step) { $global:LASTEXITCODE = 1; return }
+    $archiveName = if ($isTerraform) { 'test-terraform.zip' } else { 'test-uv.zip' }
+    Copy-Item -LiteralPath (Join-Path $context.Root $archiveName) -Destination $args[$args.Count - 2]
 }
 function Assert-TestEnvironment {
     foreach ($name in $global:otusDz07SetupTestContext.Environment.Keys) {
@@ -67,7 +71,7 @@ function Invoke-ExpectedFailure {
 }
 try {
     New-Item -ItemType Directory -Force "$testRoot/scripts", "$testRoot/config", "$testRoot/.local", (Split-Path -Parent $testPython), "$testRoot/archive" | Out-Null
-    Copy-Item -LiteralPath "$repo/scripts/setup.ps1", "$repo/scripts/setup-uv.ps1" -Destination "$testRoot/scripts"
+    Copy-Item -LiteralPath "$repo/scripts/setup.ps1", "$repo/scripts/setup-uv.ps1", "$repo/scripts/setup-download.ps1", "$repo/scripts/setup-terraform.ps1" -Destination "$testRoot/scripts"
     Copy-Item -LiteralPath "$repo/config/setup-tools.json" -Destination "$testRoot/config/setup-tools.json"
     Set-Content -LiteralPath "$testRoot/.env.example" -Value 'EXAMPLE=true'
     Set-Content -LiteralPath "$testRoot/.env" -Value 'PRESERVE=true'
@@ -77,9 +81,12 @@ try {
     Set-Content -LiteralPath $testTerraform -Value 'synthetic terraform'
     Set-Content -LiteralPath $testUv -Value 'synthetic uv'
     Set-Content -LiteralPath "$testRoot/archive/uv.exe" -Value 'synthetic uv'
+    Set-Content -LiteralPath "$testRoot/archive/terraform.exe" -Value 'downloaded synthetic terraform'
     Compress-Archive -LiteralPath "$testRoot/archive/uv.exe" -DestinationPath "$testRoot/test-uv.zip"
+    Compress-Archive -LiteralPath "$testRoot/archive/terraform.exe" -DestinationPath "$testRoot/test-terraform.zip"
     $settings = Get-Content "$testRoot/config/setup-tools.json" -Raw | ConvertFrom-Json
     $settings.uv.sha256 = (Get-FileHash "$testRoot/test-uv.zip" -Algorithm SHA256).Hash
+    $settings.terraform.sha256 = (Get-FileHash "$testRoot/test-terraform.zip" -Algorithm SHA256).Hash
     $settings | ConvertTo-Json | Set-Content "$testRoot/config/setup-tools.json"
     Set-Alias -Name $testPython -Value Invoke-TestPython -Scope Script
     Set-Alias -Name $testTerraform -Value Invoke-TestTerraform -Scope Script
@@ -95,6 +102,28 @@ try {
     & "$testRoot/scripts/setup.ps1"
     if (($calls -join ',') -ne 'download,uv-version,python-download,create,version,dependencies,check,imports,terraform,providers') { throw 'Fresh preparation did not download its own tools' }
     Assert-TestEnvironment
+    $calls.Clear(); Remove-Item -LiteralPath $testTerraform
+    & "$testRoot/scripts/setup.ps1"
+    if (($calls -join ',') -ne 'uv-version,version,dependencies,check,imports,terraform-download,terraform,providers') { throw 'Missing Terraform was not downloaded before provider initialization' }
+    if ((Get-Content $testTerraform -Raw).Trim() -ne 'downloaded synthetic terraform') { throw 'Verified Terraform was not installed' }
+    Assert-TestEnvironment
+    $calls.Clear(); & "$testRoot/scripts/setup.ps1"
+    if ($calls.Contains('terraform-download')) { throw 'Repeated setup downloaded Terraform again' }
+    & "$testRoot/scripts/setup.ps1" -TerraformPath $testTerraform
+    Set-Content "$testRoot/explicit-terraform.exe" -Value 'explicit synthetic terraform'
+    & "$testRoot/scripts/setup.ps1" -TerraformPath "$testRoot/explicit-terraform.exe"
+    if ((Get-Content $testTerraform -Raw).Trim() -ne 'explicit synthetic terraform') { throw 'Explicit Terraform source was ignored' }
+    Remove-Item -LiteralPath $testTerraform
+    Invoke-ExpectedFailure 'terraform-download' 'Pinned terraform download failed*'
+    $goodTerraformHash = $settings.terraform.sha256
+    $settings.terraform.sha256 = '0' * 64
+    $settings | ConvertTo-Json | Set-Content "$testRoot/config/setup-tools.json"
+    try { & "$testRoot/scripts/setup.ps1"; throw 'Bad Terraform archive accepted' } catch { if ($_.Exception.Message -ne 'terraform archive SHA256 mismatch.') { throw } }
+    if (Test-Path $testTerraform) { throw 'Unverified Terraform was installed or executed' }
+    if (@(Get-ChildItem "$testRoot/.tools" -Filter 'terraform-download-*').Count) { throw 'Terraform temporary archive was not cleaned' }
+    $settings.terraform.sha256 = $goodTerraformHash
+    $settings | ConvertTo-Json | Set-Content "$testRoot/config/setup-tools.json"
+    Set-Content -LiteralPath $testTerraform -Value 'restored synthetic terraform'
     foreach ($failure in @(@('dependencies','Local dependency installation failed.'), @('check','Virtual environment dependency consistency check failed.'), @('imports','Virtual environment dependency imports failed*'), @('terraform','Local Terraform executable check failed.'), @('providers','Terraform provider preparation failed*'))) {
         Invoke-ExpectedFailure $failure[0] $failure[1]
     }
@@ -117,7 +146,7 @@ try {
     if ((Get-FileHash "$testRoot/.local/operator.json").Hash -ne $credentialsHash) { throw 'Credentials changed' }
     if ((Get-Content "$testRoot/.env" -Raw).Trim() -ne 'PRESERVE=true') { throw 'Configuration changed' }
     Assert-TestEnvironment
-    Write-Host 'uv bootstrap, SHA256 rejection, fresh Python, reuse, failures, environment and credential preservation verified offline.'
+    Write-Host 'uv and Terraform bootstrap, SHA256 rejection, explicit Terraform, reuse, failures and credential preservation verified offline.'
 } finally {
     foreach ($name in $originalEnv.Keys) {
         if ($null -eq $originalEnv[$name]) { Remove-Item -LiteralPath ('Env:' + $name) -ErrorAction SilentlyContinue }

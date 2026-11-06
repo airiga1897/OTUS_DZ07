@@ -5,6 +5,11 @@
     "http_retries": 3,
     "concurrent_downloads": 4
   },
+  "terraform": {
+    "version": "1.17.1",
+    "url": "https://releases.hashicorp.com/terraform/1.17.1/terraform_1.17.1_windows_amd64.zip",
+    "sha256": "a3b71365cff94c0f978cf75d86addb075ea1bb6409055ea0ab359bf057d7898a"
+  },
   "uv": {
     "version": "0.13.7",
     "url": "https://github.com/astral-sh/uv/releases/download/0.13.7/uv-x86_64-pc-windows-msvc.zip",
