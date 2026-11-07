@@ -1,0 +1,14 @@
+{
+  "mode": "baseline",
+  "database_host": "app",
+  "sql_and_http": true,
+  "application_view_write": true,
+  "media_preserved": true,
+  "committed_record_preserved": true,
+  "new_write_succeeded": true,
+  "initial_data": {
+    "status": "loaded",
+    "loaded_now": true,
+    "articles": 7
+  }
+}

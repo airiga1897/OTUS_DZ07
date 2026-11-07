@@ -74,6 +74,12 @@ SHA512. Для основного сценария достаточно рекв
 .\.tools\venv\Scripts\python.exe scripts/lab.py destroy
 ```
 
+После успешного удаления очистите реквизиты из текущей сессии PowerShell.
+
+```powershell
+. .\scripts\env.ps1 -Clear
+```
+
 ## Подтверждённые результаты
 
 В облачном испытании базовой схемы в ru-2 подтверждены три узла Elasticsearch

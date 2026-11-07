@@ -1,5 +1,26 @@
 # Результаты проверки ДЗ07
 
+## Ручной прогон 7 ноября 2026 года
+
+`verify` в 13:01 МСК подтвердил работу сайта и PostgreSQL, запись через
+приложение, кластер Elasticsearch из трёх узлов в состоянии `green`,
+поступление событий по всем 12 сочетаниям «ВМ и источник» и доступность Kibana.
+В интерфейсе Kibana открылся дешборд с событиями. В Discover видны документы
+в `logs-otus-*` при фильтрации по каждой из четырёх ВМ.
+
+- [Дешборд Kibana](evidence/2026-11-07-manual-run/Dashboard.png).
+- Discover по ВМ [app](evidence/2026-11-07-manual-run/Discover_app.png),
+  [es1](evidence/2026-11-07-manual-run/Discover_es1.png),
+  [es2](evidence/2026-11-07-manual-run/Discover_es2.png) и
+  [es3](evidence/2026-11-07-manual-run/Discover_es3.png).
+- Обезличенные отчёты [проверки сайта и БД](evidence/2026-11-07-manual-run/verification.json)
+  и [проверки логов, Elasticsearch и Kibana](evidence/2026-11-07-manual-run/logs-verification.json).
+
+В 13:11 МСК `destroy` подтвердил отсутствие управляемых ресурсов в Terraform
+state и завершил аудит Selectel API в сохранённой области `ru-2`.
+Общих ресурсов Глобального роутера не осталось.
+[Отчёт об удалении](evidence/2026-11-07-manual-run/cleanup-result.json).
+
 ## Облачное испытание базовой схемы
 
 Полный test-cycle выполнен на незакоммиченном рабочем дереве: четыре ВМ
