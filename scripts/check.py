@@ -1,5 +1,7 @@
 """One local command: isolated unittest, Django, pytest, coverage and static tools."""
 
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -8,8 +10,9 @@ import sys
 import tempfile
 import unittest
 from collections.abc import Callable
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
-from typing import TypedDict, cast
+from typing import TextIO, TypedDict, cast
 from unittest.mock import patch
 
 import coverage
@@ -90,7 +93,9 @@ def pytest_group() -> dict[str, int | bool]:
     return {"tests": counts.collected, "success": code == 0}
 
 
-def measured_groups(meter: coverage.Coverage) -> dict[str, dict[str, int | bool]]:
+def measured_groups(
+    meter: coverage.Coverage, handler: logging.StreamHandler[TextIO], log: TextIO
+) -> dict[str, dict[str, int | bool]]:
     results = {}
     groups: list[tuple[str, Callable[[], dict[str, int | bool]]]] = [
         ("scripts", lambda: unit_group("scripts")),
@@ -103,8 +108,23 @@ def measured_groups(meter: coverage.Coverage) -> dict[str, dict[str, int | bool]
         patch.object(socket, "create_connection", offline_connection),
     ):
         for name, run in groups:
+            LOGGER.info("Тесты %s: начало", name)
+            log.write(f"\n--- {name} ---\n")
             meter.switch_context(name)
-            results[name] = run()
+            with (
+                redirect_stdout(log),
+                redirect_stderr(log),
+                patch.object(handler, "stream", log),
+            ):
+                results[name] = run()
+            report = results[name]
+            LOGGER.log(
+                logging.INFO if report["success"] else logging.ERROR,
+                "Тесты %s: %s. Всего %s",
+                name,
+                "успешно" if report["success"] else "есть ошибки",
+                report["tests"],
+            )
     return results
 
 
@@ -125,10 +145,25 @@ def save_measurement(meter: coverage.Coverage, output: Path, results: object) ->
 
 
 def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    handler = logging.StreamHandler(sys.stderr)
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s", handlers=[handler])
+    try:
+        return run_checks_with_coverage(handler)
+    except KeyboardInterrupt:
+        LOGGER.info("Локальная проверка прервана. Используйте итоговую сводку только завершившегося прогона.")
+        return 130
+
+
+def run_checks_with_coverage(handler: logging.StreamHandler[TextIO]) -> int:
     output = prepare_process()
+    path = output / "tests-latest.log"
+    LOGGER.info("Подробный журнал тестов: %s", path.relative_to(ROOT))
+    with path.open("w", encoding="utf-8") as log:
+        return run_suite(output, handler, log)
+
+
+def run_suite(output: Path, handler: logging.StreamHandler[TextIO], log: TextIO) -> int:
     meter = measurement(output)
-    results = {}
     meter.start()
     try:
         with (
@@ -136,9 +171,11 @@ def main() -> int:
             patch.object(tempfile, "tempdir", folder),
             patch.dict(os.environ, {"TEMP": folder, "TMP": folder}),
         ):
-            results = measured_groups(meter)
-    finally:
-        totals = save_measurement(meter, output, results)
+            results = measured_groups(meter, handler, log)
+    except BaseException:
+        meter.stop()
+        raise
+    totals = save_measurement(meter, output, results)
     from quality import run_checks
 
     tools = run_checks(ROOT)

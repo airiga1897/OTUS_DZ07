@@ -77,8 +77,6 @@ Python, `py`, uv, Terraform или Poetry не требуется. Terraform с�
 
 ```powershell
 .\scripts\setup.ps1
-# Если Terraform отсутствует в PATH, вместо команды выше:
-# .\scripts\setup.ps1 -TerraformPath C:\Tools\terraform.exe
 ```
 
 Подготовка создаёт `.tools/venv`, собственную копию Terraform и `.env` из
@@ -192,7 +190,7 @@ GitHub Releases. [Режимы доставки и очистка артефак
 подтвердил четыре ВМ в ru-2 без Глобального роутера, три физических хоста ES,
 кластер `green`, сайт, семь видов журналов, Kibana, повторный deploy и сохранность
 данных. Удаление подтверждено state и API. [Таблица проверок и доказательства](docs/results.md).
-[Локальный набор](docs/local-quality.md): 1637 тестов, Ruff, mypy win32/linux,
+[Локальный набор для разработки](docs/local-quality.md): 1639 тестов, Ruff, mypy win32/linux,
 pre-commit и 100% измеряемых строк и ветвей.
 
 App — единая точка отказа сайта, PostgreSQL и Kibana. HTTP не шифрует сессию
