@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from operator_network import (
+    OperatorIPv4MismatchError,
     allowed_cidrs,
     check_saved_access,
     discover_cidrs,
@@ -20,23 +21,33 @@ from plan_diagnostics import PlannedResource
 
 
 class OperatorNetworkTests(unittest.TestCase):
-    def test_cli_blocks_verify_before_cloud_actions_when_address_is_unconfirmed(self) -> None:
+    def test_cli_blocks_deploy_and_verify_when_addresses_remain_unconfirmed(self) -> None:
         from test_runtime_support import lab
 
-        with (
-            patch.object(lab.sys, "argv", ["lab.py", "verify"]),
-            patch("test_cycle.require_access"),
-            patch.object(
-                lab, "placement", return_value={"operator_ip_services": ["https://one.invalid", "https://two.invalid"]}
-            ),
-            patch("operator_network.discover_cidrs", side_effect=ValueError("unconfirmed")),
-            patch.object(lab, "verify") as verify,
-            patch.object(lab, "cloud") as cloud,
-        ):
-            with self.assertRaisesRegex(ValueError, "unconfirmed"):
+        for command in ["deploy", "verify"]:
+            with (
+                self.subTest(command=command),
+                patch.object(lab.sys, "argv", ["lab.py", command]),
+                patch("test_cycle.require_access"),
+                patch.object(
+                    lab,
+                    "placement",
+                    return_value={"operator_ip_services": ["https://one.invalid", "https://two.invalid"]},
+                ),
+                patch("operator_network.read_address", side_effect=["1.1.1.1", "8.8.8.8"] * 3),
+                patch("operator_network.time.sleep"),
+                patch.object(lab, "deploy_selected") as deploy,
+                patch.object(lab, "verify") as verify,
+                self.assertLogs("otus_dz07", level="INFO") as logs,
+                self.assertRaises(SystemExit) as exit_error,
+            ):
                 lab.main()
+            self.assertEqual(exit_error.exception.code, 1)
+            self.assertTrue(any("Повторяем проверку" in line for line in logs.output))
+            self.assertTrue(any("Проверьте VPN" in line for line in logs.output))
+            self.assertFalse(any("Traceback" in line for line in logs.output))
+            deploy.assert_not_called()
             verify.assert_not_called()
-            cloud.assert_not_called()
 
     def test_signed_route_rejects_tampering_replay_private_addresses_and_invalid_schema(self) -> None:
         key, nonce = b"synthetic-key", "fresh-nonce"
@@ -105,8 +116,32 @@ class OperatorNetworkTests(unittest.TestCase):
         urls = ["https://one.invalid", "https://two.invalid"]
         with patch("operator_network.read_address", return_value="1.1.1.1"):
             self.assertEqual(discover_cidrs(urls), ["1.1.1.1/32"])
-        with patch("operator_network.read_address", side_effect=["1.1.1.1", "8.8.8.8"]), self.assertRaises(ValueError):
+        with (
+            patch("operator_network.read_address", side_effect=["1.1.1.1", "8.8.8.8", "1.1.1.1", "1.1.1.1"]) as read,
+            patch("operator_network.time.sleep") as sleep,
+        ):
+            self.assertEqual(discover_cidrs(urls), ["1.1.1.1/32"])
+        self.assertEqual([call.args[0] for call in read.call_args_list], urls * 2)
+        sleep.assert_called_once_with(1)
+        with (
+            patch("operator_network.read_address", side_effect=["1.1.1.1", "8.8.8.8"] * 3),
+            patch("operator_network.time.sleep") as sleep,
+            self.assertRaises(OperatorIPv4MismatchError),
+        ):
             discover_cidrs(urls)
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_multipath_requires_independent_confirmation_of_both_addresses(self) -> None:
+        urls = ["https://one.invalid", "https://two.invalid"]
+        with (
+            patch("operator_network.read_address", side_effect=["1.1.1.1", "8.8.8.8", "8.8.8.8", "1.1.1.1"]),
+            patch("operator_network.time.sleep"),
+        ):
+            observed = discover_cidrs(urls)
+        self.assertEqual(observed, ["1.1.1.1/32", "8.8.8.8/32"])
+        self.assertEqual(allowed_cidrs([], observed), observed)
+        with self.assertRaisesRegex(ValueError, "absent from admin_cidrs"):
+            allowed_cidrs([], observed, observed[:1])
 
     def test_failed_or_non_public_source_blocks_preparation(self) -> None:
         for response in ["127.0.0.1", "192.168.1.2", "::1", "not-an-ip"]:

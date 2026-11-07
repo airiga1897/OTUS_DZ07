@@ -4,12 +4,22 @@ import hashlib
 import hmac
 import ipaddress
 import json
+import time
 import urllib.parse
 import urllib.request
 from collections.abc import Sequence
 from pathlib import Path
 
 from plan_diagnostics import PlannedResource
+from progress_logging import get_logger
+
+LOGGER = get_logger(__name__)
+IP_CHECK_ATTEMPTS = 3
+IP_CHECK_RETRY_DELAY = 1
+
+
+class OperatorIPv4MismatchError(ValueError):
+    """The two discovery services repeatedly returned different public addresses."""
 
 
 def read_address(url: str) -> str:
@@ -25,16 +35,35 @@ def discover_cidrs(urls: list[str]) -> list[str]:
         parsed = urllib.parse.urlsplit(url)
         if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
             raise ValueError("Operator IP discovery requires HTTPS endpoints without credentials")
+    first_seen: set[str] = set()
+    second_seen: set[str] = set()
+    for attempt in range(1, IP_CHECK_ATTEMPTS + 1):
+        if attempt > 1:
+            LOGGER.info(
+                "Сервисы вернули разные публичные IPv4. Повторяем проверку обоих сервисов (%d/%d)",
+                attempt,
+                IP_CHECK_ATTEMPTS,
+            )
+            time.sleep(IP_CHECK_RETRY_DELAY)
+        first, second = public_ipv4_cidrs(urls)
+        first_seen.add(first)
+        second_seen.add(second)
+        if first == second or first_seen == second_seen:
+            return sorted(first_seen & second_seen)
+    raise OperatorIPv4MismatchError(
+        f"HTTPS-сервисы не подтвердили одинаковые публичные IPv4 за {IP_CHECK_ATTEMPTS} попытки. "
+        "Проверьте VPN, прокси и туннель на роутере. "
+        "Переключитесь на прямой выход через провайдера или другую сеть и повторите команду."
+    )
+
+
+def public_ipv4_cidrs(urls: list[str]) -> list[str]:
     cidrs = []
     for url in urls:
         address = ipaddress.ip_address(read_address(url))
         if address.version != 4 or not address.is_global:
             raise ValueError("Operator discovery must return a global IPv4 address")
-        cidr = str(address) + "/32"
-        if cidr not in cidrs:
-            cidrs.append(cidr)
-    if len(cidrs) != 1:
-        raise ValueError("Operator IPv4 is unconfirmed: HTTPS services disagree; check routing, VPN and proxy")
+        cidrs.append(str(address) + "/32")
     return cidrs
 
 
@@ -45,7 +74,7 @@ def allowed_cidrs(configured: Sequence[str], observed: Sequence[str], existing: 
         if network.version != 4 or network.prefixlen != 32 or not network.network_address.is_global:
             raise ValueError("Administrative access requires public IPv4 /32 entries")
     result = list(dict.fromkeys(existing or configured or observed))
-    if observed[0] not in result:
+    if not set(observed).issubset(result):
         raise ValueError("Confirmed operator IPv4 is absent from admin_cidrs; explicitly review access")
     return result
 
