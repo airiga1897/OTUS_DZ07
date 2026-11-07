@@ -16,6 +16,7 @@ from cloud_contract import (
     ConfigurationTarget,
     InfrastructureNode,
     InfrastructureResult,
+    InfrastructureUnavailableError,
     StandDescription,
     TerraformError,
     checked_node,
@@ -191,6 +192,52 @@ def recovery_search(api: "FilePort", original: BaseException) -> None:
             "Не удалось сохранить результат read-only поиска (%s); первоначальная ошибка сохранена",
             type(error).__name__,
         )
+
+
+def clear_stale_context(api: "FilePort") -> None:
+    """Release an isolated legacy binding only after the usual empty-scope audit."""
+    root = api.ROOT.resolve()
+    context = api.LOCAL / "context.json"
+    if (api.LOCAL / JOURNAL).exists() or not context.is_file():
+        return
+    checked_tree(context, root)
+    destroy_command = r".\.tools\venv\Scripts\python.exe scripts/lab.py destroy"
+    related = (
+        "stages",
+        "infrastructure.json",
+        "selectel-context.json",
+        "placement.json",
+        "configured.json",
+        "ansible-operation.json",
+        "cleanup-fips.json",
+        "expansion-pending.json",
+    )
+    if any((api.LOCAL / name).exists() for name in related) or any(
+        path
+        for pattern in ("terraform*/terraform.tfstate*", "terraform*/terraform.tfvars.json")
+        for path in root.glob(pattern)
+    ):
+        raise InfrastructureUnavailableError(
+            "Кроме context.json есть данные восстановления. Deploy остановлен, файлы сохранены. "
+            f"Для отдельной очистки используйте `{destroy_command}`."
+        )
+    original = context.read_bytes()
+    LOGGER.info("Найден context.json без state. Проверяем отсутствие ресурсов через Selectel API")
+    try:
+        report = audit_empty_scope(api)
+        if not report["audit_complete"]:
+            raise RuntimeError("Incomplete namespace audit")
+    except Exception as error:
+        raise InfrastructureUnavailableError(
+            f"Аудит не подтвердил отсутствие ресурсов ({type(error).__name__}). "
+            "Контекст сохранён. Устраните причину и повторите deploy. "
+            f"Для отдельного аудита используйте `{destroy_command}`."
+        ) from error
+    checked_tree(context, root)
+    if context.read_bytes() != original:
+        raise InfrastructureUnavailableError("Контекст изменился во время аудита. Повторите deploy для новой проверки.")
+    context.unlink()
+    LOGGER.info("Аудит подтвердил отсутствие ресурсов. Устаревший context.json удалён, deploy продолжается")
 
 
 class Backend:

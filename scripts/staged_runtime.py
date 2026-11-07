@@ -203,6 +203,7 @@ def repair_access(api: RetainedLifecyclePort) -> None:
 
 def deploy(api: RetainedLifecyclePort) -> None:
     import stack_config
+    from cloud_settings import adapter
     from staged_deploy import place
     from test_cycle import require_access
 
@@ -211,6 +212,7 @@ def deploy(api: RetainedLifecyclePort) -> None:
         from elastic_options import require_no_failover
 
         require_no_failover(api)
+        adapter().clear_stale_context(api)
         from configuration import resume
 
         if resume(api):

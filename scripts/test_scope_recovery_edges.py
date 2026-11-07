@@ -11,6 +11,7 @@ import progress_logging as progress
 import selectel_staged as staged
 import staged_runtime
 from catalog_cache import CatalogCache
+from cloud_contract import InfrastructureUnavailableError
 from selectel_adapter import namespace_match
 from selectel_global_router import GlobalRouter
 from stage_store import RecoveryContextMissing
@@ -27,6 +28,71 @@ class ScopeRecoveryEdges(unittest.TestCase):
         self.local = self.root / ".local"
         self.local.mkdir()
         self.api = SimpleNamespace(ROOT=self.root, LOCAL=self.local, PREFIX="otus-dz07", save=Mock())
+
+    def test_deploy_continues_after_auditing_an_isolated_context(self) -> None:
+        context = self.local / "context.json"
+        context.write_text("{}")
+        reached_deploy = RuntimeError("end of local test")
+
+        def audit(api: object) -> dict[str, bool]:
+            self.assertIs(api, self.api)
+            self.assertTrue(context.is_file())
+            return {"audit_complete": True}
+
+        def next_step(api: object) -> None:
+            self.assertIs(api, self.api)
+            self.assertFalse(context.exists())
+            raise reached_deploy
+
+        with (
+            patch("test_cycle.require_access"),
+            patch("elastic_options.require_no_failover"),
+            patch("configuration.resume", return_value=False),
+            patch.object(staged, "audit_empty_scope", side_effect=audit) as check,
+            patch("staged_runtime.checked_backend", side_effect=next_step),
+            self.assertRaises(RuntimeError) as caught,
+        ):
+            staged_runtime.deploy(self.api)
+        check.assert_called_once_with(self.api)
+        self.assertIs(caught.exception, reached_deploy)
+
+    def test_failed_or_incomplete_audit_keeps_the_context(self) -> None:
+        context = self.local / "context.json"
+        context.write_text("{}")
+        for outcome in (PermissionError(), RuntimeError("resources found"), {"audit_complete": False}):
+            with (
+                self.subTest(outcome=outcome),
+                patch.object(staged, "audit_empty_scope", side_effect=[outcome]),
+                self.assertRaisesRegex(InfrastructureUnavailableError, "scripts/lab.py destroy"),
+            ):
+                staged.clear_stale_context(self.api)
+            self.assertEqual(context.read_text(), "{}")
+
+    def test_changed_context_and_other_recovery_data_are_preserved(self) -> None:
+        context = self.local / "context.json"
+        context.write_text("{}")
+
+        def changed_during_audit(_: object) -> dict[str, bool]:
+            context.write_text('{"changed":true}')
+            return {"audit_complete": True}
+
+        with (
+            patch.object(staged, "audit_empty_scope", side_effect=changed_during_audit),
+            self.assertRaisesRegex(InfrastructureUnavailableError, "изменился во время аудита"),
+        ):
+            staged.clear_stale_context(self.api)
+        self.assertEqual(context.read_text(), '{"changed":true}')
+
+        state = self.root / "terraform-selectel" / "terraform.tfstate.backup"
+        state.parent.mkdir()
+        state.write_text("{}")
+        with (
+            patch.object(staged, "audit_empty_scope") as audit,
+            self.assertRaisesRegex(InfrastructureUnavailableError, "есть данные восстановления"),
+        ):
+            staged.clear_stale_context(self.api)
+        audit.assert_not_called()
+        self.assertTrue(context.exists())
 
     def test_catalog_cache_copies_values_and_does_not_cache_failures(self) -> None:
         cache, loader = CatalogCache(), Mock(return_value={"items": [1]})

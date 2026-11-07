@@ -78,6 +78,12 @@ def audit_empty_stages(api: "FilePort") -> EmptyNamespaceAudit:
     return audit_empty_scope(api)
 
 
+def clear_stale_context(api: "FilePort") -> None:
+    from selectel_staged import clear_stale_context as clear
+
+    clear(api)
+
+
 def recover_stages(api: "FilePort", error: BaseException) -> None:
     from selectel_staged import recovery_search
 
