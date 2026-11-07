@@ -117,6 +117,10 @@ def _infrastructure_shape(value: Mapping[str, object]) -> None:
         _node_shape(name, node)
 
 
+class InfrastructureUnavailableError(RuntimeError):
+    """No usable local infrastructure result is available for this command."""
+
+
 class TerraformError(RuntimeError):
     # Operation wrappers attach these when available; observers use getattr
     # until the corresponding diagnostic step has succeeded.

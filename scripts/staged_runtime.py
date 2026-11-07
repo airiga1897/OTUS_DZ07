@@ -7,7 +7,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from cloud_contract import InfrastructureResult, StandDescription
+from cloud_contract import InfrastructureResult, InfrastructureUnavailableError, StandDescription
 from cloud_settings import staged_backend
 from local_runtime import checked_tree
 from progress_logging import get_logger
@@ -42,10 +42,19 @@ def managed_ids(api: TerraformPort) -> dict[tuple[str, str], str]:
     }
 
 
-def output(api: ApplicationPort) -> InfrastructureResult:
+def output_path(api: FilePort) -> Path:
     path = api.LOCAL / "infrastructure.json"
     checked_tree(path, Path(api.ROOT).resolve())
-    result = InfrastructureResult.from_dict(json.loads(path.read_text()))
+    if not path.is_file():
+        raise InfrastructureUnavailableError(
+            "Есть контекст поэтапного стенда, но ещё нет результата развёртывания. "
+            "Сохраните данные восстановления и повторите deploy после устранения ошибки."
+        )
+    return path
+
+
+def output(api: ApplicationPort) -> InfrastructureResult:
+    result = InfrastructureResult.from_dict(json.loads(output_path(api).read_text()))
     journal = read_journal(api.ROOT)
     if (
         result.provider != journal["provider"]

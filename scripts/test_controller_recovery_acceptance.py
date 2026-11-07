@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import lab as cli_module
 import test_controller_boundaries as fixtures
-from cloud_contract import InfrastructureResult
+from cloud_contract import InfrastructureResult, InfrastructureUnavailableError
 from test_cursor_coverage import entrypoint_code
 from test_runtime_support import lab
 
@@ -110,9 +110,6 @@ class ControllerRecoveryAcceptance(unittest.TestCase):
     def test_legacy_output_binding_and_ids_ignore_data_and_empty_instances(self) -> None:
         result = self.result()
         (self.local / "context.json").write_text(json.dumps(result.binding()))
-        with patch.object(lab, "tf", return_value=json.dumps(asdict(result))):
-            self.assertEqual(lab.infrastructure_output(), result)
-            self.assertEqual(lab.lab_output()["site_url"], "http://8.8.8.8")
         state = {
             "resources": [
                 {"mode": "data"},
@@ -126,7 +123,34 @@ class ControllerRecoveryAcceptance(unittest.TestCase):
             ]
         }
         (self.tfroot / "terraform.tfstate").write_text(json.dumps(state))
+        with patch.object(lab, "tf", return_value=json.dumps(asdict(result))):
+            self.assertEqual(lab.infrastructure_output(), result)
+            self.assertEqual(lab.lab_output()["site_url"], "http://8.8.8.8")
         self.assertEqual(lab.managed_ids(), {("vm", "app", ""): "owned"})
+
+    def test_verify_with_leftover_context_and_no_state_exits_before_terraform(self) -> None:
+        (self.local / "context.json").write_text("{}")
+        with (
+            patch("sys.argv", ["lab.py", "verify"]),
+            patch("operator_network.check_saved_access"),
+            patch.object(lab, "tf") as tf,
+            self.assertLogs("otus_dz07", level="ERROR") as logs,
+            self.assertRaises(SystemExit) as error,
+        ):
+            lab.main()
+        self.assertEqual(error.exception.code, 1)
+        self.assertIn("В этом клоне нет сохранённого стенда", logs.output[-1])
+        tf.assert_not_called()
+
+    def test_legacy_state_without_binding_does_not_start_terraform(self) -> None:
+        state = {"resources": [{"mode": "managed", "type": "vm", "name": "app", "instances": [{}]}]}
+        (self.tfroot / "terraform.tfstate").write_text(json.dumps(state))
+        with (
+            patch.object(lab, "tf") as tf,
+            self.assertRaisesRegex(InfrastructureUnavailableError, "отсутствует контекст"),
+        ):
+            lab.infrastructure_output()
+        tf.assert_not_called()
 
     def legacy_cleanup(
         self,

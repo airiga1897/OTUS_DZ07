@@ -84,8 +84,9 @@ def verify(api: ApplicationPort, failover: bool = False) -> VerificationReport:
 
     if deployment_exists(api.ROOT):
         from selectel_staged_audit import verify_admin_ingress
-        from staged_runtime import backend
+        from staged_runtime import backend, output_path
 
+        output_path(api)
         LOGGER.info("Проверка правил SSH и Kibana через Selectel API: начало")
         verify_admin_ingress(backend(api))
     import verification

@@ -30,8 +30,10 @@ class VerifyAdminIngressTests(unittest.TestCase):
         self.addCleanup(folder.cleanup)
         self.api = Mock(ROOT=Path(folder.name))
         self.local = self.api.ROOT / ".local"
+        self.api.LOCAL = self.local
         self.local.mkdir()
         (self.local / "staged-deployment.json").touch()
+        (self.local / "infrastructure.json").touch()
         self.groups = {
             pool: {
                 "id": "group-" + pool,
@@ -132,4 +134,16 @@ class VerifyAdminIngressTests(unittest.TestCase):
         with patch("verification.verify") as verify:
             runtime_application.verify(self.api)
         verify.assert_called_once_with(self.api, False)
+        self.backend.region.assert_not_called()
+
+    def test_missing_staged_result_stops_before_api_or_ssh(self) -> None:
+        from cloud_contract import InfrastructureUnavailableError
+
+        (self.local / "infrastructure.json").unlink()
+        with (
+            patch("verification.verify") as verify,
+            self.assertRaisesRegex(InfrastructureUnavailableError, "результата"),
+        ):
+            runtime_application.verify(self.api)
+        verify.assert_not_called()
         self.backend.region.assert_not_called()

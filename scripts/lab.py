@@ -15,12 +15,16 @@ LOGGER = get_logger(__name__)
 
 
 def main(api: "Runtime | None" = None) -> None:
+    from cloud_contract import InfrastructureUnavailableError
     from operator_network import OperatorIPv4MismatchError
 
     try:
         run_command(api)
     except OperatorIPv4MismatchError as error:
         LOGGER.error("Проверка внешнего IPv4: %s", error)
+        raise SystemExit(1) from None
+    except InfrastructureUnavailableError as error:
+        LOGGER.error("%s", error)
         raise SystemExit(1) from None
 
 

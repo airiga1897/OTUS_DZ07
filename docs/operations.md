@@ -108,6 +108,116 @@ Elasticsearch при повторной настройке обрабатыва�
 Миграции приложения повторяемы; постоянный маркер
 защищает БД от повторной загрузки фикстуры. Исходники не заменяют media.
 
+### Ручная проверка восстановления правил доступа
+
+Выполняйте сценарий на собственном тестовом стенде из корня клона, которым
+его развернули. Нужны рабочий SSH, два сохранённых IPv4 `/32` и право
+удалять правила группы безопасности в Selectel. В PowerShell загрузите
+реквизиты командой `. .\scripts\env.ps1`, если сессия новая. Обычный
+`verify` перед испытанием должен завершиться успешно.
+
+```powershell
+.\.tools\venv\Scripts\python.exe scripts/lab.py verify
+if ($LASTEXITCODE -ne 0) { throw 'Сначала устраните ошибку исходной проверки' }
+```
+
+**1. Сохраните ID ресурсов и определите одно правило для испытания.**
+Используйте второй подтверждённый IPv4, который сейчас не нужен для доступа
+к Kibana. Снимки хранятся в памяти этой сессии PowerShell.
+
+```powershell
+function Get-StandResourceIds {
+    $journal = Get-Content .\.local\staged-deployment.json -Raw -ErrorAction Stop |
+        ConvertFrom-Json -ErrorAction Stop
+    $ids = @{}
+    foreach ($stage in $journal.stages.PSObject.Properties) {
+        if ($stage.Value.status -ne 'active') { continue }
+        if (-not $stage.Value.identities) {
+            throw "В журнале нет ID активного этапа $($stage.Name)"
+        }
+        foreach ($resource in $stage.Value.identities.PSObject.Properties) {
+            $ids["$($stage.Name)|$($resource.Name)"] = $resource.Value
+        }
+    }
+    if ($ids.Count -eq 0) { throw 'В журнале нет ID активного стенда' }
+    return $ids
+}
+
+$cidr = '<ВТОРОЙ_IPV4>/32'
+$journal = Get-Content .\.local\staged-deployment.json -Raw | ConvertFrom-Json
+$pool = $journal.stages.app.candidate.region
+$network = "network-$pool"
+$stage = $journal.stages.PSObject.Properties[$network].Value
+if ($stage.status -ne 'active' -or $cidr -notin @($stage.inputs.admin_cidrs)) {
+    throw 'Проверьте, что указанный /32 сохранён в активной сети app'
+}
+$address = 'module.stage.openstack_networking_secgroup_rule_v2.kibana["{0}"]' -f $cidr
+$key = "$network|$address"
+$before = Get-StandResourceIds
+if (-not $before[$key]) { throw 'В журнале нет ID выбранного правила' }
+
+[pscustomobject]@{
+    Pool = $pool
+    SecurityGroupId = $stage.output.security_group_id
+    RuleId = $before[$key]
+    Source = $cidr
+    Port = $stage.inputs.kibana_port
+}
+```
+
+**2. Удалите ровно одно входящее правило TCP для Kibana.** В панели Selectel
+откройте группу безопасности ВМ `app` в выведенном пуле. Сверьте ID группы,
+источник `/32` и порт Kibana, по умолчанию 5601. Если интерфейс показывает ID
+правила, сверяйте и его. Удалите только совпавшую запись. При неоднозначности
+остановитесь. Оставьте оба правила TCP/22, правило Kibana для первого адреса
+и привязку группы к ВМ.
+
+Сразу запустите `verify`. Ожидается ошибка с пулом `app`, портом Kibana и
+выбранным `/32`. Если проверка сообщает другую ошибку, восстановите удалённое
+правило командой ниже и разберите причину отдельно.
+
+```powershell
+.\.tools\venv\Scripts\python.exe scripts/lab.py verify
+```
+
+**3. Восстановите правило и проверьте стенд.** Для проверки отдельной команды
+выполните `repair-access`. Чтобы испытать восстановление при повторном
+развёртывании, используйте `deploy --repair-access` вместо неё.
+
+```powershell
+.\.tools\venv\Scripts\python.exe scripts/lab.py repair-access
+# Альтернативный запуск для отдельного прогона
+# .\.tools\venv\Scripts\python.exe scripts/lab.py deploy --repair-access
+```
+
+После успеха в пуле `app` должно быть создано одно правило. Сверьте в Selectel
+входящее правило с тем же портом и источником. Если панель показывает ID,
+сравните его с `$after[$key]` после выполнения блока ниже. Повторите обычный
+`verify`, чтобы подтвердить правила обоих адресов через API и работу стенда
+по SSH.
+
+```powershell
+.\.tools\venv\Scripts\python.exe scripts/lab.py verify
+if ($LASTEXITCODE -ne 0) { throw 'Проверка после восстановления завершилась с ошибкой' }
+$after = Get-StandResourceIds
+if (-not $after[$key] -or $after[$key] -ceq $before[$key]) {
+    throw 'ID восстановленного правила отсутствует или не изменился'
+}
+$otherChanges = @(@($before.Keys) + @($after.Keys) | Sort-Object -Unique |
+    Where-Object { $_ -ne $key -and $before[$_] -cne $after[$_] })
+if ($otherChanges.Count -gt 0) {
+    throw "Изменились другие ресурсы: $($otherChanges -join ', ')"
+}
+'Изменился только ID восстановленного правила Kibana.'
+```
+
+Для проверки второго режима повторите сценарий с новым исходным снимком.
+Если восстановление остановилось, сохраните журнал и state для диагностики.
+Повторный запуск той же команды может завершить сохранённую операцию. Если
+правило уже есть в Selectel, а его ID отсутствует в Terraform state, требуется
+отдельная сверка. Сценарий и сравнение ID проверяются локально на имитациях;
+облачное выполнение подтверждается ручным прогоном.
+
 ## Проверки и очистка
 
 Команды `deploy`, `verify`, `open` и `destroy` приведены в разделе

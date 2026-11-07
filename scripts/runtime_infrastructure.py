@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Literal, overload
 
 import pool_selection as pools
 import topology
-from cloud_contract import InfrastructureResult, TerraformError, validate_binding
+from cloud_contract import InfrastructureResult, InfrastructureUnavailableError, TerraformError, validate_binding
 from cloud_settings import terraform_root
 from credentials import environment_for_schema
 from placement_config import PlacementPolicy
@@ -18,7 +18,7 @@ from progress_logging import get_logger
 from runtime_ports import ApplicationPort, DesiredTopologyPort, RootPort, TerraformExecutionPort
 from selectel_adapter import SelectelAdapter
 from selectel_api import json_object, json_text, json_texts
-from terraform_state_types import checked_state
+from terraform_state_types import TerraformState, checked_state
 
 if TYPE_CHECKING:
     from runtime import Runtime
@@ -189,9 +189,33 @@ def infrastructure_output(api: ApplicationPort) -> InfrastructureResult:
         from staged_runtime import output
 
         return output(api)
+    state = legacy_state(api.ROOT)
+    if not any(
+        resource.get("mode") == "managed" and resource.get("instances") for resource in state.get("resources", [])
+    ):
+        raise InfrastructureUnavailableError(
+            "В этом клоне нет сохранённого стенда. После ошибки deploy проверьте её причину "
+            "и повторите deploy перед verify. Для стенда из другого клона используйте тот клон."
+        )
+    from local_runtime import checked_tree
+
+    context = api.LOCAL / "context.json"
+    checked_tree(context, api.ROOT.resolve())
+    if not context.is_file():
+        raise InfrastructureUnavailableError(
+            "В клоне есть Terraform state, но отсутствует контекст стенда. Сохраните state для восстановления."
+        )
     result = InfrastructureResult.from_dict(json.loads(api.tf("output", "-json", "infrastructure", capture=True)))
-    validate_binding(json.loads((api.LOCAL / "context.json").read_text()), result.binding())
+    validate_binding(json.loads(context.read_text()), result.binding())
     return result
+
+
+def legacy_state(root: Path) -> TerraformState:
+    from local_runtime import checked_tree
+
+    path = terraform_root(root) / "terraform.tfstate"
+    checked_tree(path, root.resolve())
+    return checked_state(json.loads(path.read_text())) if path.exists() else {}
 
 
 def managed_ids(api: "Runtime") -> dict[object, str]:
@@ -204,11 +228,7 @@ def managed_ids(api: "Runtime") -> dict[object, str]:
         from staged_runtime import managed_ids as stage_ids
 
         return dict(stage_ids(api))
-    path = terraform_root(api.ROOT) / "terraform.tfstate"
-    from local_runtime import checked_tree
-
-    checked_tree(path, api.ROOT.resolve())
-    state = checked_state(json.loads(path.read_text())) if path.exists() else {}
+    state = legacy_state(api.ROOT)
     result: dict[object, str] = {}
     for resource in state.get("resources", []):
         if resource.get("mode") != "managed":
