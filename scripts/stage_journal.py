@@ -39,6 +39,7 @@ class StageRecord(TypedDict, total=False):
     inputs: dict[str, object]
     output: StageOutput
     identities: dict[str, str]
+    access_repair: dict[str, str]
     lineage: str | None
     intent: CreationIntent | None
     audit_entries: list[StateEntry]
@@ -146,6 +147,8 @@ def record(value: object) -> StageRecord:
         output(values["output"])
     if "identities" in values:
         string_map(values["identities"])
+    if "access_repair" in values:
+        string_map(values["access_repair"])
     if "intent" in values and values["intent"] is not None:
         intent = mapping(values["intent"])
         if (

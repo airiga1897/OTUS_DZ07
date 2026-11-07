@@ -108,6 +108,33 @@ class CommandRoutingContracts(unittest.TestCase):
                         previous.assert_called_once()
                         stage.assert_not_called()
 
+    def test_explicit_repair_runs_alone_or_before_repeat_deploy(self) -> None:
+        from unittest.mock import Mock, call
+
+        for arguments in (["repair-access"], ["deploy", "--repair-access"]):
+            order = Mock()
+            with (
+                self.subTest(arguments=arguments),
+                patch("sys.argv", ["lab.py", *arguments]),
+                patch("staged_runtime.repair_access", order.repair),
+                patch.object(lab, "deploy_selected", order.deploy),
+            ):
+                lab.main()
+            expected = [call.repair(lab)]
+            if arguments[0] == "deploy":
+                expected.append(call.deploy())
+            self.assertEqual(order.mock_calls, expected)
+
+    def test_failed_repair_prevents_repeat_deploy(self) -> None:
+        with (
+            patch("sys.argv", ["lab.py", "deploy", "--repair-access"]),
+            patch("staged_runtime.repair_access", side_effect=RuntimeError("repair failed")),
+            patch.object(lab, "deploy_selected") as deploy,
+            self.assertRaisesRegex(RuntimeError, "repair failed"),
+        ):
+            lab.main()
+        deploy.assert_not_called()
+
     def test_open_needs_no_cloud_auth_and_selects_saved_context(self) -> None:
         for sequential in (False, True):
             marker = self.local / "staged-deployment.json"

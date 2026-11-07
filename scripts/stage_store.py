@@ -71,11 +71,17 @@ def check_plan(
     destroy: bool = False,
     additions_only: bool = False,
     allow_drift: Callable[[PlannedResource], bool] | None = None,
+    restore: Mapping[str, str] | None = None,
 ) -> None:
+    restoring = restore or {}
     for drift in plan.get("resource_drift", []):
         if drift["change"]["actions"] != ["no-op"]:
             allowed_deletion = (
-                destroy
+                (
+                    destroy
+                    or drift["address"] in restoring
+                    and restoring[drift["address"]] == before.get(drift["address"])
+                )
                 and drift["change"]["actions"] == ["delete"]
                 and drift["address"] in before
                 and (drift["change"].get("before") or {}).get("id") == before[drift["address"]]
@@ -97,7 +103,7 @@ def check_plan(
         actions = change["change"]["actions"]
         if actions not in (["no-op"], ["delete"] if destroy else ["create"]):
             raise ValueError("Unsafe stage plan: " + change["address"])
-        if change["address"] in before:
+        if change["address"] in before and change["address"] not in restoring:
             if (change["change"].get("before") or {}).get("id") != before[change["address"]]:
                 raise ValueError("Existing stage identity changed")
             if additions_only and actions != ["no-op"]:
@@ -291,9 +297,14 @@ class StageStore:
         destroy: bool = False,
         unchanged: bool = False,
         validate_extra: Callable[[PlanView], None] | None = None,
+        restore: Mapping[str, str] | None = None,
     ) -> StageOutput:
+        if restore and (destroy or unchanged or validate_extra is None):
+            raise ValueError("Access restoration requires a dedicated checked plan")
         self.tf(name, "init", "-input=false", "-no-color")
         before = self.identities(name)
+        if any(before.get(address) != identifier for address, identifier in (restore or {}).items()):
+            raise ValueError("Access restoration identity differs from Terraform state")
         args = ["plan", "-input=false", "-no-color", "-out=stage.tfplan"]
         if destroy:
             args.append("-destroy")
@@ -307,6 +318,7 @@ class StageStore:
                 destroy,
                 additions_only=not destroy,
                 allow_drift=(lambda drift: drift_validator(name, drift)) if drift_validator else None,
+                restore=restore,
             )
             if unchanged and any(
                 change.get("mode") != "data" and change["change"]["actions"] != ["no-op"]
@@ -343,6 +355,8 @@ class StageStore:
             if after:
                 raise RuntimeError("Stage state is not empty")
             return {}
-        if any(after.get(address) != identifier for address, identifier in before.items()):
+        if any(
+            after.get(address) != identifier for address, identifier in before.items() if address not in (restore or {})
+        ):
             raise RuntimeError("Stage resource identity changed")
         return checked_output(json.loads(self.tf(name, "output", "-json", "result")))

@@ -32,6 +32,7 @@ def run_command(api: "Runtime | None") -> None:
             "prepare",
             "preflight",
             "deploy",
+            "repair-access",
             "configure",
             "verify",
             "add-es4",
@@ -45,6 +46,7 @@ def run_command(api: "Runtime | None") -> None:
     parser.add_argument("--log-level", choices=LEVELS)
     parser.add_argument("--purge-artifacts", action="store_true")
     parser.add_argument("--es-failover", action="store_true")
+    parser.add_argument("--repair-access", action="store_true", help="Restore missing rules before a repeat deploy")
     args = parser.parse_args()
     configure_logging(args.log_level)
     started = time.perf_counter()
@@ -62,6 +64,8 @@ def run_command(api: "Runtime | None") -> None:
         parser.error("--purge-artifacts requires destroy")
     if args.es_failover and args.action != "verify":
         parser.error("--es-failover requires verify")
+    if args.repair_access and args.action != "deploy":
+        parser.error("--repair-access requires deploy")
     from test_cycle import require_access
 
     require_access(api, cleanup=args.action in ["destroy", "cleanup"])
@@ -104,8 +108,8 @@ def run_command(api: "Runtime | None") -> None:
             stage_open(api)
         else:
             open_portal(api.ROOT, 6)
-    elif args.action == "deploy":
-        api.deploy_selected()
+    elif args.action in ("repair-access", "deploy"):
+        deploy_or_repair(api, args.action == "deploy", args.repair_access)
     elif args.action in ["test", "test-cycle"]:
         api.regression()
     elif args.action == "configure":
@@ -124,6 +128,19 @@ def run_command(api: "Runtime | None") -> None:
     else:
         api.destroy(args.purge_artifacts)
     LOGGER.info("%s: команда завершена успешно", args.action)
+
+
+def deploy_or_repair(api: "Runtime", deploy: bool, repair_first: bool) -> None:
+    if deploy and not repair_first:
+        api.deploy_selected()
+        return
+    from stage_store import operation
+    from staged_runtime import repair_access
+
+    with operation(api.LOCAL):
+        repair_access(api)
+        if deploy:
+            api.deploy_selected()
 
 
 if __name__ == "__main__":

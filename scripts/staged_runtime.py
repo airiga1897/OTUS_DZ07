@@ -180,6 +180,18 @@ def prepare(api: RetainedLifecyclePort) -> None:
         prepare_files(api)
 
 
+def repair_access(api: RetainedLifecyclePort) -> None:
+    from elastic_options import require_no_failover
+    from selectel_access_repair import repair
+    from stage_store import deployment_exists
+
+    if not deployment_exists(api.ROOT):
+        raise ValueError("Восстановление правил требует сохранённого контекста поэтапного стенда")
+    require_no_failover(api)
+    provider = backend_factory(api)
+    repair(provider)
+
+
 def deploy(api: RetainedLifecyclePort) -> None:
     import stack_config
     from staged_deploy import place

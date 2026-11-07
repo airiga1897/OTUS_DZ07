@@ -99,6 +99,41 @@ class StageStoreFailureMatrix(unittest.TestCase):
         self.assertEqual(caught.exception.__dict__["diagnostics_error_type"], "PermissionError")
         self.assertNotIn("apply", [call.args[1] for call in tf_mock.call_args_list])
 
+    def test_checked_access_restore_allows_only_its_identity_to_change(self) -> None:
+        name = "network-ru-2"
+        address = 'module.stage.openstack_networking_secgroup_rule_v2.ssh["1.1.1.1/32"]'
+        before = {address: "old-ssh", "network": "saved-network"}
+        proposed = {
+            "resource_drift": [{"address": address, "change": {"actions": ["delete"], "before": {"id": "old-ssh"}}}],
+            "resource_changes": [{"address": address, "change": {"actions": ["create"]}}],
+        }
+        validate = Mock()
+        for changed_network in (False, True):
+            after = {address: "new-ssh", "network": "different-network" if changed_network else "saved-network"}
+            with (
+                self.subTest(changed_network=changed_network),
+                patch.object(self.store, "identities", side_effect=[before, after]),
+                patch.object(
+                    self.store, "tf", side_effect=lambda name, op, *args: json.dumps(proposed) if op == "show" else "{}"
+                ) as tf,
+            ):
+                if changed_network:
+                    with self.assertRaisesRegex(RuntimeError, "Stage resource identity changed"):
+                        self.store.apply(name, restore={address: "old-ssh"}, validate_extra=validate)
+                else:
+                    self.assertEqual(self.store.apply(name, restore={address: "old-ssh"}, validate_extra=validate), {})
+                tf.assert_any_call(name, "apply", "-input=false", "-no-color", "stage.tfplan")
+        self.assertEqual(validate.call_count, 2)
+        with self.assertRaisesRegex(ValueError, "dedicated checked plan"):
+            self.store.apply(name, restore={address: "old-ssh"})
+        with (
+            patch.object(self.store, "identities", return_value=before),
+            patch.object(self.store, "tf") as tf,
+            self.assertRaisesRegex(ValueError, "identity differs"),
+        ):
+            self.store.apply(name, restore={address: "foreign-ssh"}, validate_extra=validate)
+        tf.assert_called_once_with(name, "init", "-input=false", "-no-color")
+
     def test_configure_reuses_lock_and_indexed_identities_ignore_data_sources(self) -> None:
         source = self.root / "provider"
         source.mkdir()

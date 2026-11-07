@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 from progress_logging import get_logger, timed
 from selectel_api import json_int, json_object, json_rows, json_text, json_texts
 from selectel_reports import DeletionAudit, NetworkVerification, StageFaults
+from stage_journal import StageRecord
 from terraform_state_types import StateEntry
 
 LOGGER = get_logger(__name__)
@@ -135,7 +136,9 @@ def audit_namespace(backend: "Backend", pool: str) -> None:
                 raise RuntimeError("Deployment namespace is not empty in " + pool)
 
 
-def assert_stage_owned(backend: "Backend", name: str, active: bool = False) -> None:
+def assert_stage_owned(
+    backend: "Backend", name: str, active: bool = False, missing_access_ids: frozenset[str] = frozenset()
+) -> None:
     record = backend.journal["stages"][name]
     if record.get("lineage") and backend.store.state(name).get("lineage") != record["lineage"]:
         raise ValueError("Stage state lineage changed")
@@ -152,6 +155,8 @@ def assert_stage_owned(backend: "Backend", name: str, active: bool = False) -> N
             continue  # The associated objects are independently checked below/in their own stage.
         item = found[kind].get(json_text(attrs["id"], "Unknown stage resource identity"))
         if item is None:
+            if kind == "openstack_networking_secgroup_rule_v2" and attrs["id"] in missing_access_ids:
+                continue
             known_deleted = record["status"] == "deleting" and any(
                 e["type"] == kind and e["attrs"].get("id") == attrs["id"] for e in record.get("audit_entries", [])
             )
@@ -340,16 +345,7 @@ def verify_admin_ingress(backend: "Backend") -> None:
     missing = []
     for record in networks:
         region = json_text(record["candidate"]["region"], "Stage pool is unconfirmed")
-        group_id = record["output"]["security_group_id"]
-        group = json_object(
-            backend.region(region).get("network", "/v2.0/security-groups/" + group_id)["security_group"]
-        )
-        if (
-            group.get("id") != group_id
-            or group.get("description") != backend.owner
-            or group.get("tenant_id", group.get("project_id")) not in (None, backend.credentials["project_id"])
-        ):
-            raise RuntimeError("Принадлежность группы безопасности стенду не подтверждена в " + region)
+        rules = owned_access_rules(backend, record, region)
         saved_cidrs = json_texts(record["inputs"]["admin_cidrs"], "Unknown admin networks")
         # The signed route can extend the application pool without changing other pools.
         if region == app_region:
@@ -358,12 +354,24 @@ def verify_admin_ingress(backend: "Backend") -> None:
         if not cidrs:
             raise RuntimeError("Список разрешённых IPv4 пуст в " + region)
         port = json_int(record["inputs"]["kibana_port"], "Unknown Kibana port")
-        missing.extend(missing_admin_rules(region, cidrs, port, json_rows(group["security_group_rules"])))
+        missing.extend(missing_admin_rules(region, cidrs, port, rules))
     for rule in missing:
         LOGGER.error("Отсутствует входящее правило %s", rule)
     if missing:
         raise RuntimeError(f"Selectel API: отсутствуют обязательные правила доступа ({len(missing)})")
     LOGGER.info("Selectel API подтвердил отдельные правила IPv4 /32 для SSH и Kibana в %d пулах", len(networks))
+
+
+def owned_access_rules(backend: "Backend", record: StageRecord, region: str) -> list[dict[str, object]]:
+    group_id = record["output"]["security_group_id"]
+    group = json_object(backend.region(region).get("network", "/v2.0/security-groups/" + group_id)["security_group"])
+    if (
+        group.get("id") != group_id
+        or group.get("description") != backend.owner
+        or group.get("tenant_id", group.get("project_id")) not in (None, backend.credentials["project_id"])
+    ):
+        raise RuntimeError("Принадлежность группы безопасности стенду не подтверждена в " + region)
+    return json_rows(group["security_group_rules"])
 
 
 def missing_admin_rules(region: str, cidrs: list[str], kibana_port: int, rules: list[dict[str, object]]) -> list[str]:
