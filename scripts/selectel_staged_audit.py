@@ -8,6 +8,8 @@ from collections.abc import Callable, Mapping
 from functools import partial
 from typing import TYPE_CHECKING, Protocol
 
+from operator_network import allowed_cidrs
+
 if TYPE_CHECKING:
     from selectel_staged import Backend
 
@@ -322,6 +324,66 @@ def faults(backend: "Backend", name: str) -> StageFaults:
             )
         }
     return result
+
+
+def verify_admin_ingress(backend: "Backend") -> None:
+    """Check saved network policies without refreshing Terraform or contacting the VMs."""
+    stages = backend.journal["stages"]
+    networks = [
+        record for name, record in stages.items() if name.startswith("network-") and record["status"] == "active"
+    ]
+    if not networks:
+        raise RuntimeError("В контексте стенда нет активных сетей для проверки правил доступа")
+    app_region = json_text(stages["app"]["candidate"]["region"], "Application pool is unconfirmed")
+    if not any(record["candidate"]["region"] == app_region for record in networks):
+        raise RuntimeError("В контексте стенда нет активной сети ВМ app")
+    missing = []
+    for record in networks:
+        region = json_text(record["candidate"]["region"], "Stage pool is unconfirmed")
+        group_id = record["output"]["security_group_id"]
+        group = json_object(
+            backend.region(region).get("network", "/v2.0/security-groups/" + group_id)["security_group"]
+        )
+        if (
+            group.get("id") != group_id
+            or group.get("description") != backend.owner
+            or group.get("tenant_id", group.get("project_id")) not in (None, backend.credentials["project_id"])
+        ):
+            raise RuntimeError("Принадлежность группы безопасности стенду не подтверждена в " + region)
+        saved_cidrs = json_texts(record["inputs"]["admin_cidrs"], "Unknown admin networks")
+        # The signed route can extend the application pool without changing other pools.
+        if region == app_region:
+            saved_cidrs = saved_cidrs + backend.journal["admin_cidrs"]
+        cidrs = allowed_cidrs([], saved_cidrs)
+        if not cidrs:
+            raise RuntimeError("Список разрешённых IPv4 пуст в " + region)
+        port = json_int(record["inputs"]["kibana_port"], "Unknown Kibana port")
+        missing.extend(missing_admin_rules(region, cidrs, port, json_rows(group["security_group_rules"])))
+    for rule in missing:
+        LOGGER.error("Отсутствует входящее правило %s", rule)
+    if missing:
+        raise RuntimeError(f"Selectel API: отсутствуют обязательные правила доступа ({len(missing)})")
+    LOGGER.info("Selectel API подтвердил отдельные правила IPv4 /32 для SSH и Kibana в %d пулах", len(networks))
+
+
+def missing_admin_rules(region: str, cidrs: list[str], kibana_port: int, rules: list[dict[str, object]]) -> list[str]:
+    actual = [
+        (rule.get("remote_ip_prefix"), rule.get("port_range_min"), rule.get("port_range_max"))
+        for rule in rules
+        if rule.get("direction") == "ingress"
+        and rule.get("ethertype") == "IPv4"
+        and rule.get("protocol") == "tcp"
+        and rule.get("remote_group_id") is None
+        and rule.get("remote_address_group_id") is None
+        and type(rule.get("port_range_min")) is int
+        and type(rule.get("port_range_max")) is int
+    ]
+    return [
+        f"{region} | {service} TCP/{port} | источник {cidr}"
+        for cidr in cidrs
+        for service, port in (("SSH", 22), ("Kibana", kibana_port))
+        if (cidr, port, port) not in actual
+    ]
 
 
 def verify_networks(backend: "Backend") -> NetworkVerification:

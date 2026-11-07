@@ -80,6 +80,14 @@ def verify(api: ApplicationPort, failover: bool = False) -> VerificationReport:
     from elastic_options import require_no_failover
 
     require_no_failover(api)
+    from stage_store import deployment_exists
+
+    if deployment_exists(api.ROOT):
+        from selectel_staged_audit import verify_admin_ingress
+        from staged_runtime import backend
+
+        LOGGER.info("Проверка правил SSH и Kibana через Selectel API: начало")
+        verify_admin_ingress(backend(api))
     import verification
 
     return verification.verify(api, failover)
