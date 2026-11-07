@@ -1,0 +1,357 @@
+{
+  "checked_at_utc": "2026-11-07T10:01:15.099690+00:00",
+  "health": {
+    "cluster_name": "otus-dz07",
+    "status": "green",
+    "timed_out": false,
+    "number_of_nodes": 3,
+    "number_of_data_nodes": 3,
+    "active_primary_shards": 46,
+    "active_shards": 92,
+    "relocating_shards": 0,
+    "initializing_shards": 0,
+    "unassigned_shards": 0,
+    "unassigned_primary_shards": 0,
+    "delayed_unassigned_shards": 0,
+    "number_of_pending_tasks": 0,
+    "number_of_in_flight_fetch": 0,
+    "task_max_waiting_in_queue_millis": 0,
+    "active_shards_percent_as_number": 100.0
+  },
+  "counts": {
+    "took": 50,
+    "timed_out": false,
+    "_shards": {
+      "total": 1,
+      "successful": 1,
+      "skipped": 0,
+      "failed": 0
+    },
+    "hits": {
+      "total": {
+        "value": 10000,
+        "relation": "gte"
+      },
+      "max_score": null,
+      "hits": []
+    },
+    "aggregations": {
+      "services": {
+        "doc_count_error_upper_bound": 0,
+        "sum_other_doc_count": 0,
+        "buckets": [
+          {
+            "key": "system",
+            "doc_count": 12033
+          },
+          {
+            "key": "elasticsearch",
+            "doc_count": 5151
+          },
+          {
+            "key": "django",
+            "doc_count": 1989
+          },
+          {
+            "key": "nginx",
+            "doc_count": 1156
+          },
+          {
+            "key": "kibana",
+            "doc_count": 270
+          },
+          {
+            "key": "haproxy",
+            "doc_count": 51
+          },
+          {
+            "key": "postgresql",
+            "doc_count": 43
+          }
+        ]
+      },
+      "hosts": {
+        "doc_count_error_upper_bound": 0,
+        "sum_other_doc_count": 0,
+        "buckets": [
+          {
+            "key": "otus-dz07-app",
+            "doc_count": 9914
+          },
+          {
+            "key": "otus-dz07-es1",
+            "doc_count": 4227
+          },
+          {
+            "key": "otus-dz07-es3",
+            "doc_count": 3325
+          },
+          {
+            "key": "otus-dz07-es2",
+            "doc_count": 3227
+          }
+        ]
+      }
+    }
+  },
+  "source_counts": {
+    "app/system": 6405,
+    "app/nginx": 1156,
+    "app/haproxy": 51,
+    "app/postgresql": 43,
+    "app/django": 1989,
+    "app/kibana": 270,
+    "es1/system": 1967,
+    "es1/elasticsearch": 2260,
+    "es2/system": 1800,
+    "es2/elasticsearch": 1427,
+    "es3/system": 1861,
+    "es3/elasticsearch": 1464
+  },
+  "parsed_nginx_count": 1156,
+  "kibana": {
+    "status": "available",
+    "data_view": "otus-logs",
+    "dashboard": "otus-logs"
+  },
+  "samples": {
+    "django": [
+      {
+        "_source": {
+          "@timestamp": "2026-11-07T10:01:13.785Z",
+          "host": {
+            "name": "otus-dz07-app"
+          },
+          "service": {
+            "name": "django"
+          },
+          "event": {
+            "dataset": "django"
+          },
+          "message": "[pid: 11665|app: 0|req: 484/920] [address] () {22 vars in 250 bytes} [Sat Nov  7 13:01:13 2026] GET /health/ready => generated 44 bytes in 21 msecs (HTTP/1.0 200) 6 headers in 198 bytes (1 switches on core 1)"
+        }
+      },
+      {
+        "_source": {
+          "@timestamp": "2026-11-07T10:01:13.782Z",
+          "host": {
+            "name": "otus-dz07-app"
+          },
+          "service": {
+            "name": "django"
+          },
+          "event": {
+            "dataset": "django"
+          },
+          "message": "HTTP method=GET status=200"
+        }
+      }
+    ],
+    "elasticsearch": [
+      {
+        "_source": {
+          "@timestamp": "2026-11-07T09:54:55.750Z",
+          "host": {
+            "name": "otus-dz07-es2"
+          },
+          "service": {
+            "name": "elasticsearch"
+          },
+          "event": {
+            "dataset": "elasticsearch"
+          },
+          "message": "[2026-11-07T09:54:48.431+0000][1682][info ][gc          ] GC(24) Pause Young (Mixed) (G1 Evacuation Pause) 1228M->153M(2048M) 50.967ms"
+        }
+      },
+      {
+        "_source": {
+          "@timestamp": "2026-11-07T09:54:55.750Z",
+          "host": {
+            "name": "otus-dz07-es2"
+          },
+          "service": {
+            "name": "elasticsearch"
+          },
+          "event": {
+            "dataset": "elasticsearch"
+          },
+          "message": "[2026-11-07T09:54:48.431+0000][1682][info ][gc,cpu      ] GC(24) User=0.10s Sys=0.00s Real=0.05s"
+        }
+      }
+    ],
+    "haproxy": [
+      {
+        "_source": {
+          "@timestamp": "2026-11-07T10:01:13.364Z",
+          "host": {
+            "name": "otus-dz07-app"
+          },
+          "service": {
+            "name": "haproxy"
+          },
+          "event": {
+            "dataset": "haproxy"
+          },
+          "message": "2026-11-07T10:01:08.251438+00:00 otus-dz07-app haproxy[11592]: [address] [07/Nov/2026:10:01:08.250] site nginx/app 0/0/0/0/0 200 247 - - ---- 1/1/0/0/0 0/0 \"GET /media/probes/[probe].txt HTTP/1.1\""
+        }
+      },
+      {
+        "_source": {
+          "@timestamp": "2026-11-07T10:01:13.364Z",
+          "host": {
+            "name": "otus-dz07-app"
+          },
+          "service": {
+            "name": "haproxy"
+          },
+          "event": {
+            "dataset": "haproxy"
+          },
+          "message": "2026-11-07T10:01:09.169584+00:00 otus-dz07-app haproxy[11592]: [address] [07/Nov/2026:10:01:09.141] site nginx/app 0/0/0/27/27 200 3394 - - ---- 1/1/0/0/0 0/0 \"GET / HTTP/1.1\""
+        }
+      }
+    ],
+    "kibana": [
+      {
+        "_source": {
+          "@timestamp": "2026-11-07T09:58:57.885Z",
+          "host": {
+            "name": "otus-dz07-app"
+          },
+          "service": {
+            "name": "kibana"
+          },
+          "event": {
+            "dataset": "kibana"
+          },
+          "message": "[2026-11-07T09:58:57.883+00:00][INFO ][plugins.fleet.fleet:unenroll-inactive-agents-task:1.0.1] [UnenrollInactiveAgentsTask] runTask ended: success"
+        }
+      },
+      {
+        "_source": {
+          "@timestamp": "2026-11-07T09:58:57.854Z",
+          "host": {
+            "name": "otus-dz07-app"
+          },
+          "service": {
+            "name": "kibana"
+          },
+          "event": {
+            "dataset": "kibana"
+          },
+          "message": "[2026-11-07T09:58:57.853+00:00][INFO ][plugins.fleet.fleet:unenroll-inactive-agents-task:1.0.1] [runTask()] started"
+        }
+      }
+    ],
+    "nginx": [
+      {
+        "_source": {
+          "@timestamp": "2026-11-07T10:01:13.931Z",
+          "host": {
+            "name": "otus-dz07-app"
+          },
+          "service": {
+            "name": "nginx"
+          },
+          "event": {
+            "dataset": "nginx"
+          },
+          "message": "[address] - - [07/Nov/2026:10:01:13 +0000] \"GET /health/ready HTTP/1.1\" 200 44 \"-\" \"-\"",
+          "http": {
+            "request": {
+              "method": "GET"
+            },
+            "response": {
+              "status_code": 200
+            }
+          }
+        }
+      },
+      {
+        "_source": {
+          "@timestamp": "2026-11-07T10:01:11.929Z",
+          "host": {
+            "name": "otus-dz07-app"
+          },
+          "service": {
+            "name": "nginx"
+          },
+          "event": {
+            "dataset": "nginx"
+          },
+          "message": "[address] - - [07/Nov/2026:10:01:11 +0000] \"GET /health/ready HTTP/1.1\" 200 44 \"-\" \"-\"",
+          "http": {
+            "request": {
+              "method": "GET"
+            },
+            "response": {
+              "status_code": 200
+            }
+          }
+        }
+      }
+    ],
+    "postgresql": [
+      {
+        "_source": {
+          "@timestamp": "2026-11-07T09:48:39.373Z",
+          "host": {
+            "name": "otus-dz07-app"
+          },
+          "service": {
+            "name": "postgresql"
+          },
+          "event": {
+            "dataset": "postgresql"
+          },
+          "message": "2026-11-07 09:48:29.405 UTC [5870] LOG:  checkpoint starting: time"
+        }
+      },
+      {
+        "_source": {
+          "@timestamp": "2026-11-07T09:48:39.373Z",
+          "host": {
+            "name": "otus-dz07-app"
+          },
+          "service": {
+            "name": "postgresql"
+          },
+          "event": {
+            "dataset": "postgresql"
+          },
+          "message": "2026-11-07 09:48:33.058 UTC [5870] LOG:  checkpoint complete: wrote 37 buffers (0.2%); 0 WAL file(s) added, 0 removed, 0 recycled; write=3.618 s, sync=0.010 s, total=3.653 s; sync files=28, longest=0.005 s, average=0.001 s; distance=10 kB, estimate=4415 kB; lsn=0/19BC880, redo lsn=0/19BC848"
+        }
+      }
+    ],
+    "system": [
+      {
+        "_source": {
+          "@timestamp": "2026-11-07T10:01:14.641Z",
+          "host": {
+            "name": "otus-dz07-app"
+          },
+          "service": {
+            "name": "system"
+          },
+          "event": {
+            "dataset": "system"
+          }
+        }
+      },
+      {
+        "_source": {
+          "@timestamp": "2026-11-07T10:01:14.259Z",
+          "host": {
+            "name": "otus-dz07-app"
+          },
+          "service": {
+            "name": "system"
+          },
+          "event": {
+            "dataset": "system"
+          }
+        }
+      }
+    ]
+  }
+}

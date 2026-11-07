@@ -1,0 +1,23 @@
+{
+  "mode": "baseline",
+  "run_id": "a145be6ddab849278064ef353619a47b",
+  "database_host": "app",
+  "sql_and_http": true,
+  "application_view_write": true,
+  "media_preserved": true,
+  "committed_record_preserved": true,
+  "new_write_succeeded": true,
+  "new_record": {
+    "id": 11,
+    "slug": "baseline-5a642d85c6f1430687cb849cd14cf889",
+    "body": "committed-7177d813fc784ddbab23efdb746a80af"
+  },
+  "preserved_records": [],
+  "initial_data": {
+    "status": "loaded",
+    "loaded_now": false,
+    "articles": 9,
+    "fixture_sha256": "f0710640b07783fd6c7cf6d9b11a75874fd2cbfecbdf91f1853d5ddde4cdf9ff",
+    "source": "bundled_DZ04_materials_fixture"
+  }
+}

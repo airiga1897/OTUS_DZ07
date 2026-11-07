@@ -1,0 +1,161 @@
+"""Original Terraform failures survive cleanup; provider diagnostics remain read-only."""
+
+import json
+import subprocess
+import tempfile
+import unittest
+import urllib.error
+from http.client import HTTPMessage
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
+
+import privacy
+from cloud_contract import TerraformError
+from local_runtime import cleanup_runtime
+from selectel_staged import Backend
+from selectel_staged_audit import faults
+from stage_store import StageStore
+from terraform_state_types import StateEntry
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class DiagnosticStore(StageStore):
+    def __init__(self, entry: StateEntry) -> None:
+        self._entry = entry
+
+    def entries(self, name: str) -> list[StateEntry]:
+        return [self._entry]
+
+
+class DiagnosticBackend(Backend):
+    @property
+    def owner(self) -> str:
+        return "synthetic-owner"
+
+
+class StageFailureEvidenceTests(unittest.TestCase):
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory(dir=ROOT / ".tools")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        (self.root / ".local").mkdir()
+        (self.root / "terraform-selectel").mkdir()
+        self.api = SimpleNamespace(
+            ROOT=self.root,
+            LOCAL=self.root / ".local",
+            RUN=self.root / ".local/runs/test",
+            TF=self.root / "synthetic-terraform",
+            redact=privacy.redact,
+            _TEST_CYCLE_ID="synthetic-run",
+        )
+        self.store = StageStore(
+            self.api,
+            {"stages": {"connection-ru-3": {"candidate": {"region": "ru-3"}}}},
+            environment=lambda candidate: {},
+            cli_config=self.root / "terraform-selectel.rc",
+        )
+        secrets = patch.object(privacy, "_values", set[str]())
+        secrets.start()
+        self.addCleanup(secrets.stop)
+
+    def terraform_failure(self, output: str) -> TerraformError:
+        with (
+            patch("stage_store.subprocess.run", return_value=subprocess.CompletedProcess([], 1, b"", output.encode())),
+            self.assertRaises(TerraformError) as caught,
+        ):
+            self.store.tf("connection-ru-3", "apply", "stage.tfplan")
+        return caught.exception
+
+    def test_original_error_is_saved_before_destroy_and_survives_local_cleanup(self) -> None:
+        error = self.terraform_failure("Network status ERROR; wanted ACTIVE; request failed")
+        evidence = self.root / error.failure_evidence
+        before = evidence.read_bytes()
+        self.assertEqual(json.loads(before)["run_id"], "synthetic-run")
+        self.assertEqual(json.loads(before)["placement"], {"region": "ru-3"})
+        with patch(
+            "stage_store.subprocess.run", return_value=subprocess.CompletedProcess([], 0, b"Destroy complete", b"")
+        ):
+            self.store.tf("connection-ru-3", "apply", "destroy.tfplan")
+        log = (self.api.RUN / "stage-connection-ru-3-apply.log").read_text()
+        self.assertIn("Network status ERROR", log)
+        self.assertIn("Destroy complete", log)
+        cleanup_runtime(self.root)
+        self.assertEqual(evidence.read_bytes(), before)
+        self.assertFalse(self.api.RUN.exists())
+
+    def test_multiple_failures_are_unique_and_sensitive_details_are_removed(self) -> None:
+        privacy.remember(["synthetic-password"])
+        output = (
+            "ERROR synthetic-password X-Auth-Token: opaque-token "
+            "https://example.invalid/net?signature=opaque-signature "
+            "resource 11111111-1111-4111-8111-111111111111 public 8.8.8.8"
+        )
+        first, second = self.terraform_failure(output), self.terraform_failure("cleanup failed")
+        self.assertNotEqual(first.failure_evidence, second.failure_evidence)
+        saved = (self.root / first.failure_evidence).read_text()
+        for secret in (
+            "synthetic-password",
+            "opaque-token",
+            "opaque-signature",
+            "8.8.8.8",
+            "11111111-1111-4111-8111-111111111111",
+        ):
+            self.assertNotIn(secret, saved)
+        self.assertIn("ERROR", saved)
+
+    def test_diagnostic_storage_failure_does_not_replace_original_error(self) -> None:
+        with patch("placement_diagnostics.capture_terraform", side_effect=PermissionError("synthetic denied")):
+            error = self.terraform_failure("original network ERROR")
+        self.assertEqual(error.output, "original network ERROR")
+        self.assertEqual(error.diagnostics_error_type, "PermissionError")
+        self.assertEqual(error.terraform_stage, "connection-ru-3")
+
+    def backend(self) -> tuple[DiagnosticBackend, Mock]:
+        attrs: dict[str, object] = {"id": "synthetic-network"}
+        entry: StateEntry = {"type": "selectel_global_router_vpc_network_v1", "attrs": attrs}
+        router = Mock()
+        backend = DiagnosticBackend.__new__(DiagnosticBackend)
+        backend.store = DiagnosticStore(entry)
+        backend.global_router = router
+        return backend, router
+
+    def test_global_router_error_details_are_read_only_and_allowlisted(self) -> None:
+        backend, router = self.backend()
+        router.get.return_value = {
+            "id": "synthetic-network",
+            "tags": ["synthetic-owner"],
+            "status": "ERROR",
+            "error_message": "backend provisioning failed",
+            "fault": {"message": "synthetic detail"},
+            "account_id": "not-for-evidence",
+        }
+        with patch("selectel_staged_audit.assert_stage_owned") as owned:
+            report = faults(backend, "connection-ru-3")
+        owned.assert_called_once_with(backend, "connection-ru-3")
+        router.get.assert_called_once_with("/networks/synthetic-network")
+        item = report["global_router"]["selectel_global_router_vpc_network_v1"]
+        self.assertEqual(item["status"], "ERROR")
+        self.assertEqual(item["error_message"], "backend provisioning failed")
+        self.assertNotIn("account_id", item)
+
+    def test_foreign_resources_are_not_queried_for_details(self) -> None:
+        backend, router = self.backend()
+        with (
+            patch("selectel_staged_audit.assert_stage_owned", side_effect=ValueError("foreign resource")),
+            self.assertRaises(ValueError),
+        ):
+            faults(backend, "connection-ru-3")
+        router.get.assert_not_called()
+
+    def test_api_forbidden_is_reported_without_inventing_a_provider_fault(self) -> None:
+        backend, router = self.backend()
+        router.get.side_effect = urllib.error.HTTPError(
+            "https://example.invalid", 403, "Forbidden", HTTPMessage(), None
+        )
+        with patch("selectel_staged_audit.assert_stage_owned"):
+            report = faults(backend, "connection-ru-3")
+        item = report["global_router"]["selectel_global_router_vpc_network_v1"]
+        self.assertEqual(item["http_status"], 403)
+        self.assertNotIn("fault", item)

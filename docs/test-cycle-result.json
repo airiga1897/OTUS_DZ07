@@ -1,0 +1,31 @@
+{
+  "run_id": "26552dfbf0a84e4b8980f5d879778aca",
+  "started_utc": "2026-11-05T13:44:06.975147+00:00",
+  "success": true,
+  "stages_completed": true,
+  "state_and_api_cleanup_verified": true,
+  "steps": [
+    "initial_deploy",
+    "control_data_and_media",
+    "repeat_deploy",
+    "application_and_logs",
+    "stages_completed"
+  ],
+  "completed_steps": [
+    "initial_deploy",
+    "control_data_and_media",
+    "repeat_deploy",
+    "application_and_logs"
+  ],
+  "stage": "stages_completed",
+  "require_distinct_hosts": true,
+  "diagnostic_colocation_allowed": false,
+  "existing_ids_preserved": true,
+  "repeat_deploy_verified": true,
+  "database_nodes": 1,
+  "elasticsearch_nodes": 3,
+  "elasticsearch_documents_preserved": true,
+  "application_and_logs_verified": true,
+  "original_data_and_media_preserved": true,
+  "finished_utc": "2026-11-05T14:30:48.158919+00:00"
+}

@@ -1,0 +1,25 @@
+---
+- name: Read installed Elastic product version
+  ansible.builtin.command:
+    argv: [dpkg-query, '-W', '-f=${Version}', "{{ elastic_product }}"]
+  register: elastic_installed
+  failed_when: false
+  changed_when: false
+- name: Install a verified cached Elastic package
+  when: elastic_installed.rc != 0 or elastic_installed.stdout != dz07.version
+  block:
+    - name: Read the node package manifest
+      ansible.builtin.slurp:
+        src: /home/otus/dz07/packages/manifest.json
+      register: elastic_manifest
+    - name: Download the package over the private network with SHA512 verification
+      ansible.builtin.get_url:
+        url: "http://{{ dz07.endpoints.es1 }}:18080/{{ elastic_product }}-{{ dz07.version }}-amd64.deb"
+        dest: "/var/tmp/{{ elastic_product }}-{{ dz07.version }}-amd64.deb"
+        checksum: "sha512:{{ (elastic_manifest.content | b64decode | from_json)[elastic_product + '-' + dz07.version + '-amd64.deb'] }}"
+        mode: '0644'
+        timeout: 120
+    - name: Install the package
+      ansible.builtin.apt:
+        deb: "/var/tmp/{{ elastic_product }}-{{ dz07.version }}-amd64.deb"
+      no_log: true

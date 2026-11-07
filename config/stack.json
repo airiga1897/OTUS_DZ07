@@ -1,0 +1,27 @@
+{
+  "name_prefix": "otus-dz07",
+  "subnet_cidr": "10.77.0.0/24",
+  "paths": {
+    "remote_root": "/home/otus/dz07",
+    "application": "/opt/otus-dz07",
+    "shared": "/srv/otus"
+  },
+  "postgresql": {
+    "major": 16,
+    "port": 5432,
+    "data_dir": "/var/lib/postgresql/16/main"
+  },
+  "ansible": {
+    "version": "2.18.18",
+    "venv": "/opt/otus-dz07-ansible"
+  },
+  "portal": {
+    "uwsgi_version": "2.0.31",
+    "service_user": "otusapp",
+    "upstream_port": 8080
+  },
+  "web": {
+    "haproxy_port": 80,
+    "nginx_port": 8081
+  }
+}

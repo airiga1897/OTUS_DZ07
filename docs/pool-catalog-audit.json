@@ -1,0 +1,447 @@
+{
+  "date": "2026-10-31",
+  "read_only": true,
+  "virtual_machines_created": 0,
+  "existing_stand_changed": false,
+  "credentials_or_tokens_persisted": false,
+  "scope": "API catalogs, capabilities, quotas and allowed configurations; no allocation test",
+  "pools": {
+    "ru-1": {
+      "missing_public_https_apis": [],
+      "compute_segments": {
+        "ru-1a": true,
+        "ru-1b": true,
+        "ru-1c": true
+      },
+      "network_domains": [
+        {
+          "state": "available",
+          "name": "ru-1a",
+          "resource": "router"
+        },
+        {
+          "state": "available",
+          "name": "ru-1a",
+          "resource": "network"
+        }
+      ],
+      "named_image_checksums": [
+        "a65f500bebdbe1d5e52717448d2f4059"
+      ],
+      "compatible_image_count": 1,
+      "disk_bindings": {
+        "universal.ru-1c": "ru-1c",
+        "universal.ru-1a": "ru-1a"
+      },
+      "capabilities": {
+        "network_isolation": "supported",
+        "placement_hints": "supported",
+        "hard_anti_affinity": "supported",
+        "ownership_tags": "supported"
+      },
+      "zero_ram_quota_segments": [
+        "ru-1a"
+      ],
+      "allowed_flavor_names": {
+        "app": [
+          "SL1.4-8192"
+        ],
+        "es": [
+          "SL1.2-8192"
+        ]
+      }
+    },
+    "ru-2": {
+      "missing_public_https_apis": [],
+      "compute_segments": {
+        "ru-2a": true,
+        "ru-2b": true,
+        "ru-2c": true
+      },
+      "network_domains": [
+        {
+          "state": "available",
+          "name": "ru-2a",
+          "resource": "router"
+        },
+        {
+          "state": "available",
+          "name": "ru-2a",
+          "resource": "network"
+        },
+        {
+          "state": "available",
+          "name": "ru-2a-paas",
+          "resource": "router"
+        }
+      ],
+      "named_image_checksums": [
+        "a5224f2e4fa8656cfaad931dc91ca30d"
+      ],
+      "compatible_image_count": 0,
+      "disk_bindings": {
+        "universal2.ru-2c": "ru-2c",
+        "basicssd.ru-2c": "ru-2c",
+        "basicssd.ru-2b": "ru-2b",
+        "universal.ru-2c": "ru-2c",
+        "universal.ru-2b": "ru-2b",
+        "universal.ru-2a": "ru-2a"
+      },
+      "capabilities": {
+        "network_isolation": "supported",
+        "placement_hints": "supported",
+        "hard_anti_affinity": "supported",
+        "ownership_tags": "supported"
+      },
+      "zero_ram_quota_segments": [
+        "ru-2b"
+      ],
+      "allowed_flavor_names": {
+        "app": [
+          "SL1.4-8192"
+        ],
+        "es": [
+          "SL1.2-8192"
+        ]
+      }
+    },
+    "ru-3": {
+      "missing_public_https_apis": [],
+      "compute_segments": {
+        "ru-3a": true,
+        "ru-3b": true
+      },
+      "network_domains": [
+        {
+          "state": "available",
+          "name": "ru-3a",
+          "resource": "network"
+        },
+        {
+          "state": "available",
+          "name": "ru-3a",
+          "resource": "router"
+        },
+        {
+          "state": "available",
+          "name": "ru-3a-paas",
+          "resource": "router"
+        }
+      ],
+      "named_image_checksums": [
+        "a65f500bebdbe1d5e52717448d2f4059"
+      ],
+      "compatible_image_count": 1,
+      "disk_bindings": {
+        "universal2.ru-3b": "ru-3b",
+        "basicssd.ru-3b": "ru-3b",
+        "universal.ru-3b": "ru-3b",
+        "universal.ru-3a": "ru-3a"
+      },
+      "capabilities": {
+        "network_isolation": "supported",
+        "placement_hints": "supported",
+        "hard_anti_affinity": "supported",
+        "ownership_tags": "supported"
+      },
+      "zero_ram_quota_segments": [],
+      "allowed_flavor_names": {
+        "app": [
+          "SL1.4-8192",
+          "SL2.4-8192-AMD"
+        ],
+        "es": [
+          "SL1.2-8192",
+          "SL2.2-8192-AMD"
+        ]
+      }
+    },
+    "ru-4": {
+      "missing_public_https_apis": [
+        "volumev3"
+      ],
+      "compute_segments": {
+        "ru-4a": false
+      },
+      "network_domains": [],
+      "named_image_checksums": [],
+      "compatible_image_count": 0,
+      "disk_bindings": {},
+      "capabilities": {},
+      "zero_ram_quota_segments": [],
+      "allowed_flavor_names": {}
+    },
+    "ru-5": {
+      "missing_public_https_apis": [
+        "volumev3"
+      ],
+      "compute_segments": {
+        "ru-5a": false
+      },
+      "network_domains": [],
+      "named_image_checksums": [],
+      "compatible_image_count": 0,
+      "disk_bindings": {},
+      "capabilities": {},
+      "zero_ram_quota_segments": [],
+      "allowed_flavor_names": {}
+    },
+    "ru-6": {
+      "missing_public_https_apis": [],
+      "compute_segments": {
+        "ru-6a": true,
+        "ru-6b": true,
+        "ru-6c": true
+      },
+      "network_domains": [
+        {
+          "state": "available",
+          "name": "ru-6c",
+          "resource": "router"
+        },
+        {
+          "state": "available",
+          "name": "ru-6a",
+          "resource": "router"
+        },
+        {
+          "state": "available",
+          "name": "ru-6b",
+          "resource": "router"
+        },
+        {
+          "state": "available",
+          "name": "ru-6b-paas",
+          "resource": "router"
+        },
+        {
+          "state": "available",
+          "name": "ru-6a",
+          "resource": "network"
+        },
+        {
+          "state": "available",
+          "name": "ru-6a-paas",
+          "resource": "router"
+        }
+      ],
+      "named_image_checksums": [
+        "a65f500bebdbe1d5e52717448d2f4059"
+      ],
+      "compatible_image_count": 1,
+      "disk_bindings": {
+        "universal2.ru-6c": "ru-6c",
+        "universal2.ru-6b": "ru-6b",
+        "universal2.ru-6a": "ru-6a"
+      },
+      "capabilities": {
+        "network_isolation": "supported",
+        "placement_hints": "supported",
+        "hard_anti_affinity": "supported",
+        "ownership_tags": "supported"
+      },
+      "zero_ram_quota_segments": [],
+      "allowed_flavor_names": {
+        "app": [
+          "SL2.4-8192-AMD"
+        ],
+        "es": [
+          "SL2.2-8192-AMD"
+        ]
+      }
+    },
+    "ru-8": {
+      "missing_public_https_apis": [],
+      "compute_segments": {
+        "ru-8a": true
+      },
+      "network_domains": [
+        {
+          "state": "available",
+          "name": "ru-8a",
+          "resource": "router"
+        },
+        {
+          "state": "available",
+          "name": "ru-8a",
+          "resource": "network"
+        }
+      ],
+      "named_image_checksums": [
+        "a65f500bebdbe1d5e52717448d2f4059"
+      ],
+      "compatible_image_count": 1,
+      "disk_bindings": {
+        "universal2.ru-8a": "ru-8a",
+        "basicssd.ru-8a": "ru-8a",
+        "universal.ru-8a": "ru-8a"
+      },
+      "capabilities": {
+        "network_isolation": "supported",
+        "placement_hints": "supported",
+        "hard_anti_affinity": "supported",
+        "ownership_tags": "supported"
+      },
+      "zero_ram_quota_segments": [],
+      "allowed_flavor_names": {
+        "app": [
+          "SL1.4-8192"
+        ],
+        "es": [
+          "SL1.2-8192"
+        ]
+      }
+    },
+    "ru-9": {
+      "missing_public_https_apis": [],
+      "compute_segments": {
+        "ru-9a": true
+      },
+      "network_domains": [
+        {
+          "state": "available",
+          "name": "ru-9a",
+          "resource": "router"
+        },
+        {
+          "state": "available",
+          "name": "ru-9a",
+          "resource": "network"
+        }
+      ],
+      "named_image_checksums": [
+        "a65f500bebdbe1d5e52717448d2f4059"
+      ],
+      "compatible_image_count": 1,
+      "disk_bindings": {
+        "universal2.ru-9a": "ru-9a",
+        "basicssd.ru-9a": "ru-9a",
+        "universal.ru-9a": "ru-9a"
+      },
+      "capabilities": {
+        "network_isolation": "supported",
+        "placement_hints": "supported",
+        "hard_anti_affinity": "supported",
+        "ownership_tags": "supported"
+      },
+      "zero_ram_quota_segments": [],
+      "allowed_flavor_names": {
+        "app": [
+          "SL1.4-8192"
+        ],
+        "es": [
+          "SL1.2-8192"
+        ]
+      }
+    }
+  },
+  "corrected_catalog_candidates": [
+    {
+      "region": "ru-9",
+      "availability_zone": "ru-9a",
+      "network_availability_zone": "ru-9a",
+      "router_availability_zone": "ru-9a",
+      "volume_type": "universal.ru-9a"
+    },
+    {
+      "region": "ru-9",
+      "availability_zone": "ru-9a",
+      "network_availability_zone": "ru-9a",
+      "router_availability_zone": "ru-9a",
+      "volume_type": "basicssd.ru-9a"
+    },
+    {
+      "region": "ru-3",
+      "availability_zone": "ru-3a",
+      "network_availability_zone": "ru-3a",
+      "router_availability_zone": "ru-3a",
+      "volume_type": "universal.ru-3a"
+    },
+    {
+      "region": "ru-3",
+      "availability_zone": "ru-3b",
+      "network_availability_zone": "ru-3a",
+      "router_availability_zone": "ru-3a",
+      "volume_type": "universal.ru-3b"
+    },
+    {
+      "region": "ru-3",
+      "availability_zone": "ru-3b",
+      "network_availability_zone": "ru-3a",
+      "router_availability_zone": "ru-3a",
+      "volume_type": "universal.ru-3b"
+    },
+    {
+      "region": "ru-3",
+      "availability_zone": "ru-3b",
+      "network_availability_zone": "ru-3a",
+      "router_availability_zone": "ru-3a",
+      "volume_type": "universal.ru-3b"
+    },
+    {
+      "region": "ru-3",
+      "availability_zone": "ru-3b",
+      "network_availability_zone": "ru-3a",
+      "router_availability_zone": "ru-3a",
+      "volume_type": "universal.ru-3b"
+    },
+    {
+      "region": "ru-3",
+      "availability_zone": "ru-3b",
+      "network_availability_zone": "ru-3a",
+      "router_availability_zone": "ru-3a",
+      "volume_type": "basicssd.ru-3b"
+    },
+    {
+      "region": "ru-3",
+      "availability_zone": "ru-3b",
+      "network_availability_zone": "ru-3a",
+      "router_availability_zone": "ru-3a",
+      "volume_type": "basicssd.ru-3b"
+    },
+    {
+      "region": "ru-3",
+      "availability_zone": "ru-3b",
+      "network_availability_zone": "ru-3a",
+      "router_availability_zone": "ru-3a",
+      "volume_type": "basicssd.ru-3b"
+    },
+    {
+      "region": "ru-3",
+      "availability_zone": "ru-3b",
+      "network_availability_zone": "ru-3a",
+      "router_availability_zone": "ru-3a",
+      "volume_type": "basicssd.ru-3b"
+    },
+    {
+      "region": "ru-8",
+      "availability_zone": "ru-8a",
+      "network_availability_zone": "ru-8a",
+      "router_availability_zone": "ru-8a",
+      "volume_type": "universal.ru-8a"
+    },
+    {
+      "region": "ru-8",
+      "availability_zone": "ru-8a",
+      "network_availability_zone": "ru-8a",
+      "router_availability_zone": "ru-8a",
+      "volume_type": "basicssd.ru-8a"
+    },
+    {
+      "region": "ru-1",
+      "availability_zone": "ru-1a",
+      "network_availability_zone": "ru-1a",
+      "router_availability_zone": "ru-1a",
+      "volume_type": "universal.ru-1a"
+    },
+    {
+      "region": "ru-1",
+      "availability_zone": "ru-1c",
+      "network_availability_zone": "ru-1a",
+      "router_availability_zone": "ru-1a",
+      "volume_type": "universal.ru-1c"
+    }
+  ],
+  "requirements_relaxed": false,
+  "physical_host_capacity_verified": false
+}

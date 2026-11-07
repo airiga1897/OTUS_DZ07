@@ -1,0 +1,86 @@
+{
+  "provider": "Selectel",
+  "started_utc": "2026-11-05T13:44:06.975147+00:00",
+  "finished_utc": "2026-11-05T14:30:48.158919+00:00",
+  "success": true,
+  "controller_base_commit": "ec2c4f485d92758a4670eb7c4cfda641c4db4c50",
+  "tested_uncommitted_working_tree": true,
+  "delivery_mode_during_test": "cached",
+  "delivery_mode_after_test": "release",
+  "publication_performed": false,
+  "vm_count": 4,
+  "pools": [
+    "ru-2"
+  ],
+  "global_router_created": false,
+  "multi_pool_transition_cloud_verified": false,
+  "es4_added": false,
+  "vm_failover_test_performed": false,
+  "es_health": {
+    "status": "green",
+    "number_of_nodes": 3,
+    "number_of_data_nodes": 3,
+    "unassigned_shards": 0
+  },
+  "es_physical_host_separation_verified": true,
+  "source_counts": {
+    "app/system": 7176,
+    "app/nginx": 954,
+    "app/haproxy": 53,
+    "app/postgresql": 42,
+    "app/django": 1654,
+    "app/kibana": 288,
+    "es1/system": 2037,
+    "es1/elasticsearch": 1268,
+    "es2/system": 1936,
+    "es2/elasticsearch": 1264,
+    "es3/system": 1945,
+    "es3/elasticsearch": 2243
+  },
+  "collected_log_documents": 20860,
+  "kibana": {
+    "status": "available",
+    "data_view": "otus-logs",
+    "dashboard": "otus-logs"
+  },
+  "public_http": {
+    "checked_utc": "2026-11-05T14:23:33.572274+00:00",
+    "source": "operator HTTP requests to public frontend",
+    "delivery_mode": "cached",
+    "site_http_status": 200,
+    "homework_07_article_http_status": 200,
+    "homework_07_article_available": true,
+    "kibana_http_status": 200,
+    "kibana_level": "available"
+  },
+  "repeat_deploy_verified": true,
+  "existing_ids_preserved": true,
+  "elasticsearch_documents_preserved": true,
+  "original_data_and_media_preserved": true,
+  "ansible_final_state": "succeeded",
+  "ansible_exit_code": 0,
+  "state_and_api_cleanup_verified": true,
+  "cleanup": {
+    "success": true,
+    "staged": true,
+    "managed_remaining": 0,
+    "pools_audited": [
+      "ru-2"
+    ],
+    "global_router_remaining": 0,
+    "audit_complete": true
+  },
+  "local_recovery_files_removed": true,
+  "development_credentials_preserved": true,
+  "ansible_progress_observed": true,
+  "ansible_progress_examples": [
+    "INFO Ansible | app | Install standalone PostgreSQL | начало",
+    "INFO Ansible | app | Install standalone PostgreSQL | changed",
+    "INFO Ansible | app | Check existing database cluster | начало",
+    "INFO Ansible | app | Check existing database cluster | ok",
+    "INFO Ansible | app | Create cluster only when absent | начало",
+    "INFO Ansible | app | Create cluster only when absent | skipped",
+    "INFO Ansible | app | Configure database and collected logs | начало",
+    "INFO Ansible | app | Configure database and collected logs | changed"
+  ]
+}

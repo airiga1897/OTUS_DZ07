@@ -1,0 +1,12 @@
+server.host: "{{ dz07.ip }}"
+server.port: {{ dz07_kibana_port }}
+elasticsearch.hosts:
+{% for address in dz07.endpoints.values() %}
+  - "https://{{ address }}:9200"
+{% endfor %}
+elasticsearch.username: kibana_system
+elasticsearch.password: {{ dz07.secrets.kibana | to_json }}
+elasticsearch.ssl.certificateAuthorities: [/etc/kibana/ca.crt]
+xpack.encryptedSavedObjects.encryptionKey: {{ dz07.secrets.kibana_encryption | to_json }}
+xpack.security.encryptionKey: {{ dz07.secrets.kibana_encryption | to_json }}
+xpack.reporting.encryptionKey: {{ dz07.secrets.kibana_encryption | to_json }}

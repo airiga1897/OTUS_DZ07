@@ -1,0 +1,6 @@
+{
+  "fields": {
+    "access_key": {"env": "AWS_ACCESS_KEY_ID", "prompt": "S3 Access Key ID", "secret": true},
+    "secret_key": {"env": "AWS_SECRET_ACCESS_KEY", "prompt": "S3 Secret Key", "secret": true}
+  }
+}

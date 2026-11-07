@@ -1,0 +1,57 @@
+{
+  "success": true,
+  "resource_ids_preserved": true,
+  "added_nodes": [],
+  "verification": {
+    "mode": "expanded",
+    "run_id": "608697fb2ce14d3483dfce5a2803553f",
+    "database_host": "app",
+    "sql_and_http": true,
+    "application_view_write": true,
+    "media_preserved": true,
+    "committed_record_preserved": true,
+    "new_write_succeeded": true,
+    "new_record": {
+      "id": 10,
+      "slug": "expanded-197e3ef91e0b4f0c94763f5183b8ca3f",
+      "body": "committed-41649858ddbc413f929c257f53c5fee5"
+    },
+    "preserved_records": [
+      {
+        "id": 9,
+        "slug": "baseline-79d8628ef9374cd8955f48347c7a948b",
+        "body": "committed-ca5f1adba35d41609358e1a560a741e5"
+      }
+    ],
+    "initial_data": {
+      "status": "loaded",
+      "loaded_now": false,
+      "articles": 9,
+      "fixture_sha256": "f0710640b07783fd6c7cf6d9b11a75874fd2cbfecbdf91f1853d5ddde4cdf9ff",
+      "source": "bundled_DZ04_materials_fixture"
+    },
+    "elasticsearch": {
+      "cluster_uuid_preserved": true,
+      "existing_node_ids_preserved": true,
+      "committed_document_preserved": true,
+      "health": {
+        "cluster_name": "otus-dz07",
+        "status": "green",
+        "timed_out": false,
+        "number_of_nodes": 3,
+        "number_of_data_nodes": 3,
+        "active_primary_shards": 45,
+        "active_shards": 90,
+        "relocating_shards": 0,
+        "initializing_shards": 0,
+        "unassigned_shards": 0,
+        "unassigned_primary_shards": 0,
+        "delayed_unassigned_shards": 0,
+        "number_of_pending_tasks": 0,
+        "number_of_in_flight_fetch": 0,
+        "task_max_waiting_in_queue_millis": 0,
+        "active_shards_percent_as_number": 100.0
+      }
+    }
+  }
+}

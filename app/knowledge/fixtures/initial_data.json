@@ -1,0 +1,100 @@
+[
+  {
+    "model": "knowledge.article",
+    "pk": 1,
+    "fields": {
+      "title": "Первая инфраструктура в Yandex Cloud",
+      "slug": "terraform-yc",
+      "lesson": 1,
+      "summary": "Terraform, сеть и безопасный SSH-доступ.",
+      "body": "ДЗ01 посвящено созданию виртуальной машины через Terraform.\nКонфигурация инфраструктуры хранится в Git, реальные параметры и state остаются локальными.\nИсходники: https://github.com/airiga1897/OTUS_DZ01",
+      "image": "",
+      "published": true,
+      "updated_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "knowledge.article",
+    "pk": 2,
+    "fields": {
+      "title": "Общее хранилище GFS2",
+      "slug": "shared-gfs2",
+      "lesson": 2,
+      "summary": "iSCSI, multipath и распределённые блокировки.",
+      "body": "ДЗ02 объединяет iSCSI-хранилище и несколько клиентов GFS2.\nПроверяются общий доступ и перекрёстная запись.\nИсходники: https://github.com/airiga1897/OTUS_DZ02",
+      "image": "",
+      "published": true,
+      "updated_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "knowledge.article",
+    "pk": 3,
+    "fields": {
+      "title": "Балансировка веб-приложения",
+      "slug": "nginx-balance",
+      "lesson": 3,
+      "summary": "Два веб-узла, общая БД и проверки переключения.",
+      "body": "ДЗ03 использует Nginx, PHP-FPM и WordPress. Проверены балансировка и отказ веб-службы.\nИсходники: https://github.com/airiga1897/OTUS_DZ03",
+      "image": "",
+      "published": true,
+      "updated_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "knowledge.article",
+    "pk": 4,
+    "fields": {
+      "title": "Отказоустойчивое приложение",
+      "slug": "high-load",
+      "lesson": 4,
+      "summary": "Пять ВМ, два фронта и эксперимент DRBD + GFS2.",
+      "body": "ДЗ04 объединяет инфраструктуру и веб-приложение.\nDRBD dual-primary + GFS2 — учебный эксперимент в неподдерживаемом режиме; результаты отказных испытаний публикуются только после их выполнения.\nДля промышленного применения рекомендуется отказоустойчивое общее блочное хранилище с резервируемыми iSCSI-контроллерами и несколькими путями доступа.\nИсходники: https://github.com/airiga1897/OTUS_DZ04",
+      "image": "",
+      "published": true,
+      "updated_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "knowledge.article",
+    "pk": 5,
+    "fields": {
+      "title": "Кластер MySQL InnoDB Cluster",
+      "slug": "mysql-innodb-cluster",
+      "lesson": 5,
+      "summary": "Три узла MySQL, Group Replication и MySQL Router.",
+      "body": "ДЗ05 посвящено отказоустойчивому кластеру MySQL InnoDB Cluster.\nGroup Replication поддерживает согласованность узлов, а MySQL Router направляет подключения Django-портала к узлу записи.\nПроверка включает отказ ведущего узла, сохранность данных и восстановление кластера.\nИсходники: https://github.com/airiga1897/OTUS_DZ05",
+      "image": "",
+      "published": true,
+      "updated_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "knowledge.article",
+    "pk": 6,
+    "fields": {
+      "title": "Кластер PostgreSQL с Patroni",
+      "slug": "postgresql-patroni",
+      "lesson": 6,
+      "summary": "PostgreSQL, Patroni, etcd и маршрутизация через HAProxy.",
+      "body": "ДЗ06 посвящено кластеру PostgreSQL из трёх узлов под управлением Patroni.\netcd хранит согласованное состояние кластера, а HAProxy направляет подключения Django-портала к текущему ведущему узлу.\nПроверка включает автоматическую смену лидера при выключении ВМ, сохранность записей и возвращение узла в кластер.\nИсходники: https://github.com/airiga1897/OTUS_DZ06",
+      "image": "",
+      "published": true,
+      "updated_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "knowledge.article",
+    "pk": 7,
+    "fields": {
+      "title": "Централизованный сбор логов в Elasticsearch",
+      "slug": "elasticsearch-logging",
+      "lesson": 7,
+      "summary": "Централизованный сбор логов служб в трёхузловой Elasticsearch с Kibana.",
+      "body": "ДЗ07: четыре ВМ. На app работают HAProxy, Nginx, Django/uWSGI, PostgreSQL и Kibana. Elasticsearch размещён на трёх отдельных ВМ. Filebeat собирает журналы всех служб и системные журналы. Настроены TLS, авторизация, обработка событий, шаблон индексов и визуализация. Проверяются сайт, поступление логов, повторное развёртывание и сохранность данных; тестовый цикл удаляет свой стенд с аудитом ресурсов.",
+      "image": "",
+      "published": true,
+      "updated_at": "2026-01-01T00:00:00Z"
+    }
+  }
+]

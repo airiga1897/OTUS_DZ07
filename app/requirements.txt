@@ -1,0 +1,8 @@
+Django==5.2.18
+psycopg==3.3.6
+psycopg-binary==3.3.6
+Pillow==12.3.0
+asgiref==3.12.1
+sqlparse==0.6.0
+typing-extensions==4.16.0
+tzdata==2026.5

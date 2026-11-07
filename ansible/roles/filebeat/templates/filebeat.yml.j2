@@ -1,0 +1,34 @@
+filebeat.inputs:
+  - type: journald
+    id: system-journal
+    fields: {service: {name: system}}
+    fields_under_root: true
+{% for source in dz07.log_sources %}
+{% if source.journal_units is defined %}
+  - type: journald
+    id: {{ source.service }}
+    include_matches:
+      match: [{% for unit in source.journal_units %}"_SYSTEMD_UNIT={{ unit }}"{% if not loop.last %}, {% endif %}{% endfor %}]
+{% else %}
+  - type: filestream
+    id: {{ source.service }}
+    paths: {{ source.paths | to_json }}
+{% endif %}
+    fields: {service: {name: {{ source.service }} }}
+    fields_under_root: true
+{% endfor %}
+processors: [{add_host_metadata: {}}]
+output.elasticsearch:
+  hosts:
+{% for ip in dz07.endpoints.values() %}
+    - "https://{{ ip }}:9200"
+{% endfor %}
+  loadbalance: true
+  username: otus_shipper
+  password: {{ dz07.secrets.shipper | to_json }}
+  ssl.certificate_authorities: [/etc/filebeat/ca.crt]
+  index: 'logs-otus-%{+yyyy.MM.dd}'
+  pipeline: otus-logs
+setup.ilm.enabled: false
+setup.template.enabled: false
+queue.disk: {max_size: 512MB}

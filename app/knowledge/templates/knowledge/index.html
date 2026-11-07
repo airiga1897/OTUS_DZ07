@@ -1,0 +1,7 @@
+{% extends 'knowledge/base.html' %}{% block content %}
+<p class="eyebrow">От первой ВМ до отказоустойчивого приложения</p><h1>База знаний OTUS</h1>
+<p class="intro">Архитектура, инструкции и результаты домашних заданий. Учебный стенд с двумя фронтами и двумя backend.</p>
+<section class="cards">{% for article in articles %}<article><span class="tag">ДЗ {{ article.lesson|stringformat:"02d" }}</span>
+<h2><a href="{% url 'article' article.slug %}">{{ article.title }}</a></h2><p>{{ article.summary }}</p>
+<a class="read" href="{% url 'article' article.slug %}">Открыть материал →</a></article>{% empty %}<p>Материалы пока не опубликованы.</p>{% endfor %}</section>
+{% endblock %}

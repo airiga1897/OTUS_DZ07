@@ -1,0 +1,5 @@
+{% load static %}<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}База знаний OTUS{% endblock %}</title><link rel="stylesheet" href="{% static 'knowledge/site.css' %}"></head>
+<body><header><a href="/">OTUS / Инженерная практика</a><a href="/admin/">Управление</a></header>
+<main>{% block content %}{% endblock %}</main><footer>Terraform · Ansible · Nginx · Django · PostgreSQL · GFS2</footer></body></html>

@@ -1,0 +1,16 @@
+{
+  "github_release": {
+    "repository": "airiga1897/OTUS_DZ07",
+    "tag": "v1.1.1",
+    "commit": "48a31d1e24eaf89591c5ac9e9bf9c4d7e866f4eb",
+    "manifest_sha512": "c84deb3cf35b9f8425593acba6b8006522aa92f68d79144e009a996bb817b8a931ed82c201190b058170db9ef1875db6d4b6e3598d2c03fe77fb00723c108565",
+    "manifest_size": 1426
+  },
+  "s3": {
+    "endpoint": "https://s3.ru-7.storage.selcloud.ru",
+    "region": "ru-7",
+    "bucket": "",
+    "prefix": "otus-dz07",
+    "expires_seconds": 3600
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "read_only": true,
+  "candidate_counts": {
+    "app": 0,
+    "es": 0
+  },
+  "global_router_discovery": false,
+  "checked_pools": [
+    "ru-2"
+  ],
+  "deferred_pools": [
+    "ru-2",
+    "ru-9",
+    "ru-3",
+    "ru-8",
+    "ru-1"
+  ]
+}

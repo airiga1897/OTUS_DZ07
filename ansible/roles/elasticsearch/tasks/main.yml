@@ -1,0 +1,69 @@
+---
+- name: Ensure the Elasticsearch package
+  ansible.builtin.include_role:
+    name: elastic_package
+  vars:
+    elastic_product: elasticsearch
+- name: Create the certificate directory
+  ansible.builtin.file:
+    path: /etc/elasticsearch/certs
+    state: directory
+    owner: root
+    group: elasticsearch
+    mode: '0750'
+- name: Install this node's certificates without rotating existing identities
+  ansible.builtin.copy:
+    src: "/home/otus/dz07/certs/{{ item }}"
+    dest: "/etc/elasticsearch/certs/{{ item }}"
+    remote_src: true
+    owner: root
+    group: elasticsearch
+    mode: '0640'
+  loop: [ca.crt, node.crt, node.key]
+  no_log: true
+  notify: Restart Elasticsearch
+- name: Detect prior cluster formation
+  ansible.builtin.stat:
+    path: /home/otus/dz07/formed
+  register: elastic_formed
+- name: Install Elasticsearch configuration
+  ansible.builtin.template:
+    src: elasticsearch.yml.j2
+    dest: /etc/elasticsearch/elasticsearch.yml
+    owner: root
+    group: elasticsearch
+    mode: '0640'
+  notify: Restart Elasticsearch
+- name: Configure the heap
+  ansible.builtin.copy:
+    dest: /etc/elasticsearch/jvm.options.d/heap.options
+    content: "-Xms{{ dz07.heap }}\n-Xmx{{ dz07.heap }}\n"
+    mode: '0644'
+  notify: Restart Elasticsearch
+- name: Persist vm.max_map_count
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/90-otus-es.conf
+    content: "vm.max_map_count=1048576\n"
+    mode: '0644'
+- name: Read vm.max_map_count
+  ansible.builtin.command: sysctl -n vm.max_map_count
+  register: elastic_map_count
+  changed_when: false
+- name: Apply vm.max_map_count when needed
+  ansible.builtin.command: sysctl -w vm.max_map_count=1048576
+  when: elastic_map_count.stdout != '1048576'
+  changed_when: true
+- name: Set the bootstrap password before initial cluster formation
+  ansible.builtin.command:
+    argv: [/usr/share/elasticsearch/bin/elasticsearch-keystore, add, '-x', '-f', bootstrap.password]
+    stdin: "{{ dz07.secrets.elastic }}"
+  when: dz07_bootstrap and not elastic_formed.stat.exists
+  no_log: true
+  changed_when: true
+- name: Apply only changed Elasticsearch configuration before starting
+  ansible.builtin.meta: flush_handlers
+- name: Enable and start Elasticsearch
+  ansible.builtin.systemd_service:
+    name: elasticsearch
+    enabled: true
+    state: started

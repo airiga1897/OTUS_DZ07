@@ -1,0 +1,103 @@
+---
+- name: Prepare database hosts
+  hosts: database
+  become: true
+  gather_facts: false
+  roles:
+    - postgresql
+
+- name: Configure application and routing
+  hosts: frontend
+  become: true
+  gather_facts: false
+  pre_tasks:
+    - name: Release public HTTP port before starting HAProxy
+      ansible.builtin.systemd_service:
+        name: '{{ stack.name_prefix }}-route.service'
+        state: stopped
+        enabled: false
+  roles:
+    - haproxy
+    - portal
+
+- name: Configure the dedicated Elasticsearch nodes
+  hosts: elasticsearch
+  become: true
+  gather_facts: true
+  serial: "{{ '100%' if dz07_bootstrap else 1 }}"
+  roles:
+    - elasticsearch
+  tasks:
+    - name: Wait for quorum between sequential node changes
+      ansible.builtin.uri:
+        url: "https://{{ dz07.endpoints.es1 }}:9200/_cluster/health?wait_for_status=yellow&timeout=60s"
+        url_username: elastic
+        url_password: "{{ dz07.secrets.elastic }}"
+        force_basic_auth: true
+        ca_path: /etc/elasticsearch/certs/ca.crt
+        timeout: 70
+      delegate_to: es1
+      no_log: true
+      register: elastic_health
+      until: not elastic_health.failed and elastic_health.json.number_of_nodes >= dz07_existing_count
+      retries: 12
+      delay: 5
+      when: not dz07_bootstrap
+
+- name: Initialize the Elasticsearch log schema
+  hosts: frontend
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Create users, processing pipeline and index template on a new stand
+      ansible.builtin.command:
+        argv: [/usr/bin/python3, /home/otus/dz07/scripts/remote/elk_api.py, setup]
+      when: dz07_bootstrap
+      no_log: true
+      changed_when: true
+    - name: Confirm green cluster membership
+      ansible.builtin.command:
+        argv: [/usr/bin/python3, /home/otus/dz07/scripts/remote/elk_api.py, health]
+      changed_when: false
+
+- name: Persist formed cluster state
+  hosts: elasticsearch
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Remove initial master bootstrap setting
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: '^cluster.initial_master_nodes:'
+        state: absent
+    - name: Record cluster formation
+      ansible.builtin.copy:
+        dest: /home/otus/dz07/formed
+        content: "formed\n"
+        mode: '0600'
+
+- name: Configure Kibana on the application host
+  hosts: kibana
+  become: true
+  gather_facts: false
+  roles:
+    - kibana
+
+- name: Collect logs from every own server
+  hosts: all
+  become: true
+  gather_facts: false
+  roles:
+    - filebeat
+
+- name: Initialize Kibana views
+  hosts: kibana
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Create data view and dashboard on a new stand
+      ansible.builtin.command:
+        argv: [/usr/bin/python3, /home/otus/dz07/scripts/remote/elk_api.py, kibana]
+      when: dz07_bootstrap
+      changed_when: true
+      no_log: true

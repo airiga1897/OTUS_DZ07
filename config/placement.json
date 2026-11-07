@@ -1,0 +1,49 @@
+{
+  "image_name": "Ubuntu 24.04 LTS 64-bit",
+  "image_checksums": [
+    "a65f500bebdbe1d5e52717448d2f4059",
+    "a5224f2e4fa8656cfaad931dc91ca30d"
+  ],
+  "image_os_distro": "ubuntu",
+  "preferred_segments": [
+    "ru-2a",
+    "ru-9a"
+  ],
+  "segment": null,
+  "operator_ip_services": [
+    "https://checkip.amazonaws.com",
+    "https://icanhazip.com"
+  ],
+  "admin_cidrs": [],
+  "network_placement": {
+    "ru-3b": {
+      "network": "ru-3a",
+      "router": "ru-3a",
+      "evidence_url": "https://docs.selectel.ru/infrastructure/locations/"
+    }
+  },
+  "sequential_placement": {
+    "enabled": true,
+    "subnet_pool": "10.96.0.0/12",
+    "pool_subnets": {
+      "ru-9": "10.77.0.0/24",
+      "ru-3": "10.78.0.0/24"
+    },
+    "node_order": [
+      "app",
+      "es1",
+      "es2",
+      "es3"
+    ],
+    "addresses": {
+      "cloud_gateway": 1,
+      "global_gateway": 2,
+      "service_hosts": [
+        253,
+        254
+      ],
+      "dhcp_first": 200,
+      "dhcp_last": 249
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "operation_timeout_seconds": 1800,
+  "connection_wait_seconds": 120,
+  "poll_interval_seconds": 5,
+  "stop_wait_seconds": 30
+}

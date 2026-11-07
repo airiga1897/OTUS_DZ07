@@ -1,0 +1,5 @@
+{
+  "es4": {"host": 34, "role": "es"},
+  "restore_attempts": 3,
+  "restore_delay_seconds": 2
+}

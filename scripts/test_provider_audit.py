@@ -1,0 +1,234 @@
+"""Ownership and absence proofs exercise the real auditor against synthetic API collections."""
+
+import copy
+import http.client
+import unittest
+import urllib.error
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
+
+import selectel_staged_audit as audit
+from selectel_staged import Backend
+from stage_journal import StageRecord
+from stage_store import StageStore
+from terraform_state_types import StateEntry, TerraformState
+
+
+class AuditBackend(Backend):
+    @property
+    def owner(self) -> str:
+        return "owner"
+
+
+class AuditStore(StageStore):
+    def __init__(self, entry: StateEntry) -> None:
+        self._entry = entry
+
+    def entries(self, name: str) -> list[StateEntry]:
+        return [self._entry]
+
+    def state(self, name: str) -> TerraformState:
+        return {"lineage": "same"}
+
+    def identities(self, name: str) -> dict[str, str]:
+        return {"one": "owned"}
+
+
+class ProviderAuditTests(unittest.TestCase):
+    def mocked(self, value: object) -> Mock:
+        if not isinstance(value, Mock):
+            self.fail("Expected test double")
+        return value
+
+    def backend(self, kind: str = "openstack_compute_instance_v2") -> tuple[Backend, StateEntry, dict[str, object]]:
+        attrs: dict[str, object] = {
+            "id": "owned",
+            "name": "otus-dz07-es1",
+            "region": "ru-3",
+            "network_id": "parent",
+            "os_subnet_id": "os-subnet",
+        }
+        entry: StateEntry = {"type": kind, "attrs": attrs}
+        record: StageRecord = {
+            "candidate": {"region": "ru-3", "availability_zone": "ru-3b"},
+            "status": "active",
+            "lineage": "same",
+            "identities": {"one": "owned"},
+            "audit_entries": [entry],
+        }
+        backend = AuditBackend.__new__(AuditBackend)
+        backend.api = SimpleNamespace(PREFIX="owner")
+        backend.credentials = {"project_id": "project"}
+        backend.journal = {"deployment_id": "a" * 32, "stages": {"es1": record}}
+        backend.desired = {"nodes": {"es1": {"host": 31, "role": "es"}}}
+        backend.store = AuditStore(entry)
+        backend.global_router = Mock()
+        patch.object(backend, "region", Mock()).start()
+        item: dict[str, object] = {
+            "id": "owned",
+            "name": attrs["name"],
+            "tenant_id": "project",
+            "project_id": "project",
+            "tags": ["owner"],
+            "metadata": {"dz07_owner": "owner"},
+            "description": "owner",
+            "members": [],
+            "status": "ACTIVE",
+            "OS-EXT-AZ:availability_zone": "ru-3b",
+            "network_id": "parent",
+            "os_subnet_id": "os-subnet",
+        }
+        return backend, entry, item
+
+    def test_paginated_collections_and_foreign_or_cyclic_links(self) -> None:
+        cloud = Mock(endpoints={"compute": "https://example.invalid/compute"})
+        cloud.get.side_effect = [
+            {
+                "servers": [{"id": "one"}],
+                "servers_links": [{"rel": "next", "href": "https://example.invalid/compute/servers?page=2"}],
+            },
+            {"servers": [{"id": "two"}]},
+        ]
+        self.assertEqual([x["id"] for x in audit.objects(cloud, "compute", "/servers", "servers")], ["one", "two"])
+        for links in [
+            [{"rel": "next", "href": "https://foreign.invalid/compute/servers"}],
+            [{"rel": "next", "href": "https://example.invalid/other/servers"}],
+            [{"rel": "next", "href": "https://example.invalid/compute/servers?limit=200"}],
+        ]:
+            cloud.get.side_effect = None
+            cloud.get.return_value = {"servers": [], "servers_links": links}
+            with self.assertRaises(ValueError):
+                audit.objects(cloud, "compute", "/servers", "servers")
+        for page in [
+            {"servers": {}},
+            {"servers": [{}] * 200},
+            {
+                "servers": [],
+                "servers_links": [
+                    {"rel": "next", "href": "https://example.invalid/compute/a"},
+                    {"rel": "next", "href": "https://example.invalid/compute/b"},
+                ],
+            },
+        ]:
+            cloud.get.return_value = page
+            with self.assertRaises(ValueError):
+                audit.objects(cloud, "compute", "/servers", "servers")
+
+    def test_partial_collection_uses_direct_get_and_403_is_not_absence(self) -> None:
+        backend, entry, item = self.backend()
+        cloud = self.mocked(backend.region).return_value
+        cloud.get.side_effect = [{"servers": []}, {"server": item}]
+        self.assertEqual(audit.inventory(backend, "es1", [entry])[entry["type"]]["owned"], item)
+        for code in (404, 403):
+            cloud.get.side_effect = [
+                {"servers": []},
+                urllib.error.HTTPError("https://example.invalid", code, "synthetic", http.client.HTTPMessage(), None),
+            ]
+            if code == 404:
+                self.assertFalse(audit.inventory(backend, "es1", [entry])[entry["type"]])
+            else:
+                with self.assertRaises(urllib.error.HTTPError):
+                    audit.inventory(backend, "es1", [entry])
+        with self.assertRaises(ValueError):
+            audit.inventory(backend, "es1", [{"type": "foreign_type", "attrs": {"id": "other"}}])
+
+    def test_ownership_guards_for_every_managed_kind(self) -> None:
+        kinds = [
+            "openstack_compute_instance_v2",
+            "openstack_blockstorage_volume_v3",
+            "openstack_networking_network_v2",
+            "openstack_networking_router_v2",
+            "openstack_networking_secgroup_v2",
+            "openstack_compute_servergroup_v2",
+            "selectel_global_router_router_v1",
+            "selectel_global_router_vpc_network_v1",
+        ]
+        for kind in kinds:
+            backend, entry, item = self.backend(kind)
+            with self.subTest(kind=kind), patch.object(audit, "inventory", return_value={kind: {"owned": item}}):
+                audit.assert_stage_owned(backend, "es1", active=True)
+                mutations = [
+                    ("tags", [])
+                    if kind in audit.GLOBAL or "networking_network" in kind or "networking_router" in kind
+                    else ("members", ["foreign"])
+                    if "servergroup" in kind
+                    else ("description", "foreign")
+                    if "secgroup" in kind
+                    else ("metadata", {})
+                ]
+                for key, value in mutations:
+                    original = copy.deepcopy(item)
+                    item[key] = value
+                    with self.assertRaises(ValueError):
+                        audit.assert_stage_owned(backend, "es1")
+                    item.clear()
+                    item.update(original)
+
+    def test_lineage_identity_project_region_name_and_runtime_state_are_checked(self) -> None:
+        backend, entry, item = self.backend()
+        with patch.object(audit, "inventory", return_value={entry["type"]: {"owned": item}}):
+            stage = backend.journal["stages"]["es1"]
+            saved_lineage = stage["lineage"]
+            stage["lineage"] = "other"
+            with self.assertRaises(ValueError):
+                audit.assert_stage_owned(backend, "es1", active=True)
+            stage["lineage"] = saved_lineage
+            saved_identities = copy.deepcopy(stage["identities"])
+            stage["identities"] = {"one": "other"}
+            with self.assertRaises(ValueError):
+                audit.assert_stage_owned(backend, "es1", active=True)
+            stage["identities"] = saved_identities
+            saved_region = entry["attrs"]["region"]
+            entry["attrs"]["region"] = "foreign"
+            with self.assertRaises(ValueError):
+                audit.assert_stage_owned(backend, "es1", active=True)
+            entry["attrs"]["region"] = saved_region
+            for key in ("tenant_id", "name"):
+                saved = item[key]
+                item[key] = "foreign"
+                with self.assertRaises(ValueError):
+                    audit.assert_stage_owned(backend, "es1", active=True)
+                item[key] = saved
+            for key, value in [("status", "ERROR"), ("OS-EXT-AZ:availability_zone", "ru-3a")]:
+                old = item[key]
+                item[key] = value
+                with self.assertRaises(RuntimeError):
+                    audit.assert_stage_owned(backend, "es1", active=True)
+                item[key] = old
+
+    def test_global_subnet_nullable_project_requires_owned_matching_parent(self) -> None:
+        kind = "selectel_global_router_vpc_subnet_v1"
+        backend, entry, item = self.backend(kind)
+        item["project_id"] = None
+        parent: dict[str, object] = {"id": "parent", "tags": ["owner"], "project_id": "project"}
+        self.mocked(backend.global_router).listing.return_value = [parent]
+        with patch.object(audit, "inventory", return_value={kind: {"owned": item}}):
+            audit.assert_stage_owned(backend, "es1", active=True)
+            parent["project_id"] = "foreign"
+            with self.assertRaises(ValueError):
+                audit.assert_stage_owned(backend, "es1")
+            parent["project_id"] = "project"
+            item["status"] = "ERROR"
+            with self.assertRaises(RuntimeError):
+                audit.assert_stage_owned(backend, "es1", active=True)
+
+    def test_missing_objects_and_deletion_audit_never_assume_success(self) -> None:
+        backend, entry, item = self.backend()
+        kind = entry["type"]
+        with patch.object(audit, "inventory", return_value={kind: {}}):
+            with self.assertRaises(ValueError):
+                audit.assert_stage_owned(backend, "es1")
+            backend.journal["stages"]["es1"]["status"] = "deleting"
+            audit.assert_stage_owned(backend, "es1")
+            audit.assert_stage_absent(backend, "es1")
+        with (
+            patch.object(audit, "inventory", side_effect=[{kind: {"owned": item}}, {kind: {}}]),
+            patch("time.sleep"),
+        ):
+            audit.assert_stage_absent(backend, "es1")
+        with (
+            patch.object(audit, "inventory", return_value={kind: {"owned": item}}),
+            patch("time.monotonic", side_effect=[0, 91]),
+            self.assertRaises(RuntimeError),
+        ):
+            audit.assert_stage_absent(backend, "es1")

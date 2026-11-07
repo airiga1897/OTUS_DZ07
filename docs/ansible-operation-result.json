@@ -1,0 +1,9 @@
+{
+  "state": "succeeded",
+  "phase": "configure",
+  "exit_code": 0,
+  "created_utc": "2026-11-05T18:57:57.167280+00:00",
+  "started_utc": "2026-11-05T18:58:33.710684+00:00",
+  "finished_utc": "2026-11-05T18:59:55.409761+00:00",
+  "operation_id": "726e47c98d9945aeb269c56ceab0e555"
+}

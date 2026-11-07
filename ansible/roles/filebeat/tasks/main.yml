@@ -1,0 +1,31 @@
+---
+- name: Ensure the Filebeat package
+  ansible.builtin.include_role:
+    name: elastic_package
+  vars:
+    elastic_product: filebeat
+- name: Install the Elasticsearch CA
+  ansible.builtin.copy:
+    src: /home/otus/dz07/certs/ca.crt
+    dest: /etc/filebeat/ca.crt
+    remote_src: true
+    mode: '0644'
+  notify: Restart Filebeat
+- name: Render Filebeat configuration
+  ansible.builtin.template:
+    src: filebeat.yml.j2
+    dest: /etc/filebeat/filebeat.yml
+    owner: root
+    group: root
+    mode: '0600'
+    # Ansible's staging file is owned by the SSH user before installation.
+    # Only syntax validation skips that owner check; the installed root-owned
+    # configuration and the running service retain strict permission checks.
+    validate: '/usr/bin/python3 /home/otus/dz07/scripts/remote/validate_filebeat.py %s'
+  no_log: true
+  notify: Restart Filebeat
+- name: Enable and start Filebeat
+  ansible.builtin.systemd_service:
+    name: filebeat
+    enabled: true
+    state: started
